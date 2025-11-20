@@ -1,0 +1,113 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../constants/roles.dart';
+import 'user_service.dart';
+import 'auth_service.dart';
+
+/// AuthNotifier is a ChangeNotifier used by GoRouter's refreshListenable.
+/// It keeps a cached sync view of: isLoggedIn, role, hasHotelAssociation.
+/// It also exposes helper methods to sign in / out.
+class AuthNotifier extends ChangeNotifier {
+  final AuthService _authService;
+  final UserService _userService;
+  StreamSubscription<AuthState>? _authSub;
+
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+  bool _isLoggedIn = false;
+  bool get isLoggedIn => _isLoggedIn;
+
+  UserRole _role = UserRole.guest;
+  UserRole get role => _role;
+
+  bool _staffHasHotel = false;
+  bool get staffHasHotel => _staffHasHotel;
+
+  bool _hasRedirectedAfterLogin = false;
+  bool get hasRedirectedAfterLogin => _hasRedirectedAfterLogin;
+
+  AuthNotifier(this._authService, this._userService) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Initialize current state
+    _updateFromSession();
+
+    // Listen to Supabase auth changes
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((event) async {
+      // event contains session & event type
+      _updateFromSession();
+      notifyListeners();
+    });
+
+    _isInitialized = true;
+    notifyListeners();
+  }
+
+  void _updateFromSession() {
+    final session = _authService.session;
+    _isLoggedIn = session != null;
+    // default to guest; we'll try to fetch role synchronously-ish (async below)
+    if (!_isLoggedIn) {
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+      return;
+    }
+    // fire-and-forget fetch role & association, then notify when done
+    _fetchRoleAndAssoc();
+  }
+
+  Future<void> _fetchRoleAndAssoc() async {
+    final uid = _authService.userId;
+    if (uid == null) {
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final r = await _userService.fetchUserRole(uid);
+      _role = r;
+      if (_role == UserRole.staff) {
+        _staffHasHotel = await _userService.staffHasHotelAssociation(uid);
+      } else {
+        _staffHasHotel = false;
+      }
+    } catch (e) {
+      // keep defaults on error
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+    }
+    notifyListeners();
+  }
+
+  // Expose simple auth helpers used by UI
+  Future<void> signIn({required String email, required String password}) async {
+    await _authService.signIn(email: email, password: password);
+    // after sign-in Supabase will trigger onAuthStateChange which updates state
+  }
+
+  Future<void> signUp({required String email, required String password, Map<String, dynamic>? data}) async {
+    await _authService.signUp(email: email, password: password, data: data);
+  }
+
+  Future<void> signOut() async {
+    await _authService.signOut();
+    _hasRedirectedAfterLogin = false;
+    // onAuthStateChange will update state
+  }
+
+  void markRedirectDone() {
+    _hasRedirectedAfterLogin = true;
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+}

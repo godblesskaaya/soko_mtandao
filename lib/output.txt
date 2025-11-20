@@ -1,0 +1,2936 @@
+File: .\app.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'router/router.dart';
+import 'theme/app_theme.dart';
+
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = AppRouter.createRouter(ref);
+
+    return MaterialApp.router(
+      title: 'Soko Mtandao',
+      theme: AppTheme.darkTheme,
+      routerConfig: router,
+    );
+  }
+}
+--------------------------------------------------
+File: .\file_contents.py
+import os
+
+def write_file_tree_and_contents(start_path, output_file):
+    with open(output_file, 'w') as f:
+        for dirpath, dirnames, filenames in os.walk(start_path):
+            for filename in filenames:
+                file_path = os.path.join(dirpath, filename)
+                f.write(f"File: {file_path}\n")
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        f.write(file.read())  # Write file contents
+                except Exception as e:
+                    f.write(f"Could not read file: {str(e)}\n")
+                f.write("\n" + "-"*50 + "\n")  # Separator between files
+
+if __name__ == "__main__":
+    # Define the path to the directory and the output file name
+    directory_to_scan = '.'  # Current directory
+    output_file = 'output.txt'  # Output file to save the contents
+
+    write_file_tree_and_contents(directory_to_scan, output_file)
+    print(f"File tree and contents have been saved to '{output_file}'.")
+
+--------------------------------------------------
+File: .\main.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:soko_mtandao/core/config/map_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'app.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+    await Supabase.initialize(
+    url: 'https://wqmarlzyzukreiwibwjs.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxbWFybHp5enVrcmVpd2lid2pzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3Njk1MTksImV4cCI6MjA2OTM0NTUxOX0.4vlxDetKBOC8xIh4alJVoj0vOWw64YEWHb6uAqDWxG8',
+  );
+
+   MapboxOptions.setAccessToken(MapConfig.mapboxAccessToken);
+
+  runApp(const ProviderScope(child: MyApp()));
+}
+--------------------------------------------------
+File: .\output.txt
+
+--------------------------------------------------
+File: .\core\config\app_config.dart
+// Toggle mock vs real data at runtime
+enum MockState { loading, success, error }
+
+class AppConfig {
+  static const bool useMockData = true; // flip to false for real backend
+
+  // Pick the global mock behavior when useMockData = true
+  static const MockState globalMockState = MockState.success;
+}
+
+--------------------------------------------------
+File: .\core\config\map_config.dart
+class MapConfig {
+  // TODO: put your Mapbox public access token here
+  static const String mapboxAccessToken = 'pk.eyJ1IjoiYmxlbmtvIiwiYSI6ImNtZWVvN25kMjBuYTMybHBmZ3RoNmZpd3cifQ.QC8T_XKsiVxtsw_Z_WmTBQ';
+  static const double minZoomForData = 10.5; // below this, pause data fetching
+}
+
+--------------------------------------------------
+File: .\core\constants\app_colors.dart
+
+--------------------------------------------------
+File: .\core\constants\roles.dart
+// lib/core/constants/roles.dart
+enum UserRole {
+  guest,
+  customer,
+  staff,
+  hotelAdmin,
+  systemAdmin,
+}
+
+UserRole roleFromString(String role) {
+  switch (role) {
+    case 'customer':
+      return UserRole.customer;
+    case 'staff':
+      return UserRole.staff;
+    case 'hotel_admin':
+      return UserRole.hotelAdmin;
+    case 'system_admin':
+      return UserRole.systemAdmin;
+    default:
+      return UserRole.guest;
+  }
+}
+
+--------------------------------------------------
+File: .\core\services\auth_notifier.dart
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../constants/roles.dart';
+import 'user_service.dart';
+import 'auth_service.dart';
+
+/// AuthNotifier is a ChangeNotifier used by GoRouter's refreshListenable.
+/// It keeps a cached sync view of: isLoggedIn, role, hasHotelAssociation.
+/// It also exposes helper methods to sign in / out.
+class AuthNotifier extends ChangeNotifier {
+  final AuthService _authService;
+  final UserService _userService;
+  StreamSubscription<AuthState>? _authSub;
+
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+  bool _isLoggedIn = false;
+  bool get isLoggedIn => _isLoggedIn;
+
+  UserRole _role = UserRole.guest;
+  UserRole get role => _role;
+
+  bool _staffHasHotel = false;
+  bool get staffHasHotel => _staffHasHotel;
+
+  AuthNotifier(this._authService, this._userService) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    // Initialize current state
+    _updateFromSession();
+
+    // Listen to Supabase auth changes
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((event) async {
+      // event contains session & event type
+      _updateFromSession();
+      notifyListeners();
+    });
+
+    _isInitialized = true;
+    notifyListeners();
+  }
+
+  void _updateFromSession() {
+    final session = _authService.session;
+    _isLoggedIn = session != null;
+    // default to guest; we'll try to fetch role synchronously-ish (async below)
+    if (!_isLoggedIn) {
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+      return;
+    }
+    // fire-and-forget fetch role & association, then notify when done
+    _fetchRoleAndAssoc();
+  }
+
+  Future<void> _fetchRoleAndAssoc() async {
+    final uid = _authService.userId;
+    if (uid == null) {
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final r = await _userService.fetchUserRole(uid);
+      _role = r;
+      if (_role == UserRole.staff) {
+        _staffHasHotel = await _userService.staffHasHotelAssociation(uid);
+      } else {
+        _staffHasHotel = false;
+      }
+    } catch (e) {
+      // keep defaults on error
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+    }
+    notifyListeners();
+  }
+
+  // Expose simple auth helpers used by UI
+  Future<void> signIn({required String email, required String password}) async {
+    await _authService.signIn(email: email, password: password);
+    // after sign-in Supabase will trigger onAuthStateChange which updates state
+  }
+
+  Future<void> signUp({required String email, required String password, Map<String, dynamic>? data}) async {
+    await _authService.signUp(email: email, password: password, data: data);
+  }
+
+  Future<void> signOut() async {
+    await _authService.signOut();
+    // onAuthStateChange will update state
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
+}
+
+--------------------------------------------------
+File: .\core\services\auth_service.dart
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class AuthService {
+  final _supabase = Supabase.instance.client;
+
+  Future<AuthResponse> signUp({required String email, required String password, Map<String, dynamic>? data}) {
+    return _supabase.auth.signUp(email: email, password: password, data: data);
+  }
+
+  Future<AuthResponse> signIn({required String email, required String password}) {
+    return _supabase.auth.signInWithPassword(email: email, password: password);
+  }
+
+  Future<UserResponse> updateUser({required String email, required String password, Map<String, dynamic>? data}) {
+    return _supabase.auth.updateUser(
+      UserAttributes(email: email, password: password, data: data),
+    );
+  }
+
+  Future<void> signOut() async {
+    await _supabase.auth.signOut();
+  }
+
+  Session? get session => _supabase.auth.currentSession;
+
+  bool get isLoggedIn => _supabase.auth.currentSession != null;
+
+  User? get currentUser => _supabase.auth.currentUser;
+
+  String? get userId => _supabase.auth.currentUser?.id;
+}
+
+--------------------------------------------------
+File: .\core\services\location_service.dart
+import 'package:geolocator/geolocator.dart';
+
+class LocationService {
+  static const _fallbackLat = -6.7924; // Dar es Salaam CBD
+  static const _fallbackLng = 39.2083;
+
+  Future<({double lat, double lng})> getCurrentPositionOrFallback() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return (lat: _fallbackLat, lng: _fallbackLng);
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      return (lat: _fallbackLat, lng: _fallbackLng);
+    }
+
+    final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    return (lat: pos.latitude, lng: pos.longitude);
+  }
+}
+
+--------------------------------------------------
+File: .\core\services\providers.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'auth_service.dart';
+import 'user_service.dart';
+import 'auth_notifier.dart';
+
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+final userServiceProvider = Provider<UserService>((ref) => UserService());
+
+final authNotifierProvider = Provider<AuthNotifier>((ref) {
+  final auth = ref.read(authServiceProvider);
+  final userSvc = ref.read(userServiceProvider);
+  final notifier = AuthNotifier(auth, userSvc);
+  ref.onDispose(() => notifier.dispose());
+  return notifier;
+});
+
+final locationProvider = FutureProvider<Position>((ref) async {
+  final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    throw Exception('Location services are disabled.');
+  }
+
+  final permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    throw Exception('Location permissions are denied');
+  } else if (permission == LocationPermission.deniedForever) {
+    throw Exception('Location permissions are permanently denied, we cannot request permissions.');
+  }
+
+  return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+});
+
+--------------------------------------------------
+File: .\core\services\user_service.dart
+// Responsible for reading user data (hotel association) from custom tables
+
+import 'package:soko_mtandao/core/constants/roles.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class UserService {
+  final _supabase = Supabase.instance.client;
+
+  /// Fetch role for the given userId
+  Future<UserRole> fetchUserRole (String userId) async {
+    if (userId.isEmpty) return UserRole.guest;
+
+    final res = await _supabase
+        .from('user_roles_view') // You can create a view or join logic in backend
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (res == null) return UserRole.guest;
+
+    final rolestr = res['role'] as String;
+    return roleFromString(rolestr);
+  }
+
+  /// Fetch whether staff is associated with a hotel
+  Future<bool> staffHasHotelAssociation(String userId) async {
+    if (userId.isEmpty) return false;
+
+    final res = await _supabase
+        .from('users')
+        .select('hotel_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (res == null) return false;
+    return res['hotel_id'] != null;
+  }
+}
+
+--------------------------------------------------
+File: .\features\auth\presentation\screens\login_screen.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/router/route_names.dart';
+import '../../../../core/services/auth_service.dart';
+
+class LoginScreen extends ConsumerStatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final authService = AuthService();
+
+  void login() async {
+    try {
+      await authService.signIn(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login failed: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Login')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: login, child: const Text('Login')),
+            TextButton(
+              onPressed: () {
+                context.go(RouteNames.signup); // Navigate to signup screen
+              },
+              child: const Text('Don\'t have an account? Sign Up'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+--------------------------------------------------
+File: .\features\auth\presentation\screens\signup_screen.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/router/route_names.dart';
+import '../../../../core/services/auth_service.dart';
+
+class SignupScreen extends ConsumerStatefulWidget {
+  const SignupScreen({super.key});
+
+  @override
+  ConsumerState<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends ConsumerState<SignupScreen> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final authService = AuthService();
+
+  void signup() async {
+    try {
+      await authService.signUp(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Signup failed: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sign Up')),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
+            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+            const SizedBox(height: 20),
+            ElevatedButton(onPressed: signup, child: const Text('Sign Up')),
+                        TextButton(
+              onPressed: () {
+                context.go(RouteNames.login); // Navigate to login screen
+              },
+              child: const Text('Don\'t have an account? Login'),
+            ),
+
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\explore\data\datasources\hotel_datasource.dart
+import 'dart:math';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../domain/entities/hotel.dart';
+
+abstract class HotelDataSource {
+  Future<List<Hotel>> fetchNearbyHotels({
+    required double lat,
+    required double lng,
+    double radiusKm,
+  });
+
+  Future<List<Hotel>> fetchHotelsInBounds({
+    required double south,
+    required double west,
+    required double north,
+    required double east,
+  });
+
+  Future<List<Hotel>> searchHotels({
+    required String query,
+    required double lat,
+    required double lng,
+  });
+
+  Future<Hotel> fetchHotelById(String id);
+}
+
+class SupabaseHotelDataSource implements HotelDataSource {
+  final SupabaseClient _client = Supabase.instance.client;
+
+  @override
+  Future<List<Hotel>> fetchNearbyHotels({
+    required double lat,
+    required double lng,
+    double radiusKm = 5,
+  }) async {
+    // Example: using a “hotels_public” table/view with (id, name, description, lat, lng, image_url, is_active)
+    final res = await _client
+        .from('hotels_public')
+        .select()
+        .eq('is_active', true)
+        .limit(300);
+
+    final all = _mapRows(res);
+    return all.where((h) => _distanceKm(lat, lng, h.location.lat, h.location.lng) <= radiusKm).toList();
+  }
+
+  @override
+  Future<List<Hotel>> fetchHotelsInBounds({
+    required double south,
+    required double west,
+    required double north,
+    required double east,
+  }) async {
+    final res = await _client
+        .from('hotels_public')
+        .select()
+        .gte('lat', south)
+        .lte('lat', north)
+        .gte('lng', west)
+        .lte('lng', east)
+        .eq('is_active', true)
+        .limit(500);
+
+    return _mapRows(res);
+  }
+
+  @override
+  Future<List<Hotel>> searchHotels({
+    required String query,
+    required double lat,
+    required double lng,
+  }) async {
+    // Simple ilike search + client-side sort by distance
+    final res = await _client
+        .from('hotels_public')
+        .select()
+        .or('name.ilike.%$query%,description.ilike.%$query%')
+        .eq('is_active', true)
+        .limit(200);
+
+    final hotels = _mapRows(res);
+    hotels.sort((a, b) {
+      final da = _distanceKm(lat, lng, a.location.lat, a.location.lng);
+      final db = _distanceKm(lat, lng, b.location.lat, b.location.lng);
+      return da.compareTo(db);
+    });
+    return hotels;
+  }
+
+  @override
+  Future<Hotel> fetchHotelById(String id) async {
+    final row = await _client.from('hotels_public').select().eq('id', id).maybeSingle();
+    if (row == null) throw Exception('Hotel not found');
+    return _rowToHotel(row);
+  }
+
+  List<Hotel> _mapRows(List<dynamic> rows) => rows.map(_rowToHotel).toList();
+
+  Hotel _rowToHotel(dynamic row) => Hotel(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        description: row['description'] as String?,
+        imageUrl: row['image_url'] as String?,
+        location: HotelLocation(
+          lat: (row['lat'] as num).toDouble(),
+          lng: (row['lng'] as num).toDouble(),
+        ),
+      );
+
+  double _distanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371.0;
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a = sin(dLat/2)*sin(dLat/2) + cos(_deg2rad(lat1))*cos(_deg2rad(lat2))*sin(dLon/2)*sin(dLon/2);
+    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    return R * c;
+  }
+
+  double _deg2rad(double d) => d * (3.141592653589793 / 180.0);
+}
+
+--------------------------------------------------
+File: .\features\explore\data\mock_datasources\mock_hotel_datasource.dart
+import 'dart:async';
+import 'dart:math';
+import '../../../../core/config/app_config.dart';
+import '../../domain/entities/hotel.dart';
+import '../datasources/hotel_datasource.dart';
+
+class MockHotelDataSource implements HotelDataSource {
+  final MockState mockState;
+  MockHotelDataSource({this.mockState = MockState.success});
+
+  static final _all = <Hotel>[
+    Hotel(id: 'h1', name: 'Seaside Paradise', description: 'Ocean views', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -6.7924, lng: 39.2083)),
+    Hotel(id: 'h2', name: 'City Budget Inn', description: 'Central & affordable', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -6.80,   lng: 39.25)),
+    Hotel(id: 'h3', name: 'Safari Lodge',    description: 'Near the park',       imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -6.85,   lng: 39.18)),
+    Hotel(id: 'h4', name: 'Harbor Suites',   description: 'Business district',   imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -6.77,   lng: 39.22)),
+    Hotel(id: 'h5', name: 'Zen Garden',      description: 'Boutique & calm',     imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -6.83,   lng: 39.205)),
+    Hotel(id: 'h6', name: 'Mount Meru Retreat', description: 'Lush foothills escape', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.3753, lng: 36.7668)),
+    Hotel(id: 'h7', name: 'Arumeru River Lodge', description: 'Tranquil riverside stay', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.4042, lng: 36.8056)),
+    Hotel(id: 'h8', name: 'Savannah Sunrise Lodge', description: 'Perfect for safari starters', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.4158, lng: 36.7821)),
+    Hotel(id: 'h9', name: 'The Coffee Estate Inn', description: 'Among Arusha’s coffee farms', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.3991, lng: 36.7504)),
+    Hotel(id: 'h10', name: 'Meru Forest Camp', description: 'Eco stay near forest reserve', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.3865, lng: 36.7733)),
+     
+  ];
+
+  @override
+  Future<List<Hotel>> fetchNearbyHotels({required double lat, required double lng, double radiusKm = 5}) async {
+    await _simulate();
+    return _all.where((h) => _distanceKm(lat, lng, h.location.lat, h.location.lng) <= radiusKm).toList();
+  }
+
+  @override
+  Future<List<Hotel>> fetchHotelsInBounds({required double south, required double west, required double north, required double east}) async {
+    await _simulate();
+    return _all.where((h) =>
+      h.location.lat >= south && h.location.lat <= north &&
+      h.location.lng >= west  && h.location.lng <= east
+    ).toList();
+  }
+
+  @override
+  Future<List<Hotel>> searchHotels({required String query, required double lat, required double lng}) async {
+    await _simulate();
+    final q = query.toLowerCase();
+    final filtered = _all.where((h) =>
+      h.name.toLowerCase().contains(q) ||
+      (h.description?.toLowerCase().contains(q) ?? false)
+    ).toList();
+    filtered.sort((a, b) => _distanceKm(lat, lng, a.location.lat, a.location.lng)
+        .compareTo(_distanceKm(lat, lng, b.location.lat, b.location.lng)));
+    return filtered;
+  }
+
+  @override
+  Future<Hotel> fetchHotelById(String id) async {
+    await _simulate();
+    return _all.firstWhere((h) => h.id == id);
+  }
+
+  Future<void> _simulate() async {
+    switch (mockState) {
+      case MockState.loading: await Future.delayed(const Duration(seconds: 2)); break;
+      case MockState.error:   await Future.delayed(const Duration(milliseconds: 500)); throw Exception('Mock error');
+      case MockState.success: await Future.delayed(const Duration(milliseconds: 250)); break;
+    }
+  }
+
+  double _distanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371.0;
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a = sin(dLat/2)*sin(dLat/2) + cos(_deg2rad(lat1))*cos(_deg2rad(lat2))*sin(dLon/2)*sin(dLon/2);
+    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    return R * c;
+  }
+  double _deg2rad(double d) => d * (3.141592653589793 / 180.0);
+}
+
+--------------------------------------------------
+File: .\features\explore\data\repositories\hotel_repository_impl.dart
+import '../../domain/entities/hotel.dart';
+import '../../domain/repositories/hotel_repository.dart';
+import '../datasources/hotel_datasource.dart';
+
+class HotelRepositoryImpl implements HotelRepository {
+  final HotelDataSource dataSource;
+  HotelRepositoryImpl(this.dataSource);
+
+  @override
+  Future<List<Hotel>> getNearbyHotels({required double lat, required double lng, double radiusKm = 5}) {
+    return dataSource.fetchNearbyHotels(lat: lat, lng: lng, radiusKm: radiusKm);
+  }
+
+  @override
+  Future<List<Hotel>> getHotelsInBounds({required double south, required double west, required double north, required double east}) {
+    return dataSource.fetchHotelsInBounds(south: south, west: west, north: north, east: east);
+  }
+
+  @override
+  Future<List<Hotel>> searchHotels({required String query, required double lat, required double lng}) {
+    return dataSource.searchHotels(query: query, lat: lat, lng: lng);
+  }
+
+  @override
+  Future<Hotel> getHotelById(String id) => dataSource.fetchHotelById(id);
+}
+
+--------------------------------------------------
+File: .\features\explore\domain\entities\hotel.dart
+class Hotel {
+  final String id;
+  final String name;
+  final String? description;
+  final HotelLocation location;
+  final String? imageUrl;
+
+  const Hotel({
+    required this.id,
+    required this.name,
+    required this.location,
+    this.description,
+    this.imageUrl,
+  });
+}
+
+class HotelLocation {
+  final double lat;
+  final double lng;
+
+  const HotelLocation({required this.lat, required this.lng});
+}
+
+--------------------------------------------------
+File: .\features\explore\domain\repositories\hotel_repository.dart
+import '../entities/hotel.dart';
+
+abstract class HotelRepository {
+  Future<List<Hotel>> getNearbyHotels({
+    required double lat,
+    required double lng,
+    double radiusKm,
+  });
+
+  Future<List<Hotel>> getHotelsInBounds({
+    required double south,
+    required double west,
+    required double north,
+    required double east,
+  });
+
+  Future<List<Hotel>> searchHotels({
+    required String query,
+    required double lat,
+    required double lng,
+  });
+
+  Future<Hotel> getHotelById(String id);
+}
+
+--------------------------------------------------
+File: .\features\explore\domain\usecases\get_hotels_in_bounds.dart
+import '../entities/hotel.dart';
+import '../repositories/hotel_repository.dart';
+
+class GetHotelsInBounds {
+  final HotelRepository repository;
+  GetHotelsInBounds(this.repository);
+
+  Future<List<Hotel>> call({
+    required double south,
+    required double west,
+    required double north,
+    required double east,
+  }) {
+    return repository.getHotelsInBounds(south: south, west: west, north: north, east: east);
+  }
+}
+
+--------------------------------------------------
+File: .\features\explore\domain\usecases\get_hotel_by_id.dart
+import '../entities/hotel.dart';
+import '../repositories/hotel_repository.dart';
+
+class GetHotelById {
+  final HotelRepository repository;
+  GetHotelById(this.repository);
+
+  Future<Hotel> call(String id) => repository.getHotelById(id);
+}
+
+--------------------------------------------------
+File: .\features\explore\domain\usecases\get_nearby_hotels.dart
+import '../entities/hotel.dart';
+import '../repositories/hotel_repository.dart';
+
+class GetNearbyHotels {
+  final HotelRepository repository;
+  GetNearbyHotels(this.repository);
+
+  Future<List<Hotel>> call({
+    required double lat,
+    required double lng,
+    double radiusKm = 5,
+  }) {
+    return repository.getNearbyHotels(lat: lat, lng: lng, radiusKm: radiusKm);
+  }
+}
+
+--------------------------------------------------
+File: .\features\explore\domain\usecases\search_hotels.dart
+import '../entities/hotel.dart';
+import '../repositories/hotel_repository.dart';
+
+class SearchHotels {
+  final HotelRepository repository;
+  SearchHotels(this.repository);
+
+  Future<List<Hotel>> call({
+    required String query,
+    required double lat,
+    required double lng,
+  }) {
+    return repository.searchHotels(query: query, lat: lat, lng: lng);
+  }
+}
+
+--------------------------------------------------
+File: .\features\explore\presentation\riverpod\hotels_provider.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/features/explore/data/mock_datasources/mock_hotel_datasource.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/config/app_config.dart';
+import '../../data/datasources/hotel_datasource.dart';
+import '../../data/repositories/hotel_repository_impl.dart';
+import '../../domain/entities/hotel.dart';
+import '../../domain/usecases/get_hotel_by_id.dart';
+import '../../domain/usecases/get_nearby_hotels.dart';
+
+/// DataSource provider (mock vs real)
+final hotelDataSourceProvider = Provider<HotelDataSource>((ref) {
+  if (AppConfig.useMockData) {
+    return MockHotelDataSource(mockState: AppConfig.globalMockState);
+  }
+  // Ensure Supabase is initialized in main.dart
+  return SupabaseHotelDataSource();
+});
+
+/// Repository provider
+final hotelRepositoryProvider = Provider((ref) {
+  final ds = ref.watch(hotelDataSourceProvider);
+  return HotelRepositoryImpl(ds);
+});
+
+/// Use cases
+final getNearbyHotelsProvider = Provider((ref) {
+  final repo = ref.watch(hotelRepositoryProvider);
+  return GetNearbyHotels(repo);
+});
+
+final getHotelByIdProvider = Provider((ref) {
+  final repo = ref.watch(hotelRepositoryProvider);
+  return GetHotelById(repo);
+});
+
+/// State providers
+final userLocationProvider = StateProvider<({double lat, double lng})>((ref) {
+  // TODO: wire real location; fallback to Dar es Salaam CBD
+  final location = ref.watch(locationProvider);
+  if (location is AsyncData) {
+    return (
+      lat: location.value?.latitude ?? -6.7924,
+      lng: location.value?.longitude ?? 39.2083
+    );
+  }
+  // Fallback if location is not AsyncData
+  return (
+    lat: -6.7924,
+    lng: 39.2083
+  );
+});
+
+final hotelsProvider = FutureProvider<List<Hotel>>((ref) async {
+  final loc = ref.watch(userLocationProvider);
+  final usecase = ref.watch(getNearbyHotelsProvider);
+  return usecase(lat: loc.lat, lng: loc.lng, radiusKm: 10);
+});
+
+final hotelDetailProvider = FutureProvider.family<Hotel, String>((ref, id) async {
+  final usecase = ref.watch(getHotelByIdProvider);
+  return usecase(id);
+});
+
+--------------------------------------------------
+File: .\features\explore\presentation\riverpod\map_state.dart
+import 'dart:math';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/config/app_config.dart';
+import '../../data/datasources/hotel_datasource.dart';
+import '../../data/mock_datasources/mock_hotel_datasource.dart';
+import '../../data/repositories/hotel_repository_impl.dart';
+import '../../domain/entities/hotel.dart';
+import '../../domain/usecases/get_hotels_in_bounds.dart';
+import '../../domain/usecases/search_hotels.dart';
+import '../../../../core/config/map_config.dart';
+import '../../../../core/services/location_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// === DI: data source / repo / use cases
+final hotelDataSourceProvider = Provider<HotelDataSource>((ref) {
+  if (AppConfig.useMockData) {
+    return MockHotelDataSource(mockState: AppConfig.globalMockState);
+  }
+  return SupabaseHotelDataSource();
+});
+final hotelRepositoryProvider = Provider((ref) => HotelRepositoryImpl(ref.watch(hotelDataSourceProvider)));
+final getHotelsInBoundsProvider = Provider((ref) => GetHotelsInBounds(ref.watch(hotelRepositoryProvider)));
+final searchHotelsProvider = Provider((ref) => SearchHotels(ref.watch(hotelRepositoryProvider)));
+
+// === User location
+final initialLocationProvider = FutureProvider<({double lat, double lng})>((ref) async {
+  final loc = await LocationService().getCurrentPositionOrFallback();
+  return loc;
+});
+
+// === Map camera state
+class CameraState {
+  final double lat;
+  final double lng;
+  final double zoom;
+  final ({double south, double west, double north, double east}) bounds;
+  const CameraState({
+    required this.lat,
+    required this.lng,
+    required this.zoom,
+    required this.bounds,
+  });
+}
+
+// Hold last known camera; start with fallback while loading GPS
+final cameraStateProvider = StateProvider<CameraState?>((ref) => null);
+
+// Selected hotel pin
+final selectedHotelIdProvider = StateProvider<String?>((ref) => null);
+
+// Search query
+final exploreSearchQueryProvider = StateProvider<String>((ref) => '');
+
+// Hotels list (drives list + pins). We refetch when camera moves far enough or zoom changes meaningfully.
+final hotelsInViewProvider = FutureProvider.autoDispose<List<Hotel>>((ref) async {
+  final camera = ref.watch(cameraStateProvider);
+  final query = ref.watch(exploreSearchQueryProvider);
+
+  // If camera not ready yet, wait for initial location
+  if (camera == null) {
+    final loc = await ref.watch(initialLocationProvider.future);
+    // prime an initial bounds roughly around location
+    final lat = loc.lat, lng = loc.lng;
+    final bounds = (south: lat - 0.03, west: lng - 0.03, north: lat + 0.03, east: lng + 0.03);
+    final initial = CameraState(lat: lat, lng: lng, zoom: MapConfig.minZoomForData + 1, bounds: bounds);
+    ref.read(cameraStateProvider.notifier).state = initial;
+    // fall through; we’ll fetch on next recompute
+    return [];
+  }
+
+  // If zoom is too low – pause
+  if (camera.zoom < MapConfig.minZoomForData) {
+    return [];
+  }
+
+  // If user typed a query -> search
+  if (query.trim().isNotEmpty) {
+    final search = ref.read(searchHotelsProvider);
+    final list = await search(query: query.trim(), lat: camera.lat, lng: camera.lng);
+    return list;
+  }
+
+  // Otherwise fetch by bounds
+  final usecase = ref.read(getHotelsInBoundsProvider);
+  final b = camera.bounds;
+  final list = await usecase(south: b.south, west: b.west, north: b.north, east: b.east);
+  return list;
+});
+
+--------------------------------------------------
+File: .\features\explore\presentation\screens\hotel_detail_screen.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/entities/hotel.dart';
+import '../riverpod/hotels_provider.dart';
+
+class HotelDetailScreen extends ConsumerWidget {
+  final String hotelId;
+  const HotelDetailScreen({super.key, required this.hotelId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hotelAsync = ref.watch(hotelDetailProvider(hotelId));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Hotel Details')),
+      body: hotelAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error: $e')),
+        data: (hotel) => _Details(hotel: hotel),
+      ),
+    );
+  }
+}
+
+class _Details extends StatelessWidget {
+  final Hotel hotel;
+  const _Details({required this.hotel});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        if (hotel.imageUrl != null)
+          Image.network(hotel.imageUrl!, height: 220, width: double.infinity, fit: BoxFit.cover),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(hotel.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              if (hotel.description != null)
+                Text(hotel.description!, style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 16),
+              Text('Location: ${hotel.location.lat.toStringAsFixed(4)}, ${hotel.location.lng.toStringAsFixed(4)}'),
+              const SizedBox(height: 24),
+              const Text('Offerings (coming next)', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              const Text('We will list room types here with availability and prices.'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\explore\presentation\widgets\hotel_card.dart
+import 'package:flutter/material.dart';
+import '../../domain/entities/hotel.dart';
+
+class HotelCard extends StatelessWidget {
+  final Hotel hotel;
+  final VoidCallback? onTap;
+  const HotelCard({super.key, required this.hotel, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 16/9,
+              child: hotel.imageUrl != null
+                  ? Image.network(hotel.imageUrl!, fit: BoxFit.cover)
+                  : Container(color: Colors.grey.shade300),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(hotel.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  if (hotel.description != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      hotel.description!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\explore\presentation\widgets\hotel_list_item.dart
+import 'package:flutter/material.dart';
+import '../../domain/entities/hotel.dart';
+
+class HotelListItem extends StatelessWidget {
+  final Hotel hotel;
+  final bool highlighted;
+  final VoidCallback onTap;
+  final VoidCallback onDetails;
+
+  const HotelListItem({
+    super.key,
+    required this.hotel,
+    required this.highlighted,
+    required this.onTap,
+    required this.onDetails,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: CircleAvatar(
+        backgroundImage: hotel.imageUrl != null ? NetworkImage(hotel.imageUrl!) : null,
+        child: hotel.imageUrl == null ? const Icon(Icons.hotel) : null,
+      ),
+      title: Text(hotel.name, style: TextStyle(fontWeight: highlighted ? FontWeight.bold : FontWeight.w600)),
+      subtitle: hotel.description != null ? Text(hotel.description!, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+      trailing: IconButton(icon: const Icon(Icons.chevron_right), onPressed: onDetails),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\guest_home\presentation\screens\explore_screen.dart
+import 'dart:async';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:soko_mtandao/features/explore/domain/entities/hotel.dart';
+import 'package:soko_mtandao/features/explore/presentation/riverpod/map_state.dart' as custom_map_state;
+import 'package:soko_mtandao/features/explore/presentation/widgets/hotel_list_item.dart';
+import '../../../../core/config/map_config.dart';
+import '../../../../router/route_names.dart';
+
+class ExploreMapScreen extends ConsumerStatefulWidget {
+  const ExploreMapScreen({super.key});
+
+  @override
+  ConsumerState<ExploreMapScreen> createState() => _ExploreMapScreenState();
+}
+
+class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
+  MapboxMap? _map;
+  PointAnnotationManager? _pinManager;
+  Cancelable? _pointAnnotationTapSubscription;
+  Timer? _debounce;
+  String? _highlightedId;
+  final Map<String, String> annotationToHotelId = {};
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleBoundsUpdate() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 320), () async {
+      if (_map == null) return;
+      final camera = await _map!.getCameraState();
+      final bounds = await _map!.cameraForCoordinateBounds(
+        /* Mbx */CoordinateBounds(
+          southwest: Point(coordinates: Position(camera.center.coordinates.lng - 0.05, camera.center.coordinates.lat - 0.05)),
+          northeast: Point(coordinates: Position(camera.center.coordinates.lng + 0.05, camera.center.coordinates.lat + 0.05)), infiniteBounds: false,
+        ),
+        MbxEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
+        0, // padding
+        0, // bearing
+        0, // pitch
+        ScreenCoordinate(x: 0, y: 0),
+      );
+      // If API above doesn’t yield real screen bounds, we’ll approximate via zoom:
+      final lat = camera.center.coordinates.lat;
+      final lng = camera.center.coordinates.lng;
+      final zoom = camera.zoom;
+      final delta = _latLngDeltaForZoom(zoom);
+      final b = (south: lat - delta, west: lng - delta, north: lat + delta, east: lng + delta);
+
+      ref.read(custom_map_state.cameraStateProvider.notifier).state = custom_map_state.CameraState(
+        lat: lat.toDouble(),
+        lng: lng.toDouble(),
+        zoom: zoom,
+        bounds: b,
+      );
+    });
+  }
+
+  double _latLngDeltaForZoom(double zoom) {
+    // crude heuristic: tighter box when zooming in
+    if (zoom >= 15) return 0.01;
+    if (zoom >= 13) return 0.02;
+    if (zoom >= 12) return 0.03;
+    if (zoom >= 11) return 0.05;
+    return 0.1;
+  }
+
+  Future<void> _initPins(List<Hotel> hotels) async {
+    if (_map == null) return;
+    _pinManager ??= await _map!.annotations.createPointAnnotationManager();
+    await _pinManager!.deleteAll();
+
+    final Uint8List icon = await rootBundle.load("assets/icons/hotel_icon_blue.png").then((value) => value.buffer.asUint8List());
+    final Uint8List highlightedIcon = await rootBundle.load("assets/icons/hotel_icon_yellow.png").then((value) => value.buffer.asUint8List());
+
+    _pointAnnotationTapSubscription ??= _pinManager!.tapEvents(onTap: (PointAnnotation ClickedAnnotation) {
+      final String? annotationId = ClickedAnnotation.id;
+      if (annotationId != null) {
+        final hotelId = annotationToHotelId[annotationId];
+        
+        if (hotelId != null) {
+          ref.read(custom_map_state.selectedHotelIdProvider.notifier).state = hotelId;
+          setState(() => _highlightedId = hotelId);
+        }
+      }
+    });
+
+    for (final h in hotels) {
+      final opts = PointAnnotationOptions(
+        geometry: Point(coordinates: Position(h.location.lng, h.location.lat)),
+        image: (_highlightedId == h.id) ? highlightedIcon : icon,
+        iconSize: 0.3,
+        iconAnchor: IconAnchor.BOTTOM,
+        textAnchor: TextAnchor.TOP,
+        textField: h.name,
+        textSize: 12,
+      );
+      final ann = await _pinManager!.create(opts);
+
+      // Map the annotation ID to hotel ID
+      annotationToHotelId[ann.id] = h.id;
+
+      // _pinManager!.addOnPointAnnotationClickListener(AnnotationClickListener(onAnnotationClick: (ann, point) {
+      //   ref.read(custom_map_state.selectedHotelIdProvider.notifier).state = h.id;
+      //   setState(() => _highlightedId = h.id);
+      //   return true;
+      // }));
+    }
+  }
+
+  Future<void> _moveToInitial() async {
+    final init = await ref.read(custom_map_state.initialLocationProvider.future);
+    await _map?.setCamera(CameraOptions(
+      center: Point(coordinates: Position(init.lng, init.lat)),
+      zoom: MapConfig.minZoomForData + 1.2,
+    ));
+    _map?.location.updateSettings(LocationComponentSettings(
+      enabled: true,
+      pulsingEnabled: true,
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hotelsAsync = ref.watch(custom_map_state.hotelsInViewProvider);
+    final selectedId = ref.watch(custom_map_state.selectedHotelIdProvider);
+    final searchQuery = ref.watch(custom_map_state.exploreSearchQueryProvider);
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          MapWidget(
+            key: const ValueKey('map'),
+            styleUri: "mapbox://styles/mapbox/streets-v12",
+            // resourceOptions: ResourceOptions(accessToken: MapConfig.mapboxAccessToken),
+            onMapCreated: (controller) async {
+              _map = controller;
+              await _moveToInitial();
+
+              // _map!.gestures.addOnMapIdleListener(MapIdleListener(callback: _scheduleBoundsUpdate));
+              // _map!.camera.addListener(CameraChangedListener(callback: (_) => _scheduleBoundsUpdate()));
+            },
+            onCameraChangeListener: (CameraChangedEventData data){
+              _scheduleBoundsUpdate();
+            },
+            // onMapIdleListener: (mapIdleEventData) => _scheduleBoundsUpdate(),
+          ),
+
+          // Top Search Bar
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: _SearchBar(
+                initial: searchQuery,
+                onChanged: (v) => ref.read(custom_map_state.exploreSearchQueryProvider.notifier).state = v,
+                onClear: () => ref.read(custom_map_state.exploreSearchQueryProvider.notifier).state = '',
+              ),
+            ),
+          ),
+
+          // Zoom hint overlay
+          Consumer(
+            builder: (_, r, __) {
+              final cam = r.watch(custom_map_state.cameraStateProvider);
+              if (cam == null) return const SizedBox.shrink();
+              final tooLow = cam.zoom < MapConfig.minZoomForData && (r.read(custom_map_state.exploreSearchQueryProvider).isEmpty);
+              if (!tooLow) return const SizedBox.shrink();
+              return Align(
+                alignment: Alignment.topCenter,
+                child: SafeArea(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 56),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.6), borderRadius: BorderRadius.circular(8)),
+                    child: const Text('Zoom in to explore hotels', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Draggable Bottom Sheet (List)
+          DraggableScrollableSheet(
+            initialChildSize: 0.33,
+            minChildSize: 0.2,
+            maxChildSize: 0.75,
+            builder: (context, scrollController) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  boxShadow: const [BoxShadow(blurRadius: 10, spreadRadius: 2)],
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Container(width: 44, height: 5, decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(2.5))),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: hotelsAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, st) => Center(child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text('Failed to fetch hotels.\n$e', textAlign: TextAlign.center),
+                        )),
+                        data: (hotels) {
+                          // Update pins when data changes
+                          WidgetsBinding.instance.addPostFrameCallback((_) => _initPins(hotels));
+
+                          if (hotels.isEmpty) {
+                            return const Center(child: Text('No hotels here yet.'));
+                          }
+                          return ListView.separated(
+                            controller: scrollController,
+                            itemCount: hotels.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (_, i) {
+                              final h = hotels[i];
+                              final highlighted = h.id == selectedId;
+                              return HotelListItem(
+                                hotel: h,
+                                highlighted: highlighted,
+                                onTap: () {
+                                  ref.read(custom_map_state.selectedHotelIdProvider.notifier).state = h.id;
+                                  setState(() => _highlightedId = h.id);
+                                  // _map?.setCamera(CameraOptions(
+                                  //   center: Point(coordinates: Position(h.location.lng, h.location.lat)),
+                                  //   // zoom: 15,
+                                  // ));
+                                },
+                                onDetails: () {
+                                  context.goNamed('hotelDetail', pathParameters: {'hotelId': h.id});
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Simple search bar
+class _SearchBar extends StatefulWidget {
+  final String initial;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+  const _SearchBar({required this.initial, required this.onChanged, required this.onClear});
+
+  @override
+  State<_SearchBar> createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<_SearchBar> {
+  late final TextEditingController _c;
+  @override
+  void initState() { super.initState(); _c = TextEditingController(text: widget.initial); }
+  @override
+  void dispose() { _c.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 2,
+      borderRadius: BorderRadius.circular(8),
+      child: TextField(
+        controller: _c,
+        decoration: InputDecoration(
+          hintText: 'Search hotels or places',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _c.text.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () { _c.clear(); widget.onClear(); setState(() {}); }) : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+        onChanged: (v) { widget.onChanged(v); setState(() {}); },
+      ),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\data\datasources\hotel_mock_datasource.dart
+// datasources/hotel_mock_datasource.dart
+import 'dart:async';
+import 'package:soko_mtandao/core/config/app_config.dart';
+import 'package:soko_mtandao/features/hotel_detail/data/datasources/hotel_remote_datasource.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
+
+import '../models/hotel_model.dart';
+import '../models/offering_model.dart';
+import '../models/room_model.dart';
+import '../../domain/entities/room.dart';
+
+// enum MockState { loading, success, error }
+
+class HotelMockDataSource implements HotelDetailDataSource {
+  // MockState mockState = MockState.success;
+  final MockState mockState;
+  HotelMockDataSource({this.mockState = MockState.success});
+
+  @override
+  Future<HotelModel> fetchHotelDetail(String hotelId) async {
+    if (mockState == MockState.loading) return Future.delayed(Duration(seconds: 2), () => throw "Loading");
+    if (mockState == MockState.error) throw Exception("Failed to fetch hotel");
+
+    List<HotelModel> hotels = [
+      HotelModel(
+        id: "h1",
+        name: "Mock Hotel",
+        description: "A cozy place with mock data.",
+        address: "123 Mock Street",
+        rating: 4.5,
+      images: ["https://picsum.photos/800/400", "https://picsum.photos/801/400"],
+      amenities: [
+        Amenity(id: "a1", name: "Free WiFi", icon: "wifi"),
+        Amenity(id: "a2", name: "Swimming Pool", icon: "pool"),
+        Amenity(id: "a3", name: "Gym", icon: "fitness_center"),
+        Amenity(id: "a4", name: "Restaurant", icon: "restaurant"),
+      ],
+    ),
+    HotelModel(
+        id: "h2",
+        name: "Another Mock Hotel",
+        description: "Another cozy place with mock data.",
+        address: "456 Mock Avenue",
+        rating: 4.0,
+      images: ["https://picsum.photos/800/400", "https://picsum.photos/801/400"],
+      amenities: [
+        Amenity(id: "a1", name: "Free WiFi", icon: "wifi"),
+        Amenity(id: "a2", name: "Swimming Pool", icon: "pool"),
+      ],
+    ),
+    ];
+
+    return hotels.firstWhere((h) => h.id == hotelId, orElse: () => hotels[0]);
+  }
+
+  @override
+  Future<List<OfferingModel>> fetchHotelOfferings(String hotelId) async {
+    if (mockState == MockState.error) throw Exception("Offerings fetch error");
+    return [
+      OfferingModel(
+        id: "o1",
+        title: "Deluxe Room",
+        description: "Spacious and modern",
+        pricePerNight: 120.0,
+        maxGuests: 2,
+        amenities: [],
+        images: ["https://picsum.photos/802/400", "https://picsum.photos/803/400", "https://picsum.photos/804/400"],
+      ),
+            OfferingModel(
+        id: "o3",
+        title: "Suite Room",
+        description: "Luxurious suite with stunning views",
+        pricePerNight: 200.0,
+        maxGuests: 4,
+        amenities: [],
+        images: ["https://picsum.photos/802/400", "https://picsum.photos/803/400", "https://picsum.photos/804/400"],
+      ),
+      OfferingModel(
+        id: "o2",
+        title: "Standard Room",
+        description: "Comfortable and affordable",
+        pricePerNight: 80.0,
+        maxGuests: 2,
+        amenities: [],
+        images: ["https://picsum.photos/802/400", "https://picsum.photos/803/400", "https://picsum.photos/804/400"],
+      ),
+    ];
+  }
+
+  @override
+  Future<List<RoomModel>> fetchRoomAvailability(String hotelId, String offeringId, DateTime start, DateTime end) async {
+    if (mockState == MockState.error) throw Exception("Room availability error");
+    // return rooms based on offeringId
+
+    List<RoomModel> rooms = [
+      RoomModel(id: "r1", number: "101", status: RoomStatus.vacant, offeringId: "o1"),
+      RoomModel(id: "r2", number: "102", status: RoomStatus.booked, offeringId: "o1"),
+      RoomModel(id: "r3", number: "103", status: RoomStatus.vacant, offeringId: "o2"),
+      RoomModel(id: "r4", number: "104", status: RoomStatus.vacant, offeringId: "o2"),
+      RoomModel(id: "r5", number: "105", status: RoomStatus.vacant, offeringId: "o3"),
+      RoomModel(id: "r6", number: "106", status: RoomStatus.vacant, offeringId: "o3"),
+      RoomModel(id: "r7", number: "107", status: RoomStatus.vacant, offeringId: "o3"),
+    ];
+    return rooms.where((r) => r.offeringId == offeringId).toList();
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\data\datasources\hotel_remote_datasource.dart
+// datasources/hotel_remote_datasource.dart
+import '../models/hotel_model.dart';
+import '../models/offering_model.dart';
+import '../models/room_model.dart';
+
+abstract class HotelDetailDataSource {
+  /// Fetch single hotel details (name, description, images, etc.)
+  Future<HotelModel> fetchHotelDetail(String hotelId);
+
+  // /// Fetch hotel amenities (wifi, parking, etc.)
+  // Future<List<String>> getHotelAmenities(String hotelId);
+
+  /// Fetch offerings for a given date range
+  Future<List<OfferingModel>> fetchHotelOfferings(String hotelId);
+
+  /// Fetch room availability for a specific offering & date
+  Future<List<RoomModel>> fetchRoomAvailability(String hotelId, String offeringId, DateTime start, DateTime end);
+}
+
+class HotelRemoteDataSource implements HotelDetailDataSource {
+  @override
+  Future<HotelModel> fetchHotelDetail(String hotelId) {
+    // TODO: Implement remote data fetching logic
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<OfferingModel>> fetchHotelOfferings(String hotelId) {
+    // TODO: implement fetchHotelOfferings
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<RoomModel>> fetchRoomAvailability(String hotelId, String offeringId, DateTime start, DateTime end) {
+    // TODO: implement fetchRoomAvailability
+    throw UnimplementedError();
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\data\models\amenity_model.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
+
+class AmenityModel extends Amenity {
+  AmenityModel({
+    required super.id,
+    required super.name,
+    required super.icon,
+  });
+
+  factory AmenityModel.fromJson(Map<String, dynamic> json) {
+    return AmenityModel(
+      id: json['id'],
+      name: json['name'],
+      icon: json['icon'],
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\data\models\hotel_model.dart
+// models/hotel_model.dart
+import '../../domain/entities/hotel.dart';
+import '../../domain/entities/amenity.dart';
+
+class HotelModel extends Hotel {
+  HotelModel({
+    required super.id,
+    required super.name,
+    required super.description,
+    required super.address,
+    required super.rating,
+    required super.images,
+    required super.amenities,
+  });
+
+  factory HotelModel.fromJson(Map<String, dynamic> json) {
+    return HotelModel(
+      id: json['id'],
+      name: json['name'],
+      description: json['description'],
+      address: json['address'],
+      rating: (json['rating'] as num).toDouble(),
+      images: List<String>.from(json['images']),
+      amenities: (json['amenities'] as List)
+          .map((a) => Amenity(id: a['id'], name: a['name'], icon: a['icon']))
+          .toList(),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\data\models\offering_model.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
+
+class OfferingModel extends Offering{
+  OfferingModel({
+    required super.id,
+    required super.title,
+    required super.description,
+    required super.pricePerNight,
+    required super.maxGuests,
+    required super.amenities,
+    required super.images,
+  });
+  factory OfferingModel.fromJson(Map<String, dynamic> json) {
+    return OfferingModel(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'],
+      pricePerNight: (json['price_per_night'] as num).toDouble(),
+      maxGuests: json['max_guests'],
+      amenities: (json['amenities'] as List)
+          .map((a) => Amenity(id: a['id'], name: a['name'], icon: a['icon']))
+          .toList(),
+      images: List<String>.from(json['images']),
+    );
+  }
+}
+--------------------------------------------------
+File: .\features\hotel_detail\data\models\room_model.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/room.dart';
+
+class RoomModel extends Room{
+  RoomModel({
+    required super.id,
+    required super.number,
+    required super.status,
+    required super.offeringId,
+  });
+
+  factory RoomModel.fromJson(Map<String, dynamic> json) {
+    return RoomModel(
+      id: json['id'],
+      number: json['number'],
+      status: json['status'],
+      offeringId: json['offeringId'],
+    );
+  }
+}
+--------------------------------------------------
+File: .\features\hotel_detail\data\models\room_status_model.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
+
+class RoomStatusModel extends RoomStatus{
+  RoomStatusModel({
+    required super.date,
+    required super.status,
+    required super.roomId,
+  });
+
+  factory RoomStatusModel.fromJson(Map<String, dynamic> json) {
+    return RoomStatusModel(
+      date: DateTime.parse(json['date']),
+      status: RoomStatusType.values.firstWhere((e) => e.toString() == 'RoomStatusType.${json['status']}'),
+      roomId: json['room_id'],
+    );
+  }
+}
+--------------------------------------------------
+File: .\features\hotel_detail\data\repositories\hotel_repository_impl.dart
+// repositories/hotel_repository_impl.dart
+import 'package:soko_mtandao/features/hotel_detail/data/datasources/hotel_remote_datasource.dart';
+
+import '../../domain/entities/hotel.dart';
+import '../../domain/entities/offering.dart';
+import '../../domain/entities/room.dart';
+import '../../domain/repositories/hotel_repository.dart';
+import '../datasources/hotel_mock_datasource.dart';
+
+class HotelRepositoryImpl implements HotelRepository {
+  final HotelDetailDataSource dataSource;
+
+  HotelRepositoryImpl(this.dataSource);
+
+  @override
+  Future<Hotel> getHotelDetail(String hotelId) {
+    return dataSource.fetchHotelDetail(hotelId);
+  }
+
+  @override
+  Future<List<Offering>> getHotelOfferings(String hotelId) {
+    return dataSource.fetchHotelOfferings(hotelId);
+  }
+
+  @override
+  Future<List<Room>> getRoomAvailability(String hotelId, String offeringId, DateTime start, DateTime end) {
+    return dataSource.fetchRoomAvailability(hotelId, offeringId, start, end);
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\amenity.dart
+// entities/amenity.dart
+class Amenity {
+  final String id;
+  final String name;
+  final String icon;
+
+  Amenity({
+    required this.id,
+    required this.name,
+    required this.icon,
+  });
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\booking_cart.dart
+// lib/domain/entities/booking_cart.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_input.dart';
+
+class BookingCart {
+  final List<BookingInput> bookings;
+  
+  BookingCart({
+    required this.bookings,
+  });
+
+  BookingCart copyWith({List<BookingInput>? bookings}) {
+    return BookingCart(
+      bookings: bookings ?? this.bookings,
+    );
+  }
+
+  bool get isEmpty => bookings.isEmpty;
+  int get totalItems => bookings.fold(0, (sum, booking) => sum + booking.totalItems);
+
+// calculate total price based on bookings in cart
+  double get totalPrice {
+    return bookings.fold(0, (sum, booking) => sum + booking.totalPrice);
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\booking_input.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/hotel.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
+
+class BookingInput {
+  final Hotel hotel;
+  final DateTime startDate;
+  final DateTime endDate;
+  final List<BookingItemInput> items;
+
+  BookingInput({
+    required this.hotel,
+    required this.startDate,
+    required this.endDate,
+    required this.items,
+  });
+
+  BookingInput copyWith({
+    Hotel? hotel,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<BookingItemInput>? items,
+  }) {
+    return BookingInput(
+      hotel: hotel ?? this.hotel,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      items: items ?? this.items,
+    );
+  }
+
+  bool get isEmpty => items.isEmpty;
+  int get totalItems => items.length;
+
+  double get totalPrice {
+    final nights = endDate.difference(startDate).inDays;
+    return items.fold(0, (sum, item) => sum + (item.offering.pricePerNight * nights));
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\booking_item_input.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/room.dart';
+
+class BookingItemInput {
+  final Offering offering;
+  final Room room;
+
+  BookingItemInput({
+    required this.offering,
+    required this.room,
+  });
+}
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\hotel.dart
+// entities/hotel.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
+
+class Hotel {
+  final String id;
+  final String name;
+  final String description;
+  final String address;
+  final double rating;
+  final List<String> images;
+  final List<Amenity> amenities;
+
+  Hotel({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.address,
+    required this.rating,
+    required this.images,
+    required this.amenities,
+  });
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\offering.dart
+// entities/offering.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
+
+class Offering {
+  final String id;
+  final String title;
+  final String description;
+  final double pricePerNight;
+  final int maxGuests;
+  final List<Amenity> amenities;
+  final List<String> images;
+
+  Offering({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.pricePerNight,
+    required this.maxGuests,
+    required this.amenities,
+    required this.images,
+  });
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\room.dart
+// entities/room.dart
+enum RoomStatus { vacant, pending, booked }
+
+class Room {
+  final String id;
+  final String number;
+  final RoomStatus status;
+  final String offeringId;
+
+  Room({
+    required this.id,
+    required this.number,
+    required this.status,
+    required this.offeringId,
+  });
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\room_availability.dart
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/room.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
+
+class RoomAvailability {
+  final Room room;
+  final Map<DateTime, RoomStatusType> availabilityByDate;
+
+  RoomAvailability({
+    required this.room,
+    required this.availabilityByDate,
+  });
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\entities\room_status.dart
+enum RoomStatusType { vacant, pending, booked }
+
+class RoomStatus {
+  final String roomId;
+  final DateTime date;
+  final RoomStatusType status;
+  final String? note;
+
+  RoomStatus({
+    required this.roomId,
+    required this.date,
+    required this.status,
+    this.note,
+  });
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\repositories\hotel_repository.dart
+// repositories/hotel_repository.dart
+import '../entities/hotel.dart';
+import '../entities/offering.dart';
+import '../entities/room.dart';
+
+abstract class HotelRepository {
+  Future<Hotel> getHotelDetail(String hotelId);
+  Future<List<Offering>> getHotelOfferings(String hotelId);
+  Future<List<Room>> getRoomAvailability(String hotelId, String offeringId, DateTime start, DateTime end);
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\usecases\get_hotel_detail.dart
+// usecases/get_hotel_detail.dart
+import '../entities/hotel.dart';
+import '../repositories/hotel_repository.dart';
+
+class GetHotelDetail {
+  final HotelRepository repository;
+
+  GetHotelDetail(this.repository);
+
+  Future<Hotel> call(String hotelId) {
+    return repository.getHotelDetail(hotelId);
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\usecases\get_hotel_offerings.dart
+// usecases/get_hotel_offerings.dart
+import '../entities/offering.dart';
+import '../repositories/hotel_repository.dart';
+
+class GetHotelOfferings {
+  final HotelRepository repository;
+
+  GetHotelOfferings(this.repository);
+
+  Future<List<Offering>> call(String hotelId) {
+    return repository.getHotelOfferings(hotelId);
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\usecases\get_room_availability.dart
+// usecases/get_room_availability.dart
+import '../entities/room.dart';
+import '../repositories/hotel_repository.dart';
+
+class GetRoomAvailability {
+  final HotelRepository repository;
+
+  GetRoomAvailability(this.repository);
+
+  Future<List<Room>> call(String hotelId, String offeringId, DateTime start, DateTime end) {
+    return repository.getRoomAvailability(hotelId, offeringId, start, end);
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\domain\usecases\select_room.dart
+
+--------------------------------------------------
+File: .\features\hotel_detail\presentation\riverpod\hotel_detail_provider.dart
+// hotel_detail_providers.dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/config/app_config.dart';
+import 'package:soko_mtandao/features/hotel_detail/data/datasources/hotel_mock_datasource.dart';
+import 'package:soko_mtandao/features/hotel_detail/data/datasources/hotel_remote_datasource.dart';
+import 'package:soko_mtandao/features/hotel_detail/data/repositories/hotel_repository_impl.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_cart.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_input.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
+import '../../domain/entities/hotel.dart';
+import '../../domain/entities/offering.dart';
+import '../../domain/entities/room.dart';
+import '../../domain/usecases/get_hotel_detail.dart';
+import '../../domain/usecases/get_hotel_offerings.dart';
+import '../../domain/usecases/get_room_availability.dart';
+
+/// DataSource provider (mock vs real)
+final hotelDataSourceProvider = Provider<HotelDetailDataSource>((ref) {
+  if (AppConfig.useMockData) {
+    return HotelMockDataSource(mockState: AppConfig.globalMockState);
+  }
+  // Ensure Supabase is initialized in main.dart this is the real data source
+  // that connects to the backend.
+  return HotelRemoteDataSource();
+});
+
+/// Hotel Detail Repository provider
+final hotelDetailRepositoryProvider = Provider((ref) {
+  final ds = ref.watch(hotelDataSourceProvider);
+  return HotelRepositoryImpl(ds);
+});
+
+/// Use case providers
+final getHotelDetailUseCaseProvider = Provider((ref) {
+  final repo = ref.watch(hotelDetailRepositoryProvider);
+  return GetHotelDetail(repo);
+});
+
+final getHotelOfferingsUseCaseProvider = Provider((ref) {
+  final repo = ref.watch(hotelDetailRepositoryProvider);
+  return GetHotelOfferings(repo);
+});
+
+final getRoomAvailabilityUseCaseProvider = Provider((ref) {
+  final repo = ref.watch(hotelDetailRepositoryProvider);
+  return GetRoomAvailability(repo);
+});
+
+/// -------------------------
+/// HOTEL DETAIL PROVIDER
+/// -------------------------
+final hotelDetailProvider =
+    FutureProvider.family<Hotel, String>((ref, hotelId) async {
+  final usecase = ref.read(getHotelDetailUseCaseProvider);
+  return await usecase(hotelId);
+});
+
+/// -------------------------
+/// HOTEL AMENITIES
+/// -------------------------
+final hotelAmenitiesProvider =
+    FutureProvider.family<List<Amenity>, String>((ref, hotelId) async {
+  final usecase = ref.read(getHotelDetailUseCaseProvider);
+  return await usecase(hotelId).then((hotel) => hotel.amenities);
+});
+
+/// -------------------------
+/// OFFERINGS (depends on hotel)
+/// -------------------------
+final offeringProvider = FutureProvider.family<List<Offering>, String>(
+    (ref, hotelId) async {
+  final usecase = ref.read(getHotelOfferingsUseCaseProvider);
+  return await usecase(hotelId);
+});
+
+/// -------------------------
+/// OFFERING AMENITIES
+/// -------------------------
+final offeringAmenitiesProvider =
+    FutureProvider.family<List<Amenity>, ({String hotelId, String offeringId})>((ref, params) async {
+      final offeringId = params.offeringId;
+  final usecase = ref.read(getHotelOfferingsUseCaseProvider);
+  return await usecase(params.hotelId).then((offerings) {
+    final offering = offerings.firstWhere((o) => o.id == offeringId);
+    return offering.amenities;
+  });
+});
+
+/// -------------------------
+/// ROOM AVAILABILITY (on-demand)
+/// -------------------------
+final roomAvailabilityProvider =
+    FutureProvider.family<List<Room>, ({
+   String hotelId,
+   String offeringId,
+   DateTime startdate,
+   DateTime enddate,
+})>((ref, params) async {
+      final hotelId = params.hotelId;
+      final offeringId = params.offeringId;
+      final usecase = ref.read(getRoomAvailabilityUseCaseProvider);
+      return await usecase(hotelId, offeringId, params.startdate, params.enddate);
+});
+
+/// -------------------------
+/// SELECTED ROOM STATE
+/// -------------------------
+final selectedRoomProvider = StateProvider<Room?>((ref) => null);
+
+/// -------------------------
+/// BOOKING CART (multi-room)
+/// -------------------------
+final bookingCartProvider = StateNotifierProvider<BookingCartNotifier, BookingCartState>(
+  (ref) => BookingCartNotifier(),
+);
+
+// class BookingCartNotifier extends StateNotifier<List<BookingItemInput>> {
+//   BookingCartNotifier() : super([]);
+
+//   void addItem(BookingItemInput item) {
+//     state = [...state, item];
+//   }
+
+//   void removeItem(String roomId) {
+//     state = state.where((i) => i.room.id != roomId).toList();
+//   }
+
+//   void clear() => state = [];
+// }
+
+
+/// ------------------------------------
+/// BOOKING CART PROVIDER
+/// ------------------------------------
+// class BookingCartState {
+//   final BookingCart? cart;
+
+//   BookingCartState({this.cart});
+
+//   BookingCartState copyWith({BookingCart? cart}) {
+//     return BookingCartState(cart: cart ?? this.cart);
+//   }
+// }
+class BookingCartState extends BookingCart {
+  @override
+  final List<BookingInput> bookings;  // List of all bookings (already grouped by hotel)
+
+  BookingCartState({this.bookings = const []}) : super(bookings: []);
+
+  @override
+  BookingCartState copyWith({List<BookingInput>? bookings}) {
+    return BookingCartState(
+      bookings: bookings ?? this.bookings,
+    );
+  }
+
+  @override
+  bool get isEmpty => bookings.isEmpty;
+  @override
+  int get totalItems => bookings.fold(0, (sum, booking) => sum + booking.totalItems);
+
+// calculate total price based on bookings in cart
+  @override
+  double get totalPrice {
+    return bookings.fold(0, (sum, booking) => sum + booking.totalPrice);
+  }
+
+}
+
+
+class BookingCartNotifier extends StateNotifier<BookingCartState> {
+  BookingCartNotifier() : super(BookingCartState());
+
+// Create a new booking for a hotel
+  void createBooking({
+    required Hotel hotel,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) {
+    final newBooking = BookingInput(
+      hotel: hotel,
+      startDate: startDate,
+      endDate: endDate,
+      items: [],
+    );
+
+    // Add the new booking to the cart
+    state = state.copyWith(
+      bookings: [...state.bookings, newBooking],
+    );
+  }
+
+  // Add a room (BookingItemInput) to a specific booking
+  Future<void> addItemToBooking({
+    required String hotelId,
+    required DateTime startDate,
+    required DateTime endDate,
+    required BookingItemInput item,
+    required WidgetRef ref,
+  }) async {
+    final hotel = await ref.read(hotelDetailProvider(hotelId).future); // Inject ref in constructor
+
+    final List<BookingInput> currentCart = state.bookings ?? [];
+
+    // Try to find existing booking
+    final existingBookingIndex = currentCart.indexWhere((booking) =>
+      booking.hotel.id == hotelId &&
+      booking.startDate == startDate &&
+      booking.endDate == endDate,
+    );
+
+    final bookingItem = item;
+
+    if (existingBookingIndex != -1) {
+      // Modify existing booking
+      final existingBooking = currentCart[existingBookingIndex];
+      final updatedBooking = existingBooking.copyWith(
+        items: [...existingBooking.items, bookingItem],
+      );
+
+      final updatedItems = [...currentCart];
+      updatedItems[existingBookingIndex] = updatedBooking;
+
+      state = state.copyWith(bookings: updatedItems);
+    } else {
+      // if item is null dont create a new booking
+      if (hotel == null || item == null) return;
+      // Create new booking
+      final newBooking = BookingInput(
+        hotel: hotel,
+        startDate: startDate,
+        endDate: endDate,
+        items: [bookingItem],
+      );
+
+      state = state.copyWith(bookings: [...currentCart, newBooking]);
+    }
+  }
+
+  // Remove a room (BookingItemInput) from a specific booking
+  void removeItemFromBooking(BookingInput booking, BookingItemInput item) {
+    final updatedBookings = state.bookings.map((b) {
+      if (b == booking) {
+        final updatedItems = b.items.where((i) => i != item).toList();
+        // If the booking becomes empty, we return null (indicating it should be removed)
+        if (updatedItems.isEmpty) {
+          return null;
+        }
+        return b.copyWith(items: updatedItems);
+      }
+      return b;
+    }).where((b) => b != null).cast<BookingInput>().toList();
+
+    state = state.copyWith(bookings: updatedBookings);
+  }
+
+  // Remove an entire booking from the cart for a specific hotel
+  void removeBooking(BookingInput booking) {
+    final updatedBookings = state.bookings.where((b) => b != booking).toList();
+
+    state = state.copyWith(bookings: updatedBookings);
+  }
+
+  // Clear the entire cart (remove all bookings across all hotels)
+  void clearCart() {
+    state = state.copyWith(bookings: []);
+  }
+
+  // Get the total price for all bookings across all hotels
+  double get totalPrice {
+    return state.bookings.fold(0, (sum, booking) => sum + booking.totalPrice);
+  }
+
+  // Get the bookings for a specific hotel (if needed)
+  List<BookingInput> getBookingsForHotel(String hotelId) {
+    return state.bookings.where((booking) => booking.hotel.id == hotelId).toList();
+  }  
+
+//   void createCart({
+//     required Hotel hotel,
+//     required DateTime startDate,
+//     required DateTime endDate,
+//   }) {
+//     state = state.copyWith(
+//       cart: BookingCart(
+//         items: [],
+//         hotel: hotel,
+//         startDate: startDate,
+//         endDate: endDate,
+//       ),
+//     );
+//   }
+
+//   void addToCart(BookingItemInput booking) {
+//     final currentCart = state.cart;
+//     if (currentCart == null) return;
+
+//     final updatedItems = [...currentCart.items, booking];
+//     state = state.copyWith(
+//       cart: currentCart.copyWith(items: updatedItems),
+//     );
+//   }
+
+//   void removeFromCart(BookingItemInput booking) {
+//     final currentCart = state.cart;
+//     if (currentCart == null) return;
+
+//     final updatedItems = currentCart.items.where((b) => b != booking).toList();
+//     state = state.copyWith(
+//       cart: currentCart.copyWith(items: updatedItems),
+//     );
+//   }
+
+//   void clearCart() {
+//     state = state.copyWith(cart: null);
+//   }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\presentation\screens\hotel_detail_screen.dart
+Could not read file: 'charmap' codec can't encode character '\u2192' in position 3753: character maps to <undefined>
+
+--------------------------------------------------
+File: .\features\hotel_detail\presentation\widgets\booking_cart_modal.dart
+// lib/presentation/hotel_detail/widgets/booking_cart_modal.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
+
+class BookingCartModal extends ConsumerWidget {
+  const BookingCartModal({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(bookingCartProvider);
+    final notifier = ref.read(bookingCartProvider.notifier);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text("Booking Cart", style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          if (cart == null || cart.isEmpty)
+            Text("No items in cart")
+          else
+            Expanded(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: cart.bookings.length,
+                itemBuilder: (_, index) {
+                  final booking = cart.bookings[index];
+                  final nights = booking.endDate.difference(booking.startDate).inDays;
+
+                  return ExpansionTile(
+                    title: Text(booking.hotel.name),
+                    subtitle: Text("${booking.totalItems} rooms | ${nights} nights | \$${booking.totalPrice.toStringAsFixed(2)}",
+                    ),
+                    children: [
+                      ...booking.items.map((item) {
+                        return ListTile(
+                          leading: const Icon(Icons.hotel),
+                          title: Text("Room ${item.room.number} - ${nights} nights"),
+                          subtitle: Text("\$${item.offering.pricePerNight} / night"),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => notifier.removeItemFromBooking(booking, item),
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  );
+                  // return ListTile(
+                  //   title: Text("${booking.items.first.room.number} - ${nights} nights"),
+                  //   subtitle: Text("\$${booking.offering.pricePerNight} / night"),
+                  //   trailing: IconButton(
+                  //     icon: Icon(Icons.delete, color: Colors.red),
+                  //     onPressed: () => notifier.removeFromCart(booking),
+                  //   ),
+                  // );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Total: \$${cart?.totalPrice.toStringAsFixed(2)}",
+                  style: Theme.of(context).textTheme.titleMedium),
+              ElevatedButton(
+                onPressed: () {
+                  // Navigate to booking screen
+                  Navigator.of(context).pushNamed("/checkout", arguments: cart);
+                },
+                child: Text("Continue"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\presentation\widgets\header_carousel.dart
+import 'package:flutter/widgets.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/hotel.dart';
+
+class HeaderCarousel extends StatelessWidget {
+  final Hotel hotel;
+  const HeaderCarousel({required this.hotel});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 220,
+      child: PageView.builder(
+        itemCount: hotel.images.length,
+        itemBuilder: (context, index) {
+          return Image.network(
+            hotel.images[index],
+            fit: BoxFit.cover,
+            width: double.infinity,
+          );
+        },
+      ),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\hotel_detail\presentation\widgets\offering_list.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
+
+class OfferingsList extends ConsumerWidget {
+  final List<Offering> offerings;
+  final String hotelId;
+  final DateTime startDate;
+  final DateTime endDate;
+  const OfferingsList({required this.offerings, required this.hotelId, required this.startDate, required this.endDate});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (offerings.isEmpty) {
+      return const Text("No offerings for selected dates.");
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: offerings.map((off) {
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: ListTile(
+            title: Text(off.title),
+            subtitle: Text("From \$${off.pricePerNight}/night"),
+            trailing: ElevatedButton(
+              onPressed: () {
+                _showRoomModal(context, ref, off);
+              },
+              child: const Text("Select Room"),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _showRoomModal(BuildContext context, WidgetRef ref, Offering offering) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        final roomsAsync = ref.watch(
+          roomAvailabilityProvider((
+          hotelId: hotelId,
+          offeringId: offering.id,
+          startdate: startDate,
+          enddate: endDate,
+        )),
+        );
+
+        return roomsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(child: Text("Error: $err")),
+          data: (rooms) => ListView(
+            children: rooms.map((room) {
+              return ListTile(
+                title: Text("Room ${room.number}"),
+                trailing: ElevatedButton(
+                  // adding an item to booking, if the booking does not exist, it will create one
+                  onPressed: () async {
+                    ref
+                        .read(bookingCartProvider.notifier)
+                        .addItemToBooking(
+                            hotelId: hotelId,
+                            startDate: startDate,
+                            endDate: endDate,
+                            item: BookingItemInput(
+                              offering: offering,
+                              room: room,
+                            ),
+                            ref: ref,
+                            );
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Add"),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\features\splash\splash_provider.dart
+// lib/features/splash/presentation/riverpod/splash_provider.dart
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/router/route_names.dart';
+import '../../../../core/constants/roles.dart';
+
+final splashRedirectProvider = FutureProvider<String>((ref) async {
+  await Future.delayed(Duration(seconds: 1));
+  return RouteNames.guestHome;
+});
+
+// final splashRedirectProvider = FutureProvider<String>((ref) async {
+//   final authNotifier = ref.read(authNotifierProvider);
+//   final role = authNotifier.role;
+//   final staffAssoc = authNotifier.staffHasHotel;
+  
+//   // Check if staff has hotel association
+//   if (role == UserRole.staff) {
+//     return staffAssoc ? RouteNames.staffHome : RouteNames.requestHotelAssociation;
+//   }
+//   // Redirect logic based on user role
+//   switch (role) {
+//     case UserRole.staff:
+//       return RouteNames.staffHome;
+//     case UserRole.hotelAdmin:
+//       return RouteNames.hotelAdminHome;
+//     case UserRole.systemAdmin:
+//       return RouteNames.systemAdminHome;
+//     case UserRole.customer:
+//       return RouteNames.guestHome;
+//     case UserRole.guest:
+//       return RouteNames.guestHome;
+//     default:
+//       return RouteNames.guestHome; // same as explore screen
+//   }
+// });
+
+--------------------------------------------------
+File: .\features\splash\splash_screen.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/features/splash/splash_provider.dart';
+
+class SplashScreen extends ConsumerWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<AsyncValue<String>>(splashRedirectProvider, (previous, next) {
+      next.whenData((route) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Use router to navigate (router is set to use named routes)
+          context.go(route);
+        });
+      });
+    });
+
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+--------------------------------------------------
+File: .\layouts\admin_layout.dart
+import 'package:flutter/material.dart';
+
+/// AdminLayout: layout for admin pages (hotel admin & system admin)
+class AdminLayout extends StatelessWidget {
+  final Widget child;
+  const AdminLayout({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Admin')),
+      body: SafeArea(child: child),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: const [DrawerHeader(child: Text('Admin Menu'))],
+        ),
+      ),
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\layouts\app_layout.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/constants/roles.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/widgets/dynamic_bottom_nav.dart';
+import '../router/nav_config.dart';
+
+/// AppLayout: used for guest/customer/staff main flows. Contains a dynamic BottomNav
+class AppLayout extends ConsumerStatefulWidget {
+  final Widget child;
+  final int selectedIndex;
+  const AppLayout({super.key, required this.child, this.selectedIndex = 0});
+
+  @override
+  ConsumerState<AppLayout> createState() => _AppLayoutState();
+}
+
+class _AppLayoutState extends ConsumerState<AppLayout> {
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.selectedIndex;
+  }
+
+  void _onItemTapped(int index, String routeName) {
+    setState(() => _selectedIndex = index);
+    // Navigate using named route
+    context.goNamed(routeName);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authNotifier = ref.watch(authNotifierProvider);
+    final role = authNotifier.role;
+
+    // final items = roleAsync.maybeWhen(
+    //   data: (role) => navItems.where((i) => i.visibleTo.contains(role)).toList(),
+    //   orElse: () => navItems.where((i) => i.visibleTo.contains(UserRole.guest)).toList(),
+    // );
+
+    final items = navItems.where((i) {
+      return i.visibleTo.contains(role);
+    }).toList();
+
+    // Ensure selected index is within bounds
+    if (_selectedIndex < 0 || _selectedIndex >= navItems.length) {
+        _selectedIndex = 0; // Default to first item if out of bounds
+      }
+
+    return Scaffold(
+      body: widget.child,
+      bottomNavigationBar: DynamicBottomNav(
+        items: items,
+        selectedIndex: _selectedIndex,
+        onTap: (idx) => _onItemTapped(idx, items[idx].routeName),
+      ),
+    );
+  }
+}
+--------------------------------------------------
+File: .\layouts\auth_layout.dart
+import 'package:flutter/material.dart';
+
+/// AuthLayout: simple layout for auth pages like login/signup
+class AuthLayout extends StatelessWidget {
+  final Widget child;
+  const AuthLayout({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Account')),
+      body: SafeArea(child: child),
+    );
+  }
+}
+--------------------------------------------------
+File: .\router\nav_config.dart
+// NavItem model and configuration for bottom navigation per role
+
+import 'package:flutter/material.dart';
+import 'package:soko_mtandao/core/constants/roles.dart';
+import 'route_names.dart';
+
+class NavItem {
+  final String label;
+  final IconData icon;
+  final String routeName;
+  final List<UserRole> visibleTo;
+
+  const NavItem({required this.label, required this.icon, required this.routeName, required this.visibleTo});
+}
+
+final navItems = <NavItem>[
+  NavItem(label: 'Explore', icon: Icons.explore, routeName: 'guestHome', visibleTo: [UserRole.guest, UserRole.customer, UserRole.staff, UserRole.hotelAdmin, UserRole.systemAdmin]),
+  NavItem(label: 'Bookings', icon: Icons.book, routeName: 'bookings', visibleTo: [UserRole.guest, UserRole.customer, UserRole.staff, UserRole.hotelAdmin]),
+  NavItem(label: 'Profile', icon: Icons.person, routeName: 'profile', visibleTo: [UserRole.guest, UserRole.customer, UserRole.staff, UserRole.hotelAdmin, UserRole.systemAdmin]),
+  // Admin specific
+  NavItem(label: 'Admin', icon: Icons.admin_panel_settings, routeName: 'systemAdmin', visibleTo: [UserRole.systemAdmin]),
+];
+
+--------------------------------------------------
+File: .\router\redirect_logic.dart
+// Central redirect logic used by router — relies on providers passed in at runtime
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/constants/roles.dart';
+import 'route_names.dart';
+
+String? globalRedirect(Uri location, {required bool isLoggedIn, required UserRole? role}) {
+  final path = location.path;
+
+  // If not logged in and trying to access auth-protected routes
+  if (!isLoggedIn) {
+    // allow access to guest/home, login, signup, splash
+    if (path == RouteNames.guestHome || path == RouteNames.login || path == RouteNames.signup || path == RouteNames.splash || path == RouteNames.bookings || path == RouteNames.hotelDetail) {
+      return null;
+    }
+    // return RouteNames.login;
+    return null;
+  }
+
+  // If logged in but role doesn't match admin area
+  if (path.startsWith('/hotel-admin') && role != UserRole.hotelAdmin) {
+    return RouteNames.guestHome; // or a 403 page
+  }
+  if (path.startsWith('/system-admin') && role != UserRole.systemAdmin) {
+    return RouteNames.guestHome;
+  }
+
+  // Allow
+  return null;
+}
+
+--------------------------------------------------
+File: .\router\router.dart
+// go_router configuration with ShellRoutes for layouts, named routes, and redirect
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/constants/roles.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/screens/hotel_detail_screen.dart';
+// import 'package:soko_mtandao/features/explore/presentation/screens/hotel_detail_screen.dart';
+import 'package:soko_mtandao/features/splash/splash_screen.dart';
+import 'package:soko_mtandao/layouts/admin_layout.dart';
+import 'package:soko_mtandao/layouts/app_layout.dart';
+import 'package:soko_mtandao/layouts/auth_layout.dart';
+import 'package:soko_mtandao/router/redirect_logic.dart';
+import 'package:soko_mtandao/router/route_names.dart';
+import '../../features/guest_home/presentation/screens/explore_screen.dart';
+import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/signup_screen.dart';
+// import '../../features/staff_home/presentation/screens/staff_dashboard.dart';
+// import '../../features/hotel_admin/presentation/screens/hotel_admin_dashboard.dart';
+// import '../../features/system_admin/presentation/screens/system_admin_dashboard.dart';
+
+class AppRouter {
+  static GoRouter createRouter(WidgetRef ref) {
+    final authNotifier = ref.read(authNotifierProvider);
+
+    final router = GoRouter(
+      initialLocation: RouteNames.splash,
+      refreshListenable: authNotifier,
+      routes: [
+              // Splash
+              GoRoute(path: RouteNames.splash, name: 'splash', builder: (c, s) => const SplashScreen()),
+
+              // Auth layout
+              ShellRoute(
+                builder: (context, state, child) => AuthLayout(child: child),
+                routes: [
+                  GoRoute(path: RouteNames.login, name: 'login', builder: (c, s) => const LoginScreen()),
+                  GoRoute(path: RouteNames.signup, name: 'signup', builder: (c, s) => const SignupScreen()),
+                ],
+              ),
+
+              // App layout (guest/customer/staff) — nested ShellRoute with dynamic bottom nav
+              ShellRoute(
+                builder: (context, state, child) {
+                  final selectedIndex = _computeIndex(state.uri.toString(), authNotifier.role);
+                  return AppLayout(child: child, selectedIndex: selectedIndex);
+                },
+                routes: [
+                  GoRoute(path: RouteNames.guestHome, name: 'guestHome', builder: (c, s) => const ExploreMapScreen()),
+                  GoRoute(path: RouteNames.bookings, name: 'bookings', builder: (c, s) => const /* BookingsScreen() */Placeholder()),
+                  GoRoute(path: RouteNames.profile, name: 'profile', builder: (c, s) => const /* ProfileScreen() */Placeholder()),
+                  GoRoute(path: RouteNames.staffHome, name: 'staffHome', builder: (c, s) => const /* StaffDashboard() */Placeholder()),
+                  GoRoute(path: RouteNames.hotelDetail, name: 'hotelDetail', builder: (c, s) {
+                    final hotelId = s.pathParameters['hotelId'] ?? '';
+                    return HotelDetailScreen(hotelId: hotelId);
+                  }),
+                  GoRoute(path: RouteNames.requestHotelAssociation, name: 'requestAssociation', builder: (c, s) => const Center(child: Text('Request Association'))),
+                ],
+              ),
+
+              // Admin layout
+              ShellRoute(
+                builder: (context, state, child) => AdminLayout(child: child),
+                routes: [
+                  GoRoute(path: RouteNames.hotelAdminHome, name: 'hotelAdmin', builder: (c, s) => const /* HotelAdminDashboard() */Placeholder()),
+                  GoRoute(path: RouteNames.systemAdminHome, name: 'systemAdmin', builder: (c, s) => const /* SystemAdminDashboard() */Placeholder()),
+                ],
+              ),
+            ],
+
+        redirect: (context, state) {
+        // Get concrete auth & role state
+        final isLoggedIn = authNotifier.isLoggedIn;
+        final role = authNotifier.role;
+        final staffAssoc = authNotifier.staffHasHotel;
+
+        final redirect = globalRedirect(state.uri, isLoggedIn: isLoggedIn, role: role);
+
+        // Additional: staff without hotel trying to access staffHome -> take them to request page
+        if (isLoggedIn && role == UserRole.staff && !staffAssoc && state.uri.toString() == RouteNames.staffHome) {
+          return RouteNames.requestHotelAssociation;
+        }
+        
+        return redirect;
+      },
+      errorBuilder: (context, state) => const Scaffold(body: Center(child: Text('Page not found'))),
+    );
+
+    return router;
+  }
+}
+
+_computeIndex(String location, UserRole role) {
+  // compute bottom nav index based on route and role
+  if (role == UserRole.customer || role == UserRole.guest) {
+    if (location.startsWith(RouteNames.guestHome)) return 0;
+    if (location.startsWith(RouteNames.bookings)) return 1;
+    if (location.startsWith(RouteNames.profile)) return 2;
+  }
+  if (role == UserRole.staff) {
+    if (location.startsWith(RouteNames.staffHome)) return 0;
+    if (location.startsWith(RouteNames.bookings)) return 1;
+    if (location.startsWith(RouteNames.profile)) return 2;
+  }
+  // admin handled by AdminLayout (no bottom nav)
+  return 0;
+}
+--------------------------------------------------
+File: .\router\route_names.dart
+class RouteNames {
+  static const splash = '/';
+  static const guestHome = '/home'; // explore
+  static const login = '/login';
+  static const signup = '/signup';
+  static const hotelDetail = '/hotel/:hotelId';
+
+  // Staff
+  static const staffHome = '/staff/home';
+  static const requestHotelAssociation = '/staff/request-association';
+
+  // Hotel Admin
+  static const hotelAdminHome = '/hotel-admin/home';
+
+  // System Admin
+  static const systemAdminHome = '/system-admin/home';
+
+  // Auth layout
+  static const authLayout = '/auth';
+
+  static const bookings = '/bookings'; // bookings screen for customers and staff
+  static const profile = '/profile'; // profile screen for customers, staff, hotel admin,
+}
+--------------------------------------------------
+File: .\theme\app_theme.dart
+import 'package:flutter/material.dart';
+
+class AppTheme {
+  static ThemeData get lightTheme {
+    return ThemeData(
+      primarySwatch: Colors.blue,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      brightness: Brightness.dark,
+      primarySwatch: Colors.blue,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+    );
+  }
+}
+
+--------------------------------------------------
+File: .\widgets\dynamic_bottom_nav.dart
+import 'package:flutter/material.dart';
+import '../router/nav_config.dart';
+
+class DynamicBottomNav extends StatelessWidget {
+  final List<NavItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+
+  const DynamicBottomNav({super.key, required this.items, required this.selectedIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: selectedIndex,
+      onTap: onTap,
+      items: items
+          .map((i) => BottomNavigationBarItem(
+                icon: Icon(i.icon),
+                label: i.label,
+              ))
+          .toList(),
+    );
+  }
+}
+
+--------------------------------------------------
