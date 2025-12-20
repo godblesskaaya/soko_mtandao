@@ -3,6 +3,8 @@ class RouteNames {
   static const guestHome = '/home'; // explore
   static const login = '/login';
   static const signup = '/signup';
+  static const forgotPassword = '/forgot-password';
+  static const resetPassword = '/reset-password';
   static const hotelDetail = '/hotel/:hotelId';
   static const hotels = '/hotels';
 
@@ -42,5 +44,7 @@ class RouteNames {
   static const roomBookings = '/room-bookings/:roomId';
 
   static const roomDetails = '/room-details/:roomId';
+
+  static const managerPayments = '/manager-payments/:hotelId';
 
 }

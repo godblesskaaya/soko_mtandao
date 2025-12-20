@@ -4,8 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/roles.dart';
 import 'route_names.dart';
 
-String? globalRedirect(Uri location, {required bool isLoggedIn, required UserRole? role, required bool hasRedirectedAfterLogin}) {
+String? globalRedirect(Uri location, {required bool isLoggedIn, required UserRole? role, required bool hasRedirectedAfterLogin, required bool isInPasswordRecovery}) {
   final path = location.path;
+
+  
+  // ✅ Always allow reset password during recovery
+  if (isInPasswordRecovery && path == RouteNames.resetPassword) {
+    return null;
+  }
+
+  // Prevent navigating away during recovery
+  if (isInPasswordRecovery && path != RouteNames.resetPassword) {
+    return RouteNames.resetPassword;
+  }
+
+  if (path == RouteNames.forgotPassword) {
+    return null;
+  }
 
   // If not logged in and trying to access auth-protected routes
   if (!isLoggedIn) {

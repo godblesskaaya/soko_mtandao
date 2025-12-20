@@ -109,159 +109,197 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(addHotelProvider);
-    final amenities = ref.watch(managerAmenitiesProvider(NoParams()));
-    print("form-level amenities = $amenities");
+    final amenities = ref.watch(managerAmenitiesProvider);
 
-
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text("Add New Hotel"),
-      ),
-      body: state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildTextField("Hotel Name", _nameController),
-                    _buildTextField("Address", _addressController),
-                    _buildTextField("Description", _descriptionController,
-                        maxLines: 3),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _latController,
-                              decoration: const InputDecoration(
-                                labelText: "Latitude",
-                                border: OutlineInputBorder(),
-                              ),
-                              readOnly: true,
-                              validator: (val) => (val == null || val.isEmpty) ? "Required" : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _lngController,
-                              decoration: const InputDecoration(
-                                labelText: "Longitude",
-                                border: OutlineInputBorder(),
-                              ),
-                              readOnly: true,
-                              validator: (val) => (val == null || val.isEmpty) ? "Required" : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.map),
-                            label: const Text("Select"),
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => MapboxLocationPicker(
-                                    onLocationSelected: (lat, lng) {
-                                      _latController.text = lat.toStringAsFixed(6);
-                                      _lngController.text = lng.toStringAsFixed(6);
-                                    },
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+    return state.isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // ======= PAGE TITLE (replaces AppBar) =======
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "Add New Hotel",
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
+                  ),
+                  const SizedBox(height: 16),
 
-                    _buildTextField("Rating", _ratingController,
-                        keyboard: TextInputType.number),
-                    _buildTextField("Total Rooms", _roomsController,
-                        keyboard: TextInputType.number),
-                    _buildTextField("Region", _regionController),
-                    _buildTextField("Country", _countryController),
-                    _buildTextField("City", _cityController),
-                    _buildTextField("Phone Number", _phoneController,
-                        keyboard: TextInputType.phone),
-                    _buildTextField("Email", _emailController,
-                        keyboard: TextInputType.emailAddress),
-                    _buildTextField("Website", _websiteController),
+                  _buildTextField("Hotel Name", _nameController),
+                  _buildTextField("Address", _addressController),
+                  _buildTextField("Description", _descriptionController,
+                      maxLines: 3),
 
-                    const SizedBox(height: 16),
-
-                    AsyncMultiSelectField<ManagerAmenity, String>(
-                      label: "Amenities",
-                      providerBuilder: (ref) => managerAmenitiesProvider(NoParams()),  // or amenitiesProvider(someId)
-                      getLabel: (a) => a.name,
-                      getId: (a) => a.amenityId,
-                      values: selectedAmenities.map((a) => a.amenityId).toList(),
-                      onChanged: (ids) {
-                        setState(() {
-                          selectedAmenities = ids
-                              .map((id) => ManagerAmenity(name: id, amenityId: id, category: '', availabilityStatus: '')) // OR lookup real items
-                              .toList();
-                        });
-                      },
-                      onFetch: (ref) async {
-                        ref.refresh(managerAmenitiesProvider(NoParams()));
-                      },
-                    ),
-
-
-                    const SizedBox(height: 16),
-
-                    // Images
-                    Align(alignment: Alignment.centerLeft,
-                    child: Text("Images",
-                        style: Theme.of(context).textTheme.titleMedium,
+                  // ---- LOCATION PICKER ----
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _latController,
+                            decoration: const InputDecoration(
+                              labelText: "Latitude",
+                              border: OutlineInputBorder(),
+                            ),
+                            readOnly: true,
+                            validator: (val) =>
+                                (val == null || val.isEmpty) ? "Required" : null,
+                          ),
                         ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Wrap(
-                      children: images.map((file) => Stack(
-                          alignment: Alignment.topRight,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: Image.file(file,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _lngController,
+                            decoration: const InputDecoration(
+                              labelText: "Longitude",
+                              border: OutlineInputBorder(),
                             ),
-                            IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  images.remove(file);
-                                });
-                              }, 
-                              icon: const Icon(Icons.close, size: 16, color: Colors.red,)
+                            readOnly: true,
+                            validator: (val) =>
+                                (val == null || val.isEmpty) ? "Required" : null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.map),
+                          label: const Text("Select"),
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MapboxLocationPicker(
+                                  onLocationSelected: (lat, lng) {
+                                    _latController.text =
+                                        lat.toStringAsFixed(6);
+                                    _lngController.text =
+                                        lng.toStringAsFixed(6);
+                                  },
+                                ),
                               ),
-                          ],
-                      )).toList(),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.add_a_photo),
-                      label: const Text("Add Image"),
-                      onPressed: _pickImage,
-                    ),
+                  ),
 
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: state.isLoading ? null : _submit,
-                      child: const Text("Save Hotel"),
+                  _buildTextField("Rating", _ratingController,
+                      keyboard: TextInputType.number),
+                  _buildTextField("Total Rooms", _roomsController,
+                      keyboard: TextInputType.number),
+                  _buildTextField("Region", _regionController),
+                  _buildTextField("Country", _countryController),
+                  _buildTextField("City", _cityController),
+                  _buildTextField("Phone Number", _phoneController,
+                      keyboard: TextInputType.phone),
+                  _buildTextField("Email", _emailController,
+                      keyboard: TextInputType.emailAddress),
+                  _buildTextField("Website", _websiteController),
+
+                  const SizedBox(height: 16),
+
+                  // ---- AMENITIES ----
+                  AsyncMultiSelectField<ManagerAmenity, String>(
+                    label: "Amenities",
+                    // 1. The provider that fetches the list
+                    provider: managerAmenitiesProvider,
+                    
+                    // 2. How to display the item and identifying it
+                    getLabel: (amenity) => amenity.name,
+                    getId: (amenity) => amenity.amenityId,
+                    
+                    // 3. Current selected IDs (mapped from your object list)
+                    values: selectedAmenities
+                        .map((a) => a.amenityId)
+                        .toList(),
+                        
+                    // 4. Update state when selection changes
+                    onChanged: (selectedIds) {
+                      // Read the current list from the provider to find the full objects
+                      final allAmenities = ref.read(managerAmenitiesProvider).valueOrNull ?? [];
+
+                      setState(() {
+                        // Filter the full list to keep only the selected ones
+                        selectedAmenities = allAmenities
+                            .where((amenity) => selectedIds.contains(amenity.amenityId))
+                            .toList();
+                      });
+                    },
+                    
+                    // Optional: Add validation if needed
+                    validator: (ids) {
+                      if (ids == null || ids.isEmpty) {
+                        return 'Please select at least one amenity';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ---- IMAGES SECTION ----
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "Images",
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Wrap(
+                    children: images
+                        .map(
+                          (file) => Stack(
+                            alignment: Alignment.topRight,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Image.file(
+                                  file,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    images.remove(file);
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 16,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                        .toList(),
+                  ),
+
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add_a_photo),
+                    label: const Text("Add Image"),
+                    onPressed: _pickImage,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  ElevatedButton(
+                    onPressed: state.isLoading ? null : _submit,
+                    child: const Text("Save Hotel"),
+                  ),
+                ],
               ),
             ),
-    );
+          );
   }
 
   Widget _buildTextField(

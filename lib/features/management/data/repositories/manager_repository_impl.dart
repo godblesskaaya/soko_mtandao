@@ -4,6 +4,7 @@ import 'package:soko_mtandao/features/management/data/models/manager_booking_mod
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
 
 import '../../domain/repositories/manager_repository.dart';
 import '../datasources/manager_datasource.dart';
@@ -119,5 +120,10 @@ class ManagerRepositoryImpl implements ManagerRepository {
   @override
   Future<List<ManagerAmenity>> getAmenities() {
     return dataSource.fetchAmenities();
+  }
+
+  @override
+  Future<List<ManagerPayment>> getPayments(String hotelId) {
+    return dataSource.fetchPayments(hotelId);
   }
 }

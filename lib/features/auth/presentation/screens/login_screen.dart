@@ -22,7 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      if (mounted) context.goNamed(RouteNames.guestHome);
+      if (mounted) context.goNamed('splash');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login failed: $e')),
@@ -44,9 +44,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ElevatedButton(onPressed: login, child: const Text('Login')),
             TextButton(
               onPressed: () {
-                context.go(RouteNames.signup); // Navigate to signup screen
+                context.push(RouteNames.signup); // Navigate to signup screen
               },
               child: const Text('Don\'t have an account? Sign Up'),
+            ),
+            TextButton(
+              onPressed: () {
+                context.push(RouteNames.forgotPassword); // Navigate to forgot password screen
+              },
+              child: const Text('Forgot Password?'),
             ),
           ],
         ),

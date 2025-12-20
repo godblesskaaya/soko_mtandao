@@ -34,7 +34,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
 
       
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) context.go(RouteNames.splash); // Navigate to splash screen after signup
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Signup failed: $e')),
@@ -46,7 +46,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [

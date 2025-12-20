@@ -3,16 +3,28 @@ import 'package:flutter/material.dart';
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
-      primarySwatch: Colors.blue,
-      visualDensity: VisualDensity.adaptivePlatformDensity,
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      useMaterial3: true,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+      ),
     );
   }
 
   static ThemeData get darkTheme {
     return ThemeData(
-      brightness: Brightness.dark,
-      primarySwatch: Colors.blue,
-      visualDensity: VisualDensity.adaptivePlatformDensity,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.blue,
+        brightness: Brightness.dark,
+      ),
+      useMaterial3: true,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.black,
+        selectedItemColor: Colors.blue[300],
+        unselectedItemColor: Colors.white70,
+      ),
     );
   }
 }

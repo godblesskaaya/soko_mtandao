@@ -3,6 +3,7 @@ import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.d
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
 
 import '../entities/manager_hotel.dart';
 import '../entities/manager_offering.dart';
@@ -18,6 +19,7 @@ abstract class ManagerRepository {
   Future<ManagerHotel> updateHotel(ManagerHotel hotel);
   Future<void> deactivateHotel(String hotelId);
   Future<List<ManagerAmenity>> getAmenities();
+  Future<List<ManagerPayment>> getPayments(String hotelId);
 
   // Offerings
   Future<List<ManagerOffering>> getOfferings(String hotelId);

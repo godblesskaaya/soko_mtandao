@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
+import 'package:soko_mtandao/widgets/entity_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManagerDashboardScreen extends ConsumerStatefulWidget {
@@ -78,6 +81,20 @@ class _ManagerDashboardScreenState
                         children: [
                           Text(managerProfile.email ?? ""),
                           Text("Phone: ${managerProfile.phone ?? "-"}"),
+                          // button to edit profile
+                          TextButton(
+                            onPressed: () =>
+                                context.pushNamed("editManagerProfile"),
+                            child: const Text("Edit Profile"),
+                          ),
+                          // button to logout
+                          TextButton(
+                            onPressed: () async {
+                              await authService.signOut();
+                              if (mounted) context.goNamed("guestHome");
+                            },
+                            child: const Text("Logout"),
+                          ),
                         ],
                       ),
                     ),
@@ -96,15 +113,15 @@ class _ManagerDashboardScreenState
                 runSpacing: 12,
                 children: [
                   _buildActionButton(
-                      " My Hotel", Icons.book_online, context, "hotelList", pathParameters: {"managerUserId": authService.currentUser?.id ?? ""}),
+                      "Hotels", Icons.book_online, context, "hotelList", pathParameters: {"managerUserId": authService.currentUser?.id ?? ""}),
                   _buildActionButton(
                       "Rooms", Icons.meeting_room, context, "rooms"),
                   _buildActionButton(
-                      "Offerings", Icons.people, context, "offerings", pathParameters: {"hotelId": "abc1234"}),
+                      "Offerings", Icons.people, context, "offerings", pathParameters: {}),
                   _buildActionButton(
                       "Bookings", Icons.bar_chart, context, "hotelBookings"),
                   _buildActionButton(
-                      "Requests", Icons.report_problem, context, "managerRequests"),
+                      "Payments", Icons.payments, context, "managerPayments"),
                 ],
               ),
 
@@ -155,11 +172,45 @@ class _ManagerDashboardScreenState
       ),
     );
   }
+  
+  Future<List<ManagerHotel>> _fetchHotelsFromRepo(WidgetRef ref) async {
+    final managerUserId = authService.currentUser?.id;
+    if (managerUserId == null || managerUserId.isEmpty) return [];
+  // Use ref to access repo/provider
+  final hotelsAsync = ref.watch(managerHotelsProvider(managerUserId));
+
+  return hotelsAsync.when(
+    data: (hotels) => hotels,
+    loading: () => [],
+    error: (err, _) => [],
+  );
+}
 
   Widget _buildActionButton(
       String label, IconData icon, BuildContext context, String routeName, {Map<String, String>? pathParameters}) {
     return GestureDetector(
-      onTap: () => context.pushNamed(routeName, pathParameters: pathParameters ?? {}),
+      onTap: () async {
+        final needsParam = {'rooms', 'myHotel', 'hotelBookings', 'offerings', 'managerPayments'}.contains(routeName);
+
+        if (needsParam) {
+          final selectedHotel = await showEntityPicker<ManagerHotel>(
+            context: context,
+            title: 'Select a hotel',
+            fetchItems: () => _fetchHotelsFromRepo(ref),
+            display: (h) => h.name,
+          );
+          if (selectedHotel == null) return;
+
+          context.pushNamed(
+            routeName,
+            pathParameters: {
+              'hotelId': selectedHotel.id,
+              ...?pathParameters,
+            },
+          );
+        }
+         context.pushNamed(routeName, pathParameters: pathParameters ?? {});
+      },
       child: Container(
         width: 100,
         height: 100,

@@ -6,10 +6,12 @@ import 'package:soko_mtandao/features/management/data/models/manager_booking_ite
 import 'package:soko_mtandao/features/management/data/models/manager_booking_model.dart';
 import 'package:soko_mtandao/features/management/data/models/manager_hotel_model.dart';
 import 'package:soko_mtandao/features/management/data/models/manager_offering_model.dart';
+import 'package:soko_mtandao/features/management/data/models/manager_payment_model.dart';
 import 'package:soko_mtandao/features/management/data/models/manager_room_model.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availability.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
@@ -291,5 +293,17 @@ class ManagerRemoteDataSource implements ManagerDataSource {
         .select()
         .eq('room_id', roomId)
         .then((value) => value.map((booking) => ManagerBookingItemModel.fromJson(booking)).toList());
+  }
+
+  @override
+  Future<List<ManagerPaymentModel>> fetchPayments(String hotelId) async{
+      // Supabase treats the view just like a table for SELECT queries.
+      final response = await _supabase
+          .from('hotel_payments_view')
+          .select()
+          .eq('hotel_id', hotelId); // Filter by the hotel_id column
+
+      return response.map((json) => ManagerPaymentModel.fromJson(json)).toList();
+      
   }
 }

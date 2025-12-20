@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/features/auth/presentation/screens/forgot_password_screen.dart';
+import 'package:soko_mtandao/features/auth/presentation/screens/reset_password_screen.dart';
 import 'package:soko_mtandao/features/booking/presentation/screens/booking_review_screen.dart';
 import 'package:soko_mtandao/features/booking/presentation/screens/confirmation_screen.dart';
 import 'package:soko_mtandao/features/booking/presentation/screens/payment_screen.dart';
@@ -19,6 +21,7 @@ import 'package:soko_mtandao/features/management/presentation/screens/booking_li
 import 'package:soko_mtandao/features/management/presentation/screens/manager_dashboard_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_hotel_List_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_hotel_detail_screen.dart';
+import 'package:soko_mtandao/features/management/presentation/screens/manager_payments_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_room_details_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/offering_management_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/room_management_screen.dart';
@@ -54,6 +57,8 @@ class AppRouter {
                 routes: [
                   GoRoute(path: RouteNames.login, name: 'login', builder: (c, s) => const LoginScreen()),
                   GoRoute(path: RouteNames.signup, name: 'signup', builder: (c, s) => const SignupScreen()),
+                  GoRoute(path: RouteNames.resetPassword, name: 'resetPassword', builder: (c,s) => const ResetPasswordScreen()),
+                  GoRoute(path: RouteNames.forgotPassword, name: 'forgotPassword', builder: (c,s) => const ForgotPasswordScreen()),
                 ],
               ),
 
@@ -168,6 +173,12 @@ class AppRouter {
                     name: 'hotelBookings',
                     builder: (c, s) => BookingListScreen(hotelId: s.pathParameters['hotelId']!),
                   ),
+                  GoRoute(
+                    path: RouteNames.managerPayments,
+                    name: 'managerPayments',
+                    builder: (c, s) => ManagerPaymentsScreen(hotelId: s.pathParameters['hotelId']!),
+                  ),
+
                 ],
               ),
             ],
@@ -176,10 +187,11 @@ class AppRouter {
         // Get concrete auth & role state
         final isLoggedIn = authNotifier.isLoggedIn;
         final role = authNotifier.role;
+        final isInPasswordRecovery = authNotifier.isInPasswordRecovery;
         final staffAssoc = authNotifier.staffHasHotel;
         final hasRedirectedAfterLogin = authNotifier.hasRedirectedAfterLogin;
 
-        final redirect = globalRedirect(state.uri, isLoggedIn: isLoggedIn, role: role, hasRedirectedAfterLogin: hasRedirectedAfterLogin);
+        final redirect = globalRedirect(state.uri, isLoggedIn: isLoggedIn, role: role, isInPasswordRecovery: isInPasswordRecovery, hasRedirectedAfterLogin: hasRedirectedAfterLogin);
 
         // Additional: staff without hotel trying to access staffHome -> take them to request page
         if (isLoggedIn && role == UserRole.staff && !staffAssoc && state.uri.toString() == RouteNames.staffHome) {
@@ -202,8 +214,9 @@ _computeIndex(String location, UserRole role) {
   // compute bottom nav index based on route and role
   if (role == UserRole.customer || role == UserRole.guest) {
     if (location.startsWith(RouteNames.guestHome)) return 0;
-    if (location.startsWith(RouteNames.bookings)) return 1;
-    if (location.startsWith(RouteNames.profile)) return 2;
+    if (location.startsWith(RouteNames.hotels)) return 1;
+    if (location.startsWith(RouteNames.bookings)) return 2;
+    if (location.startsWith(RouteNames.profile)) return 3;
   }
   if (role == UserRole.staff) {
     if (location.startsWith(RouteNames.staffHome)) return 0;
@@ -213,11 +226,12 @@ _computeIndex(String location, UserRole role) {
   // admin handled by AdminLayout (no bottom nav)
   if (role == UserRole.hotelAdmin){
     if (location.startsWith(RouteNames.guestHome)) return 0;
-    if (location.startsWith(RouteNames.profile)) return 1;
-    if (location.startsWith(RouteNames.managerHotel)) return 2;
-    if (location.startsWith(RouteNames.rooms)) return 3;
-    if (location.startsWith(RouteNames.offerings)) return 4;
-    if (location.startsWith(RouteNames.hotelBookings)) return 5;
+    if (location.startsWith(RouteNames.hotels)) return 1;
+    if (location.startsWith(RouteNames.profile)) return 2;
+    if (location.startsWith(RouteNames.managerHotel)) return 3;
+    if (location.startsWith(RouteNames.rooms)) return 4;
+    if (location.startsWith(RouteNames.offerings)) return 5;
+    if (location.startsWith(RouteNames.hotelBookings)) return 6;
   }
   return 0;
 }

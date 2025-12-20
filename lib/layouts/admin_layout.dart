@@ -11,24 +11,31 @@ import 'package:soko_mtandao/widgets/dynamic_bottom_nav.dart';
 import 'package:soko_mtandao/widgets/entity_picker.dart';
 
 /// AdminLayout: layout for admin pages (hotel admin & system admin)
-class AdminLayout extends ConsumerStatefulWidget {
+class AdminLayout extends ConsumerWidget {
   final Widget child;
   
   final int selectedIndex;
-  const AdminLayout({super.key, required this.child, this.selectedIndex = 0});
+  const AdminLayout({super.key, required this.child, required this.selectedIndex});
 
   @override
-  ConsumerState<AdminLayout> createState() => _AdminLayoutState();
-}
+  Widget build(BuildContext context, WidgetRef ref){
+    final items = navItems.where((i) {
+      return i.visibleTo.contains(UserRole.hotelAdmin);
+    }).toList();
 
-class _AdminLayoutState extends ConsumerState<AdminLayout> {
-  late int _selectedIndex;
-  final AuthService authService = AuthService();
-
-  @override
-  void initState(){
-    super.initState();
-    _selectedIndex = widget.selectedIndex;
+    return Scaffold(
+      // extendBody: true,
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: child,
+      ),
+      bottomNavigationBar: DynamicBottomNav(
+        items: items,
+        selectedIndex: selectedIndex,
+        onTap: (idx) => _onItemTapped(context, idx, items[idx].routeName, ref),
+      ),
+    );
   }
 
   // void _onItemTapped(int index, String routeName){
@@ -42,6 +49,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
   //   }
   // }
   Future<List<ManagerHotel>> _fetchHotelsFromRepo(WidgetRef ref) async {
+    final AuthService authService = AuthService();
     final managerUserId = authService.currentUser?.id;
     if (managerUserId == null || managerUserId.isEmpty) return [];
   // Use ref to access repo/provider
@@ -53,9 +61,7 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     error: (err, _) => [],
   );
 }
-  void _onItemTapped(int index, String routeName, WidgetRef ref) async {
-  setState(() => _selectedIndex = index);
-
+  void _onItemTapped(BuildContext context, int , String routeName, WidgetRef ref) async {
   final needsParam = {'rooms', 'myHotel', 'hotelBookings', 'offerings'}.contains(routeName);
 
   if (needsParam) {
@@ -76,37 +82,11 @@ class _AdminLayoutState extends ConsumerState<AdminLayout> {
     } else if (routeName == 'hotelBookings') {
       context.goNamed('hotelBookings', pathParameters: {'hotelId': selectedHotel.id});
     } else if (routeName == 'myHotel') {
-      context.goNamed('myHotel', pathParameters: {'hotelId': selectedHotel.id});
+      context.goNamed('hotelPage', pathParameters: {'hotelId': selectedHotel.id});
     }
     // add other cases as needed
   } else {
     context.goNamed(routeName);
   }
 }
-
-  @override
-  Widget build(BuildContext context) {
-    final items = navItems.where((i) {
-      return i.visibleTo.contains(UserRole.hotelAdmin);
-    }).toList();
-
-    // Ensure selected index is within bounds
-    if (_selectedIndex < 0 || _selectedIndex >= navItems.length) {
-      _selectedIndex = 0; // default to first item
-    }
-
-    return Scaffold(
-      // extendBody: true,
-      body: SafeArea(
-        top: false,
-        bottom: true,
-        child: widget.child,
-      ),
-      bottomNavigationBar: DynamicBottomNav(
-        items: items,
-        selectedIndex: _selectedIndex,
-        onTap: (idx) => _onItemTapped(idx, items[idx].routeName, ref),
-      ),
-    );
-  }
 }

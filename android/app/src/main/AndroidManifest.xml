@@ -33,14 +33,21 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <!-- Custom scheme -->
-                <data android:scheme="soko_mtandao" />
+                <!-- password reset -->
+                <data 
+                    android:scheme="soko-mtandao" 
+                    android:host="reset-password"/>
+
+                <!-- payment completion from azampay -->
+                <data 
+                    android:scheme="soko-mtandao" 
+                    android:host="payment-complete"/>
 
                 <!-- OR HTTPS link to your domain -->
                 <!-- <data android:scheme="https" android:host="www.example.com" android:pathPrefix="/booking" /> -->

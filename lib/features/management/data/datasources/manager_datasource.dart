@@ -9,6 +9,7 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_booking
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_summary.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_room.dart';
 import 'package:soko_mtandao/features/management/domain/entities/staff_member.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availability.dart';
@@ -57,4 +58,6 @@ abstract class ManagerDataSource {
   Future<ManagerOffering> fetchOfferingById(String offeringId);
 
   Future<List<ManagerAmenity>> fetchAmenities();
+
+  Future<List<ManagerPayment>> fetchPayments(String hotelId);
 }

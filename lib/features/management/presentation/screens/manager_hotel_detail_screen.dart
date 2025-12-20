@@ -154,8 +154,8 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
                       context.pushNamed("hotelBookings",
                           pathParameters: {"hotelId": hotelId});
                     }),
-                    _buildActionButton("Manage Staff", Icons.people, () {
-                      context.pushNamed("managerStaff",
+                    _buildActionButton("Payments", Icons.payments, () {
+                      context.pushNamed("managerPayments",
                           pathParameters: {"hotelId": hotelId});
                     }),
                   ],

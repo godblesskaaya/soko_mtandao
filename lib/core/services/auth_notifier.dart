@@ -19,6 +19,9 @@ class AuthNotifier extends ChangeNotifier {
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
 
+  bool _isInPasswordRecovery = false;
+  bool get isInPasswordRecovery => _isInPasswordRecovery;
+
   UserRole _role = UserRole.guest;
   UserRole get role => _role;
 
@@ -37,7 +40,19 @@ class AuthNotifier extends ChangeNotifier {
     _updateFromSession();
 
     // Listen to Supabase auth changes
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((event) async {
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      final event = data.event;
+      /// Detect password recovery
+      if (event == AuthChangeEvent.passwordRecovery) {
+        _isInPasswordRecovery = true;
+      }
+
+      /// Clear recovery mode on sign in / sign out
+      if (event == AuthChangeEvent.signedIn ||
+          event == AuthChangeEvent.signedOut) {
+        _isInPasswordRecovery = false;
+      }
+
       // event contains session & event type
       _updateFromSession();
       notifyListeners();
@@ -49,6 +64,15 @@ class AuthNotifier extends ChangeNotifier {
 
   void _updateFromSession() {
     final session = _authService.session;
+
+    // 🚨 During password recovery, do NOT treat as logged in
+    if (_isInPasswordRecovery) {
+      _isLoggedIn = false;
+      _role = UserRole.guest;
+      _staffHasHotel = false;
+      return;
+    }
+
     _isLoggedIn = session != null;
     // default to guest; we'll try to fetch role synchronously-ish (async below)
     if (!_isLoggedIn) {
