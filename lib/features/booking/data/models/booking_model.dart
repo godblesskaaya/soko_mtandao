@@ -54,4 +54,16 @@ class BookingModel extends Booking {
     'total_price': totalPrice,
     'booking_cart': BookingCartModel.fromEntity(bookingCart).toJson(),
   };
+
+  factory BookingModel.fromEntity(Booking booking) {
+    return BookingModel(
+      id: booking.id,
+      user: UserModel.fromEntity(booking.user),
+      status: booking.status,
+      paymentStatus: booking.paymentStatus,
+      ticketNumber: booking.ticketNumber,
+      totalPrice: booking.totalPrice,
+      bookingCart: BookingCartModel.fromEntity(booking.bookingCart),
+    );
+  }
 }
