@@ -1,170 +1,329 @@
-// lib/features/management/presentation/pages/hotel_payments_screen.dart
+// lib/features/management/presentation/pages/manager_payments_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart'; // Add intl to your pubspec.yaml
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
-import 'package:soko_mtandao/features/management/presentation/riverpod/manager_payment_provider.dart'; 
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_payment_provider.dart';
 
 class ManagerPaymentsScreen extends ConsumerWidget {
   final String hotelId;
 
-  // Constructor requires the hotelId to query the specific payments
   const ManagerPaymentsScreen({
-    required this.hotelId, 
-    super.key
+    super.key,
+    required this.hotelId,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 1. Watch the FutureProvider.family, passing the required hotelId.
-    final paymentsAsyncValue = ref.watch(managerPaymentsProvider(hotelId));
+    final paymentsAsync = ref.watch(managerPaymentsProvider(hotelId));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Payments',
-            style: TextStyle(
-              fontSize: 20, 
-              fontWeight: FontWeight.bold
-            ),
-          ),
-        ),
-        const Divider(height: 1),
-        
-        // 2. Handle the AsyncValue states using the .when() method
-        Expanded(
-          child: paymentsAsyncValue.when(
-            // --- A. Loading State ---
-            loading: () => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Fetching hotel payments...')
-                ],
-              ),
-            ),
-            
-            // --- B. Error State ---
-            error: (error, stackTrace) {
-              // Extract the error message, preferring the custom Failure message
-              final errorMessage = (error is Failure) 
-                  ? error.message 
-                  : 'An unknown error occurred.';
-              
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+    return Scaffold(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const Divider(height: 1),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await ref.refresh(managerPaymentsProvider(hotelId).future);
+              },
+              child: paymentsAsync.when(
+                loading: () => const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Failed to Load Payments: $errorMessage',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                      // Button to retry fetching the data
-                      TextButton(
-                        onPressed: () {
-                          // This line forces the provider to re-fetch the data
-                          ref.invalidate(managerPaymentsProvider(hotelId));
-                        },
-                        child: const Text('Retry'),
-                      ),
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Fetching financial records...')
                     ],
                   ),
                 ),
-              );
-            },
-            
-            // --- C. Data State ---
-            data: (payments) {
-              if (payments.isEmpty) {
-                return const Center(child: Text('No payments recorded for this hotel.'));
-              }
-              
-              return ListView.separated(
-                itemCount: payments.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final ManagerPayment payment = payments[index];
-                  return PaymentListTile(payment: payment);
+                error: (err, _) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 200),
+                    Center(
+                      child: _ErrorState(
+                        message: err is Failure ? err.message : 'Connection error',
+                        onRetry: () => ref.invalidate(managerPaymentsProvider(hotelId)),
+                      ),
+                    ),
+                  ],
+                ),
+                data: (payments) {
+                  if (payments.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 200),
+                        Center(child: Text('No payment history found.')),
+                      ],
+                    );
+                  }
+
+                  final totalRevenue =
+                      payments.fold(0.0, (sum, p) => sum + p.amount);
+
+                  return CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      // Summary Cards
+                      SliverToBoxAdapter(
+                        child: _FinancialSummaryCards(totalRevenue: totalRevenue),
+                      ),
+                      // Payments List
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final payment = payments[index];
+                            return PaymentListTile(
+                              payment: payment,
+                              onClose: () {
+                                // Optional: refresh after detail closes
+                                ref.invalidate(managerPaymentsProvider(hotelId));
+                              },
+                            );
+                          },
+                          childCount: payments.length,
+                        ),
+                      ),
+                    ],
+                  );
                 },
-              );
-            },
+              ),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() => const Padding(
+        padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
+        child: Text(
+          'Revenue & Payments',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
+      );
+}
+
+// --- Payment List Tile ---
+class PaymentListTile extends StatelessWidget {
+  final ManagerPayment payment;
+  final VoidCallback? onClose;
+
+  const PaymentListTile({required this.payment, super.key, this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    final currencyFormatter = NumberFormat.currency(symbol: 'TZS ', decimalDigits: 0);
+    final isSuccess = payment.status.toLowerCase() == 'settled' || payment.status.toLowerCase() == 'success';
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: CircleAvatar(
+        backgroundColor: isSuccess ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+        child: Icon(
+          isSuccess ? Icons.account_balance_wallet : Icons.pending_actions,
+          color: isSuccess ? Colors.green : Colors.orange,
+        ),
+      ),
+      title: Text(
+        payment.customerName,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        'Room ${payment.roomNumber} • ${payment.nights} nights\n${DateFormat('MMM dd, yyyy').format(payment.date)}',
+      ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            currencyFormatter.format(payment.amount),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+          ),
+          const SizedBox(height: 4),
+          _StatusBadge(status: payment.status),
+        ],
+      ),
+      onTap: () => _showPaymentDetails(context, payment),
+    );
+  }
+
+  void _showPaymentDetails(BuildContext context, ManagerPayment payment) {
+    final currencyFormatter = NumberFormat.currency(symbol: 'TZS ', decimalDigits: 0);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Center(child: SizedBox(width: 40, child: Divider(thickness: 4))),
+            const SizedBox(height: 16),
+            const Text("Transaction Details", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
+            
+            _detailSection("Customer Details", [
+              _detailRow("Name", payment.customerName),
+              _detailRow("Phone", payment.customerPhone),
+              _detailRow("Ticket", "#${payment.ticketNumber}"),
+            ]),
+            
+            _detailSection("Stay Information", [
+              _detailRow("Room", payment.roomNumber),
+              _detailRow("Check-in", DateFormat('dd MMM yyyy').format(payment.checkIn)),
+              _detailRow("Check-out", DateFormat('dd MMM yyyy').format(payment.checkOut)),
+              _detailRow("Calculation", "${payment.nights} nights x ${currencyFormatter.format(payment.rate)}"),
+            ]),
+            
+            _detailSection("Payment Info", [
+              _detailRow("Settled Amount", currencyFormatter.format(payment.amount)),
+              _detailRow("Gateway Ref", payment.gatewayRef),
+              _detailRow("Method", payment.paymentMethod.toUpperCase()),
+            ]),
+            
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text("Close Detail"),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12)),
+        const SizedBox(height: 8),
+        ...children,
+        const Divider(height: 24),
       ],
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          SelectableText(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 }
 
-// --- Helper Widget for cleaner UI ---
-class PaymentListTile extends StatelessWidget {
-  final ManagerPayment payment;
+// --- Supporting Widgets ---
 
-  const PaymentListTile({required this.payment, super.key});
+class _FinancialSummaryCards extends StatelessWidget {
+  final double totalRevenue;
+  const _FinancialSummaryCards({required this.totalRevenue});
 
   @override
   Widget build(BuildContext context) {
-    // Determine color based on payment status
-    Color statusColor;
-    switch (payment.paymentStatus.toLowerCase()) {
-      case 'successful':
-      case 'paid':
-        statusColor = Colors.green;
-        break;
-      case 'pending':
-        statusColor = Colors.orange;
-        break;
-      case 'failed':
-      case 'cancelled':
-        statusColor = Colors.red;
-        break;
-      default:
-        statusColor = Colors.blueGrey;
-    }
+    final currencyFormatter = NumberFormat.currency(symbol: 'TZS ', decimalDigits: 0);
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.blue[900],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Total Settled Revenue", style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 8),
+            Text(
+              currencyFormatter.format(totalRevenue),
+              style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white54, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "This balance includes all payments cleared by the gateway for your hotel rooms.",
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: statusColor.withOpacity(0.1),
-        child: Icon(Icons.payment, color: statusColor),
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = status.toLowerCase() == 'settled' ? Colors.green : Colors.blueGrey;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
-      title: Text(
-        '${payment.customerName ?? 'Unknown Customer'}',
-        style: const TextStyle(fontWeight: FontWeight.w600),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(
-        'Booking: #${payment.ticketNumber ?? payment.bookingId}\nType: ${payment.paymentType ?? 'N/A'}',
-      ),
-      trailing: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            '${payment.amount.toStringAsFixed(2)} ${payment.currency}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            payment.paymentStatus,
-            style: TextStyle(color: statusColor, fontSize: 12),
-          ),
+          const Icon(Icons.warning_amber_rounded, size: 64, color: Colors.orange),
+          const SizedBox(height: 16),
+          Text(message, textAlign: TextAlign.center),
+          TextButton(onPressed: onRetry, child: const Text("Try Again")),
         ],
       ),
-      onTap: () {
-        // Implement navigation or a bottom sheet to show full payment details
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Viewing payment ID: ${payment.paymentId}')),
-        );
-      },
     );
   }
 }

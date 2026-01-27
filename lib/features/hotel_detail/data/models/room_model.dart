@@ -21,7 +21,7 @@ class RoomModel extends Room{
     return RoomModel(
       id: json['id'],
       number: json['room_number'] ?? '',
-      status: json['status'] ?? RoomStatus.pending,
+      status: getRoomStatusFromString(json['status']) ?? RoomStatus.pending,
       offeringId: json['offering_id'] ?? '',
     );
   }
@@ -29,9 +29,22 @@ class RoomModel extends Room{
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'number': number,
-      'status': status,
-      'offeringId': offeringId,
+      'room_number': number,
+      'status': status?.name,
+      'offering_id': offeringId,
     };
+  }
+  
+  static getRoomStatusFromString(json) {
+    switch (json) {
+      case 'available':
+        return RoomStatus.vacant;
+      case 'booked':
+        return RoomStatus.booked;
+      case 'pending':
+        return RoomStatus.pending;
+      default:
+        return null;
+    }
   }
 }

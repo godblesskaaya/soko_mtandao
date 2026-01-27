@@ -1,4 +1,4 @@
-package com.example.soko_mtandao
+package com.soko_mtandao.soko_mtandao
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -70,11 +70,13 @@ class BookingRemoteDataSource implements BookingDataSource {
   @override
   Future<BookingModel> getBooking(String bookingId) async {
     final res = await _client
-        .from('bookings') // or RPC
-        .select()
-        .eq('id', bookingId)
-        .single();
-    return BookingModel.fromJson(res);
+        .rpc("get_booking_details", params: {'p_booking_id': bookingId});
+    print("fetched booking by getbooking method: $res");
+    if (res == null || res['success'] != true) {
+      throw Exception('Failed to load booking: Booking not found');
+    }
+
+    return BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
   }
 
   @override
@@ -96,13 +98,10 @@ class BookingRemoteDataSource implements BookingDataSource {
   Future<BookingSearchResult> findBookingById(String bookingId) {
     // find the booking by id
     return _client
-        .from('bookings') // or RPC
-        .select()
-        .eq('id', bookingId)
-        .single()
+        .rpc("get_booking_details", params: {'p_booking_id': bookingId})
         .then((res) {
-          if (res != null) {
-            return BookingSearchResult(booking: BookingModel.fromJson(res), found: true);
+          if (res != null && res['success'] == true) {
+            return BookingSearchResult(booking: BookingModel.fromJson(res['booking']), found: true);
           } else {
             return BookingSearchResult(booking: null, found: false);
           }

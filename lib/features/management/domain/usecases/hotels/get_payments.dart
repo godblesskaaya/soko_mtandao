@@ -12,8 +12,8 @@ class GetPayments implements UseCase<List<ManagerPayment>, String> {
   @override
   Future<Either<Failure, List<ManagerPayment>>> call(String hotelId) async {
     try {
-      List<ManagerPayment> amenities = await repository.getPayments(hotelId);
-      return Right(amenities);
+      List<ManagerPayment> managerPayments = await repository.getPayments(hotelId);
+      return Right(managerPayments);
     } catch (e, stackTrace) {
       print("Server error fetching payments: $e");
       print(stackTrace);

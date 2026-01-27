@@ -1,6 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/widgets/app_web_view.dart';
+import 'package:url_launcher/url_launcher.dart'; // Added for external links
 import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import '../../../../core/services/auth_service.dart';
@@ -13,65 +16,195 @@ class SignupScreen extends ConsumerStatefulWidget {
 }
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
+  final _formKey = GlobalKey<FormState>();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
-  final authService = AuthService();
-  final roles = [UserRole.customer, UserRole.hotelAdmin, UserRole.staff,];
+  
+  // 1. Filtered roles to exclude Admin
+  final roles = UserRole.values.where((role) => role != UserRole.systemAdmin).toList();
   UserRole selectedRole = UserRole.customer;
+  
+  bool _acceptedPolicy = false;
+  bool _isLoading = false;
+  final authService = AuthService();
+
+  // Helper function to launch your Google Sites URL
+  Future<void> _launchPrivacyUrl() async {
+    Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const AppWebViewScreen(
+        title: "Privacy Policy",
+        url: 'https://sites.google.com/view/sokomtanda/privacy-policy',
+      ),
+    ),
+  );
+  }
 
   void signup() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedPolicy) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please accept the Privacy Policy')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
     try {
       await authService.signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
         data: {
-                'role': selectedRole.name,
-                'firstName': firstNameController.text.trim(),
-                'lastName': lastNameController.text.trim(),
-              },
+          'role': selectedRole.name,
+          'firstName': firstNameController.text.trim(),
+          'lastName': lastNameController.text.trim(),
+        },
       );
-
-      
-      if (mounted) context.go(RouteNames.splash); // Navigate to splash screen after signup
+      if (mounted) context.go(RouteNames.splash);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Signup failed: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Signup failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(controller: firstNameController, decoration: const InputDecoration(labelText: 'First Name')),
-            TextField(controller: lastNameController, decoration: const InputDecoration(labelText: 'Last Name')),
-            TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email')),
-            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
-            DropdownButtonFormField<UserRole>(items: roles.map((role) => DropdownMenuItem(value: role,
-                                              child: Text(role.name))).toList(),
-                                              onChanged: (val) {
-                                                if (val != null) setState(() => selectedRole =val);
-                                              },
-                                              decoration: const InputDecoration(labelText: 'How do you want to be recognized'),
-                                              ),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: signup, child: const Text('Sign Up')),
-                        TextButton(
-              onPressed: () {
-                context.go(RouteNames.login); // Navigate to login screen
-              },
-              child: const Text('Have an account? Login'),
-            ),
+    const brandBlue = Color.fromARGB(255, 6, 101, 153);
 
-          ],
+    return Scaffold(
+      backgroundColor: brandBlue, // 2. Applied requested background color
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.hotel_rounded, size: 70, color: Colors.white),
+                  const SizedBox(height: 10),
+                  const Text("Soko Mtandao", 
+                    style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 30),
+                  
+                  Card(
+                    elevation: 10,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          _buildField(firstNameController, "First Name", Icons.person_outline),
+                          const SizedBox(height: 15),
+                          _buildField(lastNameController, "Last Name", Icons.person_outline),
+                          const SizedBox(height: 15),
+                          _buildField(emailController, "Email", Icons.email_outlined),
+                          const SizedBox(height: 15),
+                          _buildField(passwordController, "Password", Icons.lock_outline, obscure: true),
+                          const SizedBox(height: 15),
+                          
+                          // 3. Refactored Dropdown
+                          DropdownButtonFormField<UserRole>(
+                            value: selectedRole,
+                            items: roles.map((role) => DropdownMenuItem(
+                              value: role, 
+                              child: Text(role.name[0].toUpperCase() + role.name.substring(1)))
+                            ).toList(),
+                            onChanged: (val) => setState(() => selectedRole = val!),
+                            decoration: const InputDecoration(
+                              labelText: "Registering as",
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.badge_outlined),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 10),
+                          
+                          // 4. Privacy Policy Checkbox
+                          CheckboxListTile(
+                            value: _acceptedPolicy,
+                            onChanged: (val) => setState(() => _acceptedPolicy = val!),
+                            contentPadding: EdgeInsets.zero,
+                            title: Text.rich(
+                              TextSpan(
+                                text: "I agree to the ",
+                                style: const TextStyle(fontSize: 13),
+                                children: [
+                                  TextSpan(
+                                    text: "Privacy Policy",
+                                    style: const TextStyle(color: brandBlue, fontWeight: FontWeight.bold),
+                                    recognizer: TapGestureRecognizer()..onTap = _launchPrivacyUrl,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 10),
+                          
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : signup,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brandBlue,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: _isLoading 
+                                ? const CircularProgressIndicator(color: Colors.white) 
+                                : const Text("SIGN UP", style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  TextButton(
+                    onPressed: () => context.go(RouteNames.login),
+                    child: const Text("Already have an account? Login", 
+                      style: TextStyle(color: Colors.white, fontSize: 15)),
+                  ),
+                  
+                  // 5. Account Deletion Link (Required for Play Store)
+                  TextButton(
+                    onPressed: () {
+                      // Navigate to your account deletion screen
+                      context.pushNamed('deleteAccount'); 
+                    },
+                    child: const Text("Need to delete an existing account?", 
+                      style: TextStyle(color: Colors.white60, fontSize: 13, decoration: TextDecoration.underline)),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildField(TextEditingController ctrl, String label, IconData icon, {bool obscure = false}) {
+    return TextFormField(
+      controller: ctrl,
+      obscureText: obscure,
+      validator: (v) => v!.isEmpty ? "Required" : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

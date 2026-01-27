@@ -1,48 +1,39 @@
 class ManagerPayment {
-  // Payment Details
-  final String paymentId;
+  final String settlementId;
   final double amount;
-  final String currency;
-  final String paymentStatus;
-  final String paymentType;
-  final String? externalId;
-  final String? paymentGatewayRef;
-  final DateTime paymentCreatedAt;
-  final DateTime paymentUpdatedAt;
-  final Map<String, dynamic>? paymentMetadata;
-  final Map<String, dynamic>? azampayResponse;
-  final String? verifiedBy; // Assuming UUIDs are represented as Strings
+  final String status;
+  final DateTime date;
+  
+  // Room/Stay Info
+  final String roomNumber;
+  final int nights;
+  final double rate;
+  final DateTime checkIn;
+  final DateTime checkOut;
 
-  // Booking Details (Associated)
-  final String bookingId;
-  final String? hotelId;
-  final String? ticketNumber;
-  final String? customerName;
-  final String? customerPhone;
-  final String? customerEmail;
-  final double? bookingTotalPrice;
-  final String? bookingStatus;
+  // Customer Info
+  final String customerName;
+  final String customerPhone;
+  final String ticketNumber;
 
-  const ManagerPayment({
-    required this.paymentId,
+  // Audit Info
+  final String gatewayRef;
+  final String paymentMethod;
+
+  ManagerPayment({
+    required this.settlementId,
     required this.amount,
-    required this.currency,
-    required this.paymentStatus,
-    required this.paymentType,
-    this.externalId,
-    this.paymentGatewayRef,
-    required this.paymentCreatedAt,
-    required this.paymentUpdatedAt,
-    this.paymentMetadata,
-    this.azampayResponse,
-    this.verifiedBy,
-    required this.bookingId,
-    this.hotelId,
-    this.ticketNumber,
-    this.customerName,
-    this.customerPhone,
-    this.customerEmail,
-    this.bookingTotalPrice,
-    this.bookingStatus,
+    required this.status,
+    required this.date,
+    required this.roomNumber,
+    required this.nights,
+    required this.rate,
+    required this.checkIn,
+    required this.checkOut,
+    required this.customerName,
+    required this.customerPhone,
+    required this.ticketNumber,
+    required this.gatewayRef,
+    required this.paymentMethod,
   });
 }

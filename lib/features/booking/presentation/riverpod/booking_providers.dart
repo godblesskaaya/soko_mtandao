@@ -4,7 +4,9 @@ import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/features/booking/data/datasources/booking_datasource.dart';
 import 'package:soko_mtandao/features/booking/data/datasources/booking_mock_datasource.dart';
 import 'package:soko_mtandao/features/booking/data/datasources/booking_remote_datasource.dart';
+import 'package:soko_mtandao/features/booking/data/models/booking_model.dart';
 import 'package:soko_mtandao/features/booking/data/repositories/booking_repository_impl.dart';
+import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/user_info.dart';
@@ -73,19 +75,29 @@ class BookingFlowNotifier extends StateNotifier<BookingFlowState> {
     }
   }
 
-  Future<void> load(String bookingId) async {
+  Future<void> load(String bookingId, {bool saveToHistory = false}) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
       final booking = await ref.read(getBookingProvider).call(bookingId);
+
+      if (saveToHistory) {
+        // Save to local storage
+        final localStorage = ref.read(localBookingStorageProvider);
+        await localStorage.saveBooking(BookingModel.fromEntity(booking));
+        ref.invalidate(localBookingHistoryProvider);
+      }
+
       state = state.copyWith(booking: booking, isLoading: false);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('error loading booking: $e');
+      print(stackTrace);
       state = state.copyWith(isLoading: false, error: e);
     }
   }
 }
 
 final bookingFlowProvider =
-    StateNotifierProvider<BookingFlowNotifier, BookingFlowState>((ref) => BookingFlowNotifier(ref));
+    StateNotifierProvider.autoDispose<BookingFlowNotifier, BookingFlowState>((ref) => BookingFlowNotifier(ref));
 
 /// Payment status polling
 final paymentStatusProvider = StreamProvider.family<Booking, String>((ref, bookingId) async* {

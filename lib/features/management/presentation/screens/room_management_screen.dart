@@ -13,37 +13,84 @@ class RoomListScreen extends ConsumerWidget {
     final roomsAsync = ref.watch(roomsProvider(hotelId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text("rooms")),
-      body: roomsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text("Error: $err")),
-        data: (rooms) {
-          if (rooms.isEmpty) {
-            return const Center(child: Text("No rooms yet."));
-          }
-          return ListView.builder(
-            itemCount: rooms.length,
-            itemBuilder: (_, i) {
-              final room = rooms[i];
-              return Card(
-                child: ListTile(
-                  title: Text('Room Number: ${room.roomNumber}'),
-                  subtitle: Text("From ${room.capacity} people"),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => context.pushNamed(
-                        "roomDetails", pathParameters: {"roomId": room.id}),
-                  ),
-                ),
-              );
-            },
-          );
+      appBar: AppBar(title: const Text("Rooms")),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(roomsProvider(hotelId).future);
         },
+        child: roomsAsync.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(height: 200),
+              Center(child: CircularProgressIndicator()),
+            ],
+          ),
+          error: (err, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              const SizedBox(height: 200),
+              Center(
+                child: Column(
+                  children: [
+                    Text("Error: $err"),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => ref.invalidate(roomsProvider(hotelId)),
+                      child: const Text("Retry"),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          data: (rooms) {
+            if (rooms.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 200),
+                  Center(child: Text("No rooms yet.")),
+                ],
+              );
+            }
+
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: rooms.length,
+              itemBuilder: (_, i) {
+                final room = rooms[i];
+                return Card(
+                  margin: const EdgeInsets.all(8),
+                  child: ListTile(
+                    title: Text('Room Number: ${room.roomNumber}'),
+                    subtitle: Text("Capacity: ${room.capacity} people"),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => context.pushNamed(
+                        "editRoom",
+                        pathParameters: {"roomId": room.id, "hotelId": hotelId},
+                      ),
+                    ),
+                    onTap: () => context.pushNamed(
+                      "roomDetails",
+                      pathParameters: {"roomId": room.id},
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.pushNamed("addRooms", pathParameters: {"hotelId": hotelId}),
+        onPressed: () => context.pushNamed(
+          "addRooms",
+          pathParameters: {"hotelId": hotelId},
+        ),
         child: const Icon(Icons.add),
       ),
     );
   }
 }
+

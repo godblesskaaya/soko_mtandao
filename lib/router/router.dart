@@ -23,9 +23,11 @@ import 'package:soko_mtandao/features/management/presentation/screens/manager_ho
 import 'package:soko_mtandao/features/management/presentation/screens/manager_hotel_detail_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_payments_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_room_details_screen.dart';
+import 'package:soko_mtandao/features/management/presentation/screens/manager_settings_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/offering_management_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/room_management_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/room_occupancy_calendar_screen.dart';
+import 'package:soko_mtandao/features/settings/presentation/screens/delete_account_screen.dart';
 // import 'package:soko_mtandao/features/explore/presentation/screens/hotel_detail_screen.dart';
 import 'package:soko_mtandao/features/splash/splash_screen.dart';
 import 'package:soko_mtandao/layouts/admin_layout.dart';
@@ -50,6 +52,11 @@ class AppRouter {
       routes: [
               // Splash
               GoRoute(path: RouteNames.splash, name: 'splash', builder: (c, s) => const SplashScreen()),
+              GoRoute(path: RouteNames.deleteAccount, name: 'deleteAccount', builder: (c, s) {
+                final isManagerStr = s.pathParameters['isManager'] ?? 'false';
+                final isManager = isManagerStr.toLowerCase() == 'true';
+                return DeleteAccountScreen(isManager: isManager);
+              }),
 
               // Auth layout
               ShellRoute(
@@ -146,7 +153,7 @@ class AppRouter {
                   GoRoute(
                     path: RouteNames.addOfferings,
                     name: 'addOfferings',
-                    builder: (c, s) => AddOfferingScreen(hotelId: s.pathParameters['hotelId']!),
+                    builder: (c, s) => OfferingScreen(hotelId: s.pathParameters['hotelId']!),
                   ),
                   GoRoute(
                     path: RouteNames.rooms,
@@ -156,7 +163,22 @@ class AppRouter {
                   GoRoute(
                     path: RouteNames.addRooms,
                     name: 'addRooms',
-                    builder: (c, s) => AddRoomScreen(hotelId: s.pathParameters['hotelId']!),
+                    builder: (c, s) => RoomScreen(hotelId: s.pathParameters['hotelId']!),
+                  ),
+                  GoRoute(path:  RouteNames.editOffering,
+                    name: 'editOffering',
+                    builder: (c, s) => OfferingScreen(
+                      hotelId: s.pathParameters['hotelId']!,
+                      offeringId: s.pathParameters['offeringId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: RouteNames.editRoom,
+                    name: 'editRoom',
+                    builder: (c, s) => RoomScreen(
+                      hotelId: s.pathParameters['hotelId']!,
+                      roomId: s.pathParameters['roomId']!,
+                    ),
                   ),
                   GoRoute(
                     path: RouteNames.roomDetails,
@@ -177,6 +199,16 @@ class AppRouter {
                     path: RouteNames.managerPayments,
                     name: 'managerPayments',
                     builder: (c, s) => ManagerPaymentsScreen(hotelId: s.pathParameters['hotelId']!),
+                  ),
+                  GoRoute(
+                    path: RouteNames.editHotel,
+                    name: 'editHotel',
+                    builder: (c, s) => AddHotelScreen(hotelId: s.pathParameters['hotelId']!),
+                  ),
+                  GoRoute(
+                    path: RouteNames.settings,
+                    name: 'settings',
+                    builder: (c, s) => const ManagerSettingsScreen(),
                   ),
 
                 ],

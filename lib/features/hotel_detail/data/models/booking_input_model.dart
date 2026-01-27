@@ -36,8 +36,8 @@ class BookingInputModel extends BookingInput {
   Map<String, dynamic> toJson() {
     return {
       'hotel': HotelModel.fromEntity(hotel).toJson(),
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
+      'start_date': startDate.toIso8601String(),
+      'end_date': endDate.toIso8601String(),
       'items': items.map((item) => BookingItemInputModel.fromEntity(item).toJson()).toList(),
     };
   }

@@ -16,55 +16,70 @@ class ManagerRoomDetailsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncRoomDetails = ref.watch(managerRoomDetailsProvider(roomId));
 
-    return asyncRoomDetails.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Room Details"),
       ),
-      error: (error, _) => Scaffold(
-        body: Center(
-          child: Text('Error loading room details: $error'),
-        ),
-      ),
-      data: (details) {
-        final room = details.room;
-        final offering = details.offering;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("Room ${room.roomNumber}"),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  // Navigate to edit page
-                },
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(managerRoomDetailsProvider(roomId).future);
+        },
+        child: asyncRoomDetails.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(height: 200),
+              Center(child: CircularProgressIndicator()),
+            ],
+          ),
+          error: (error, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              const SizedBox(height: 200),
+              Center(
+                child: Column(
+                  children: [
+                    Text('Error loading room details: $error'),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () {
+                        ref.invalidate(managerRoomDetailsProvider(roomId));
+                      },
+                      child: const Text("Retry"),
+                    )
+                  ],
+                ),
               ),
             ],
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RoomHeaderCard(room: room, offering: offering),
-                const SizedBox(height: 20),
-                // RoomOfferingSection(offering: offering),
-                // const SizedBox(height: 20),
-                IconButton(
-                  icon: const Icon(Icons.add_chart_outlined),
-                  onPressed: () => context.pushNamed(
-                      "roomBookings", pathParameters: {"roomId": room.id}),
-                ),
+          data: (details) {
+            final room = details.room;
+            final offering = details.offering;
 
-                const SizedBox(height: 20),
-                RoomActions(
-                  roomId: roomId,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RoomHeaderCard(room: room, offering: offering),
+                  const SizedBox(height: 20),
+                  TextButton.icon(
+                    onPressed: () => context.pushNamed(
+                      "roomBookings",
+                      pathParameters: {"roomId": room.id},
+                    ),
+                    icon: const Icon(Icons.add_chart_outlined),
+                    label: const Text("Room Booking Statistics"),
+                  ),
+                  const SizedBox(height: 20),
+                  RoomActions(roomId: roomId),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 }

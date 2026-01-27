@@ -14,34 +14,85 @@ class OfferingListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Offerings")),
-      body: offeringsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text("Error: $err")),
-        data: (offerings) {
-          if (offerings.isEmpty) {
-            return const Center(child: Text("No offerings yet."));
-          }
-          return ListView.builder(
-            itemCount: offerings.length,
-            itemBuilder: (_, i) {
-              final off = offerings[i];
-              return Card(
-                child: ListTile(
-                  title: Text(off.title),
-                  subtitle: Text("From \$${off.basePrice}/night"),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => Navigator.pushNamed(
-                        context, "/manager/offerings/${off.id}/edit"),
-                  ),
-                ),
-              );
-            },
-          );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(offeringsProvider(hotelId).future);
         },
+        child: offeringsAsync.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(height: 200),
+              Center(child: CircularProgressIndicator()),
+            ],
+          ),
+          error: (err, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              const SizedBox(height: 200),
+              Center(
+                child: Column(
+                  children: [
+                    Text("Error: $err"),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => ref.invalidate(offeringsProvider(hotelId)),
+                      child: const Text("Retry"),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          data: (offerings) {
+            if (offerings.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  const SizedBox(height: 200),
+                  const Center(child: Text("No offerings yet.")),
+                ],
+              );
+            }
+
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: offerings.length,
+              itemBuilder: (_, i) {
+                final off = offerings[i];
+                return Card(
+                  margin: const EdgeInsets.all(8),
+                  child: ListTile(
+                    title: Text(off.title),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(off.description),
+                        Text("TZS ${off.basePrice}/night"),
+                      ],
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () => context.pushNamed(
+                        "editOffering",
+                        pathParameters: {
+                          "offeringId": ?off.id,
+                          "hotelId": hotelId,
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.pushNamed("addOfferings", pathParameters: {"hotelId": hotelId}),
+        onPressed: () => context.pushNamed(
+          "addOfferings",
+          pathParameters: {"hotelId": hotelId},
+        ),
         child: const Icon(Icons.add),
       ),
     );

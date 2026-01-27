@@ -32,9 +32,31 @@ class LocalBookingStorage {
     final prefs = await SharedPreferences.getInstance();
     final List<String> rawList = prefs.getStringList(_storageKey) ?? [];
 
-    return rawList
-        .map((item) => BookingModel.fromJson(jsonDecode(item)))
-        .toList();
+    // print debug info
+    print('Retrieved ${rawList.length} bookings from local storage.');
+    print('Raw data: $rawList');
+
+    final List<Booking> bookings = [];
+    for (var i=0; i<rawList.length; i++) {
+      final item = rawList[i];
+
+      try {
+        final Map<String, dynamic> json = jsonDecode(item);
+        print(  'decoded json type: ${json.runtimeType}');
+        print('decoded json content: ${json.keys}');
+        print('decoded jsonvalues: ${json.values}');
+
+        final booking = BookingModel.fromJson(json);
+        print('successfully parsed booking with id: ${booking.id}');
+        bookings.add(booking);
+      } catch (e, stackTrace) {
+        // If parsing fails, skip this entry
+        print('Failed to parse booking from local storage: $e');
+        print('Stack trace: $stackTrace');
+      }
+    }
+
+    return bookings;
   }
   
   // Optional: Clear history

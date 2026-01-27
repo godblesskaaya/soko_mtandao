@@ -20,6 +20,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _paymentLaunched = false;
   bool _isProcessing = false;
+  bool _isLaunching = false;
 
   @override
   void initState() {
@@ -55,7 +56,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // );
 
       // use url_launcher and custom tabs
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication, webViewConfiguration: const WebViewConfiguration());
+      await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView, webViewConfiguration: const WebViewConfiguration());
     } catch (e) {
       debugPrint('Error launching payment tab: $e');
       if (mounted) {

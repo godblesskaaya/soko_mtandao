@@ -43,7 +43,7 @@ class OfferingModel extends Offering{
       'id': id,
       'title': title,
       'description': description,
-      'price_per_night': pricePerNight,
+      'price': pricePerNight,
       'max_guests': maxGuests,
       'amenities': amenities.map((a) => {
         'id': a.id,

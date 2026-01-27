@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
 import 'package:soko_mtandao/features/management/domain/usecases/offerings/add_offering.dart';
+import 'package:soko_mtandao/features/management/domain/usecases/offerings/get_offering_by_id.dart';
 import 'package:soko_mtandao/features/management/domain/usecases/offerings/get_offerings_for_hotel.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
 
@@ -16,6 +17,20 @@ final offeringsProvider = FutureProvider.family<List<ManagerOffering>, String>((
   return ref.watch(getOfferingsForHotelProvider).call(hotelId).then((result) =>
     result.fold((failure) => throw failure, (offerings) => offerings)
   );
+});
+
+final getOfferingDetailsUseCaseProvider = Provider<GetOfferingsById>((ref) {
+  final repo = ref.watch(managerRepositoryProvider);
+  return GetOfferingsById(repo);
+});
+
+final offeringDetailsProvider = FutureProvider.family<ManagerOffering, String>((ref, offeringId) {
+  return ref.watch(getOfferingDetailsUseCaseProvider).call(offeringId).then((result) => 
+    result.fold(
+      (failure) => throw failure,
+      (offering) => offering,
+    ),
+    );
 });
 
 final addOfferingUseCaseProvider = Provider<AddOffering>((ref) {

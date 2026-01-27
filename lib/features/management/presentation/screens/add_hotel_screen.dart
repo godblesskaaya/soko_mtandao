@@ -5,15 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:soko_mtandao/core/usecases/usecase.dart';
+import 'package:soko_mtandao/features/management/domain/entities/editable_image.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/add_hotel_provider.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/edit_hotel_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_amenity_provider.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart' hide addHotelProvider;
 import 'package:soko_mtandao/features/management/presentation/widgets/location_picker.dart';
 import 'package:soko_mtandao/widgets/dynamic_multiselect_field.dart';
 import '../../../hotel_detail/domain/entities/amenity.dart';
 
 class AddHotelScreen extends ConsumerStatefulWidget {
-  const AddHotelScreen({super.key});
+  final String? hotelId;
+  const AddHotelScreen({super.key, this.hotelId});
 
   @override
   ConsumerState<AddHotelScreen> createState() => _AddHotelScreenState();
@@ -39,68 +43,134 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
 
   // State
   List<ManagerAmenity> selectedAmenities = [];
-  List<File> images = [];
+  List<EditableImage> images = [];
 
   final ImagePicker _picker = ImagePicker();
 
+  bool _initialized = false;
+
   @override
   void dispose() {
-    _nameController.dispose();
-    _addressController.dispose();
-    _descriptionController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
-    _ratingController.dispose();
-    _regionController.dispose();
-    _countryController.dispose();
-    _cityController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
-    _websiteController.dispose();
-    _roomsController.dispose();
+    for (final c in [
+      _nameController,
+      _addressController,
+      _descriptionController,
+      _latController,
+      _lngController,
+      _ratingController,
+      _roomsController,
+      _regionController,
+      _countryController,
+      _cityController,
+      _phoneController,
+      _emailController,
+      _websiteController,
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
+  /// -------- PREFILL FOR EDIT --------
+  void _initializeFromHotel(hotel) {
+    _nameController.text = hotel.name;
+    _addressController.text = hotel.address ?? '';
+    _descriptionController.text = hotel.description ?? '';
+    _latController.text = hotel.lat.toString();
+    _lngController.text = hotel.lng.toString();
+    _ratingController.text = hotel.rating.toString();
+    _roomsController.text = hotel.totalRooms.toString();
+    _regionController.text = hotel.region;
+    _countryController.text = hotel.country;
+    _cityController.text = hotel.city;
+    _phoneController.text = hotel.phoneNumber ?? '';
+    _emailController.text = hotel.email ?? '';
+    _websiteController.text = hotel.website ?? '';
+
+    images = hotel.images
+        .map<EditableImage>((url) => EditableImage.remote(url))
+        .toList();
+
+    selectedAmenities = hotel.amenities;
+    _initialized = true;
+  }
+
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(
+    final file = await _picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 1200,
       imageQuality: 80,
     );
-    if (pickedFile != null) {
+
+    if (file != null) {
       setState(() {
-        images.add(File(pickedFile.path));
+        images.add(EditableImage.local(file.path));
       });
     }
   }
 
   void _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final notifier = ref.read(addHotelProvider.notifier);
+      if (widget.hotelId == null) {
+        final notifier = ref.read(addHotelProvider.notifier);
 
-      await notifier.addHotel(
-        name: _nameController.text,
-        address: _addressController.text,
-        description: _descriptionController.text,
-        images: images.map((image) => image.path).toList(),
-        amenities: selectedAmenities,
-        lat: _latController.text,
-        lng: _lngController.text,
-        rating: double.tryParse(_ratingController.text) ?? 0.0,
-        totalRooms: int.tryParse(_roomsController.text) ?? 0,
-        region: _regionController.text,
-        country: _countryController.text,
-        city: _cityController.text,
-        phoneNumber: _phoneController.text,
-        email: _emailController.text,
-        website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
-      );
+        await notifier.addHotel(
+          name: _nameController.text,
+          address: _addressController.text,
+          description: _descriptionController.text,
+          images: images.map((image) => image.path).toList(),
+          amenities: selectedAmenities,
+          lat: _latController.text,
+          lng: _lngController.text,
+          rating: double.tryParse(_ratingController.text) ?? 0.0,
+          totalRooms: int.tryParse(_roomsController.text) ?? 0,
+          region: _regionController.text,
+          country: _countryController.text,
+          city: _cityController.text,
+          phoneNumber: _phoneController.text,
+          email: _emailController.text,
+          website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
+        );
+      } else {
+        final notifier = ref.read(editHotelProvider.notifier);
+
+        await notifier.updateHotel(
+          hotelId: widget.hotelId!,
+          name: _nameController.text,
+          address: _addressController.text,
+          description: _descriptionController.text,
+          images: images,
+          amenities: selectedAmenities,
+          lat: double.tryParse(_latController.text) ?? 0.0,
+          lng: double.tryParse(_lngController.text) ?? 0.0,
+          rating: double.tryParse(_ratingController.text) ?? 0.0,
+          totalRooms: int.tryParse(_roomsController.text) ?? 0,
+          region: _regionController.text,
+          country: _countryController.text,
+          city: _cityController.text,
+          phoneNumber: _phoneController.text,
+          email: _emailController.text,
+          website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
+        );
+      }
+
+      if(widget.hotelId != null) {
+        ref.invalidate(hotelDetailProvider(widget.hotelId!));
+      }
+
+      ref.invalidate(managerHotelsProvider);
 
       if (mounted) {
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Hotel added successfully')),
-        );
+        if (widget.hotelId != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Hotel updated successfully')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Hotel added successfully')),
+          );
+        }
         Navigator.pop(context, true); // return success
       }
     }
@@ -109,9 +179,41 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(addHotelProvider);
-    final amenities = ref.watch(managerAmenitiesProvider);
+    final amenitiesAsync = ref.watch(managerAmenitiesProvider);
 
-    return state.isLoading
+/// ------- EDIT MODE -------
+    if (widget.hotelId != null) {
+      final hotelAsync = ref.watch(
+        hotelDetailProvider(widget.hotelId!),
+      );
+
+      hotelAsync.when(
+        loading: () => const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+        error: (err, _) {
+          return Scaffold(
+            appBar: AppBar(title: const Text("Edit Hotel")),
+            body: Center(child: Text("Error loading hotel: $err")),
+          );
+        },
+        data: (hotel) {
+          if (!_initialized) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+             setState(() => _initializeFromHotel(hotel));
+            });
+          }
+          return _buildForm(context, amenitiesAsync);
+        },
+      );
+    }
+    // ------- ADD MODE -------
+    return _buildForm(context, amenitiesAsync);
+  }
+  Widget _buildForm(BuildContext context, AsyncValue amenitiesAsync) {
+    final editState = ref.watch(editHotelProvider);
+
+    return editState.isLoading
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -123,7 +225,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      "Add New Hotel",
+                      widget.hotelId != null ? "Edit Hotel" : "Add New Hotel",
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                   ),
@@ -254,13 +356,16 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                   Wrap(
                     children: images
                         .map(
-                          (file) => Stack(
+                          (img) => Stack(
                             alignment: Alignment.topRight,
                             children: [
                               Padding(
                                 padding: const EdgeInsets.all(4.0),
-                                child: Image.file(
-                                  file,
+                                child: Image(
+                                  image: img.isRemote
+                                      ? NetworkImage(img.path)
+                                      : FileImage(File(img.path))
+                                          as ImageProvider,
                                   width: 80,
                                   height: 80,
                                   fit: BoxFit.cover,
@@ -269,7 +374,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                               IconButton(
                                 onPressed: () {
                                   setState(() {
-                                    images.remove(file);
+                                    images.remove(img);
                                   });
                                 },
                                 icon: const Icon(
@@ -293,7 +398,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                   const SizedBox(height: 24),
 
                   ElevatedButton(
-                    onPressed: state.isLoading ? null : _submit,
+                    onPressed: editState.isLoading ? null : _submit,
                     child: const Text("Save Hotel"),
                   ),
                 ],

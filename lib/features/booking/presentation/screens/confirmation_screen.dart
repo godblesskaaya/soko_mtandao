@@ -19,61 +19,88 @@ class BookingConfirmationScreen extends ConsumerStatefulWidget {
 class _BookingConfirmationScreenState
     extends ConsumerState<BookingConfirmationScreen> {
   @override
-  void initstate() {
+  void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.invalidate(bookingFlowProvider);
-      ref.read(bookingFlowProvider.notifier).load(widget.bookingId);
-      _loadAndSave();
+
+    Future.microtask(() async {
+      await ref
+          .read(bookingFlowProvider.notifier)
+          .load(widget.bookingId, saveToHistory: true);
     });
-  }
 
-  Future<void> _loadAndSave() async {
-    final flowNotifier = ref.read(bookingFlowProvider.notifier);
-    await flowNotifier.load(widget.bookingId);
+    // WidgetsBinding.instance.addPostFrameCallback((_) async{
+    //   final notifier = ref.read(bookingFlowProvider.notifier);
+    //   await notifier.load(widget.bookingId);
 
-    final flowState = ref.read(bookingFlowProvider);
-    if (flowState.booking != null) {
-      await ref.read(localBookingStorageProvider).saveBooking(BookingModel.fromEntity(flowState.booking!));
-      ref.invalidate(localBookingHistoryProvider);
-    }
+    //   final booking = ref.read(bookingFlowProvider).booking;
+    //   if (booking != null) {
+    //     await ref
+    //         .read(localBookingStorageProvider)
+    //         .saveBooking(BookingModel.fromEntity(booking));
+    //     ref.invalidate(localBookingHistoryProvider);
+    //   }
+    // });
   }
 
   @override
   Widget build(BuildContext context) {
     final flow = ref.watch(bookingFlowProvider);
-    if (flow.booking == null || flow.booking!.id != widget.bookingId) {
-      ref.read(bookingFlowProvider.notifier).load(widget.bookingId);
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Booking Confirmed')),
-      body: flow.booking == null
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
+      body: Builder(
+        builder: (context){
+          if (flow.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (flow.error != null) {
+            return Center(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.check_circle, size: 48, color: Colors.green),
-                  const SizedBox(height: 12),
-                  Text('Thank you, ${flow.booking!.user.name}.',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-
-                  BookingDetailsWidget(booking: flow.booking!, showPriceSummary: true),
-
-                  const Spacer(),
+                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  Text('Something went wrong: ${flow.error}'),
+                  const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      ref.invalidate(bookingFlowProvider);
-                      context.go(RouteNames.guestHome);
+                      ref.read(bookingFlowProvider.notifier).load(widget.bookingId);
                     },
-                    child: const Text('Back to Home'),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
+            );
+          }
+
+          if (flow.booking == null) {
+            return const Center(child: Text('Booking details not found.'));
+          }
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.check_circle, size: 48, color: Colors.green),
+                const SizedBox(height: 12),
+                Text('Thank you, ${flow.booking!.user.name}.',
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 8),
+
+                BookingDetailsWidget(booking: flow.booking!, showPriceSummary: true),
+
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () {
+                    context.go(RouteNames.guestHome);
+                  },
+                  child: const Text('Back to Home'),
+                ),
+              ],
             ),
+          );
+        }
+      ),
     );
   }
 }

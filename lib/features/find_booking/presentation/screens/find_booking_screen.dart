@@ -182,8 +182,9 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                   backgroundColor: Colors.blueAccent,
                   child: Icon(Icons.bookmark, color: Colors.white),
                 ),
-                title: Text("Booking #${booking.id}"),
-                subtitle: Text("Place: ${booking.bookingCart.bookings.first.hotel.name}\nDate: ${booking.bookingCart.bookings.first.startDate} to ${booking.bookingCart.bookings.first.endDate}"),
+                title: Text("Booking #${booking.ticketNumber}"),
+                // convert date to readable format
+                subtitle: Text("Place: ${booking.bookingCart.bookings.first.hotel.name}\nDate: ${booking.bookingCart.bookings.first.startDate.toIso8601String().substring(0, 10)} to ${booking.bookingCart.bookings.first.endDate.toIso8601String().substring(0, 10)}"),
                 isThreeLine: true,
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {

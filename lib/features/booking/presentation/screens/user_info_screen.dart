@@ -42,12 +42,23 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                     TextFormField(
                       controller: emailCtrl,
                       decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      // validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return null;
+                        final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                        if (!emailRegex.hasMatch(v!)) return 'Invalid email';
+                        return null;
+                      },
                     ),
                     TextFormField(
                       controller: phoneCtrl,
                       decoration: const InputDecoration(labelText: 'Phone'),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      validator: (v) {
+                        if (v == null || v.isEmpty) return 'Required';
+                        final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                        if (!phoneRegex.hasMatch(v)) return 'Invalid phone number';
+                        return null;
+                        },
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(

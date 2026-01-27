@@ -47,12 +47,12 @@ class BookingModel extends Booking {
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'user': UserModel.fromEntity(user).toJson(),
+    'user_data': UserModel.fromEntity(user).toJson(),
     'status': status.name,
     'payment_status': paymentStatus.name,
     'ticket_number': ticketNumber,
     'total_price': totalPrice,
-    'booking_cart': BookingCartModel.fromEntity(bookingCart).toJson(),
+    'cart': BookingCartModel.fromEntity(bookingCart).toJson(),
   };
 
   factory BookingModel.fromEntity(Booking booking) {

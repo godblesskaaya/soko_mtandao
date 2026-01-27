@@ -13,190 +13,194 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
     final hotelAsync = ref.watch(hotelDetailProvider(hotelId));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text("Hotel Details"),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () => context.pushNamed(
-              "editHotel",
-              pathParameters: {"hotelId": hotelId},
-            ),
-          )
+            onPressed: () async {
+              await context.pushNamed(
+                "editHotel",
+                pathParameters: {"hotelId": hotelId},
+              );
+
+              // Refresh after edit
+              ref.invalidate(hotelDetailProvider(hotelId));
+            },
+          ),
         ],
       ),
-      body: hotelAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text("Error: $err")),
-        data: (hotel) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 🖼️ Cover Image
-                if (hotel.images != null || hotel.images!.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      hotel.images!.first,
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                const SizedBox(height: 16),
-
-                // 🏨 Hotel Name + Address + Location
-                Text(
-                  hotel.name,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 18),
-                    const SizedBox(width: 4),
-                    Expanded(child: Text(hotel.address ?? "No address")),
-                  ],
-                ),
-                Row(children: [
-                  const Icon(Icons.location_on, size: 18),
-                  const SizedBox(width: 4),
-                  Expanded(child: Text("${hotel.lat} ${hotel.lng}" ?? "No location")),
-                ]),
-                const SizedBox(height: 8),
-                if (hotel.email != null)
-                  Row(
-                    children: [
-                      const Icon(Icons.email, size: 18),
-                      const SizedBox(width: 4),
-                      Text(hotel.email!),
-                    ],
-                  ),
-                if (hotel.phoneNumber != null)
-                  Row(
-                    children: [
-                      const Icon(Icons.phone, size: 18),
-                      const SizedBox(width: 4),
-                      Text(hotel.phoneNumber!),
-                    ],
-                  ),
-
-                const Divider(height: 32),
-
-                // 📝 Description
-                if (hotel.description != null)
-                  Text(
-                    hotel.description!,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-
-                const SizedBox(height: 20),
-
-                // 🛎️ Amenities
-                if (hotel.amenities.isNotEmpty) ...[
-                  Text("Amenities",
-                      style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: hotel.amenities
-                        .map((amenity) => Chip(label: Text(amenity.toString())))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // // 📊 Quick Stats
-                // Text("Hotel Overview",
-                //     style: Theme.of(context).textTheme.titleMedium),
-                // const SizedBox(height: 8),
-                // Row(
-                //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                //   children: [
-                //     _buildStatCard("Rooms", hotel.totalRooms.toString(),
-                //         Icons.meeting_room, context),
-                //     _buildStatCard("Offerings", hotel.totalOfferings.toString(),
-                //         Icons.king_bed, context),
-                //     _buildStatCard("Staff", hotel.totalStaff.toString(),
-                //         Icons.people, context),
-                //     _buildStatCard("Bookings", hotel.totalBookings.toString(),
-                //         Icons.book_online, context),
-                //   ],
-                // ),
-
-                // const SizedBox(height: 24),
-
-                // ⚡ Action Buttons
-                Text("Manage",
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _buildActionButton("Offerings", Icons.add_box, () {
-                      context.pushNamed("offerings",
-                          pathParameters: {"hotelId": hotelId});
-                    }),
-                    _buildActionButton("Rooms", Icons.add_home_work, () {
-                      context.pushNamed("rooms",
-                          pathParameters: {"hotelId": hotelId});
-                    }),
-                    _buildActionButton("View Bookings", Icons.book_online, () {
-                      context.pushNamed("hotelBookings",
-                          pathParameters: {"hotelId": hotelId});
-                    }),
-                    _buildActionButton("Payments", Icons.payments, () {
-                      context.pushNamed("managerPayments",
-                          pathParameters: {"hotelId": hotelId});
-                    }),
-                  ],
-                ),
-              ],
-            ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref.refresh(
+            hotelDetailProvider(hotelId).future,
           );
         },
-      ),
-    );
-  }
+        child: hotelAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
 
-  Widget _buildStatCard(
-      String label, String value, IconData icon, BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 28, color: Theme.of(context).primaryColor),
-            const SizedBox(height: 6),
-            Text(value,
+          error: (err, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              const SizedBox(height: 200),
+              Center(child: Text("Error: $err")),
+              const SizedBox(height: 8),
+              const Center(child: Text("Pull down to retry")),
+            ],
+          ),
+
+          data: (hotel) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              /// 🖼️ Cover Image
+              if (hotel.images != null && hotel.images!.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    hotel.images!.first,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              /// 🏨 Name & Location
+              Text(
+                hotel.name,
                 style: Theme.of(context)
                     .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            Text(label,
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center),
-          ],
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+
+              Row(
+                children: [
+                  const Icon(Icons.location_on, size: 18),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(hotel.address ?? "No address"),
+                  ),
+                ],
+              ),
+
+              Row(
+                children: [
+                  const Icon(Icons.map, size: 18),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      "${hotel.lat} ${hotel.lng}",
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              if (hotel.email != null)
+                Row(
+                  children: [
+                    const Icon(Icons.email, size: 18),
+                    const SizedBox(width: 4),
+                    Text(hotel.email!),
+                  ],
+                ),
+
+              if (hotel.phoneNumber != null)
+                Row(
+                  children: [
+                    const Icon(Icons.phone, size: 18),
+                    const SizedBox(width: 4),
+                    Text(hotel.phoneNumber!),
+                  ],
+                ),
+
+              const Divider(height: 32),
+
+              /// 📝 Description
+              if (hotel.description != null)
+                Text(
+                  hotel.description!,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+
+              const SizedBox(height: 20),
+
+              /// 🛎️ Amenities
+              if (hotel.amenities.isNotEmpty) ...[
+                Text(
+                  "Amenities",
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: hotel.amenities
+                      .map(
+                        (a) => Chip(label: Text(a.toString())),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              /// ⚡ Manage Actions
+              Text(
+                "Manage",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  _buildActionButton("Offerings", Icons.add_box, () {
+                    context.pushNamed(
+                      "offerings",
+                      pathParameters: {"hotelId": hotelId},
+                    );
+                  }),
+                  _buildActionButton("Rooms", Icons.add_home_work, () {
+                    context.pushNamed(
+                      "rooms",
+                      pathParameters: {"hotelId": hotelId},
+                    );
+                  }),
+                  _buildActionButton("View Bookings", Icons.book_online, () {
+                    context.pushNamed(
+                      "hotelBookings",
+                      pathParameters: {"hotelId": hotelId},
+                    );
+                  }),
+                  _buildActionButton("Payments", Icons.payments, () {
+                    context.pushNamed(
+                      "managerPayments",
+                      pathParameters: {"hotelId": hotelId},
+                    );
+                  }),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, VoidCallback onTap) {
+  Widget _buildActionButton(
+    String label,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(

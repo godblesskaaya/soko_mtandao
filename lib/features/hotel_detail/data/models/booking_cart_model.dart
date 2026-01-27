@@ -29,6 +29,8 @@ class BookingCartModel extends BookingCart {
             .toList(),
       );
     } else {
+      print('Invalid JSON type for BookingCartModel: ${json.runtimeType}');
+      print('JSON content: $json');
       throw ArgumentError('Invalid JSON type for BookingCartModel');
     }
   }

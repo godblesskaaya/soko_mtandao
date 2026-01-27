@@ -116,14 +116,17 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
   
   @override
-  Future<void> deleteOffering(String offeringId) {
-    // TODO: implement deleteOffering
-    throw UnimplementedError();
+  Future<void> deleteOffering(String offeringId) async{
+    await _supabase.from('offerings')
+        .delete()
+        .eq('id', offeringId);
   }
   
   @override
-  void deleteRoom(String roomId) {
-    // TODO: implement deleteRoom
+  void deleteRoom(String roomId) async{
+    await _supabase.from('hotel_rooms')
+        .delete()
+        .eq('id', roomId);
   }
   
   @override
@@ -225,19 +228,27 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   
   @override
   Future<ManagerOfferingModel> updateOffering(ManagerOffering offering) {
-    // TODO: implement updateOffering
-    throw UnimplementedError();
+    final res = _supabase.from('offerings')
+        .update(ManagerOfferingModel.fromEntity(offering).toJson())
+        .eq('id', offering.id as Object)
+        .select()
+        .single();
+    return res.then((value) => ManagerOfferingModel.fromJson(value));
   }
   
   @override
   Future<ManagerRoomModel> updateRoom(ManagerRoom room) {
-    // TODO: implement updateRoom
-    throw UnimplementedError();
+    final res = _supabase.from('hotel_rooms')
+        .update(ManagerRoomModel.fromEntity(room).toJson())
+        .eq('id', room.id as Object)
+        .select()
+        .single();
+    return res.then((value) => ManagerRoomModel.fromJson(value));
   }
   
   @override
   Future<void> updateRoomStatus(RoomStatus statusData) async {
-    // Convert dates to ISO strings (yyyy-mm-dd)
+    // Convert dates to ISO strings (yyyy-mm-dd )
     List<String>? dates;
     if (statusData.dates != null && statusData.dates!.isNotEmpty) {
       dates = statusData.dates!
@@ -299,7 +310,7 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   Future<List<ManagerPaymentModel>> fetchPayments(String hotelId) async{
       // Supabase treats the view just like a table for SELECT queries.
       final response = await _supabase
-          .from('hotel_payments_view')
+          .from('manager_hotel_payments_view')
           .select()
           .eq('hotel_id', hotelId); // Filter by the hotel_id column
 

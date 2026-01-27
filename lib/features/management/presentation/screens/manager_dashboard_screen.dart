@@ -19,21 +19,17 @@ class ManagerDashboardScreen extends ConsumerStatefulWidget {
 
 class _ManagerDashboardScreenState
     extends ConsumerState<ManagerDashboardScreen> {
-  Future<void> _refresh() async {
-    // refresh both profile + bookings
-    ref.invalidate(managerProfileProvider);
-    // ref.invalidate(bookingListProvider);
-  }
-
   final AuthService authService = AuthService();
+
+  Future<void> _refresh() async {
+    await ref.refresh(managerProfileProvider.future);
+  }
 
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(managerProfileProvider);
-    // final bookingsAsync = ref.watch(bookingListProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text("Hotel Manager Dashboard"),
         actions: [
@@ -49,156 +45,148 @@ class _ManagerDashboardScreenState
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: SingleChildScrollView(
+        child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 👤 Manager Profile
-              profileAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Card(
-                  child: ListTile(
-                    title: const Text("Error loading profile"),
-                    subtitle: Text(err.toString()),
-                  ),
+          padding: const EdgeInsets.all(16),
+          children: [
+            /// 👤 Manager Profile
+            profileAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(),
+              ),
+              error: (err, _) => Card(
+                child: ListTile(
+                  title: const Text("Error loading profile"),
+                  subtitle: Text(err.toString()),
+                  trailing: const Text("Pull to retry"),
                 ),
-                data: (managerProfile) {
-                  return Card(
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        // backgroundImage: managerProfile.userMetadata != null
-                        //     ? NetworkImage(managerProfile.userMetadata!['avatarUrl'] as String)
-                        //     : null,
-                        child: managerProfile.userMetadata!['avatarUrl'] == null
+              ),
+              data: (managerProfile) => Card(
+                child: ListTile(
+                  leading: CircleAvatar(
+                    child:
+                        managerProfile.userMetadata?['avatarUrl'] == null
                             ? const Icon(Icons.person)
                             : null,
+                  ),
+                  title: Text(
+                    managerProfile.userMetadata?['fullName'] ?? "Manager",
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(managerProfile.email ?? ""),
+                      Text("Phone: ${managerProfile.phone ?? "-"}"),
+                      TextButton(
+                        onPressed: () =>
+                            context.pushNamed("editManagerProfile"),
+                        child: const Text("Edit Profile"),
                       ),
-                      title: Text(managerProfile.userMetadata!['fullName'] ?? "Manager"),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(managerProfile.email ?? ""),
-                          Text("Phone: ${managerProfile.phone ?? "-"}"),
-                          // button to edit profile
-                          TextButton(
-                            onPressed: () =>
-                                context.pushNamed("editManagerProfile"),
-                            child: const Text("Edit Profile"),
-                          ),
-                          // button to logout
-                          TextButton(
-                            onPressed: () async {
-                              await authService.signOut();
-                              if (mounted) context.goNamed("guestHome");
-                            },
-                            child: const Text("Logout"),
-                          ),
-                        ],
+                      TextButton(
+                        onPressed: () async {
+                          await authService.signOut();
+                          if (mounted) {
+                            context.goNamed("guestHome");
+                          }
+                        },
+                        child: const Text("Logout"),
                       ),
-                    ),
-                  );
-                },
+                    ],
+                  ),
+                ),
               ),
+            ),
 
-              const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-              // ⚡ Quick Actions
-              Text("Quick Actions",
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _buildActionButton(
-                      "Hotels", Icons.book_online, context, "hotelList", pathParameters: {"managerUserId": authService.currentUser?.id ?? ""}),
-                  _buildActionButton(
-                      "Rooms", Icons.meeting_room, context, "rooms"),
-                  _buildActionButton(
-                      "Offerings", Icons.people, context, "offerings", pathParameters: {}),
-                  _buildActionButton(
-                      "Bookings", Icons.bar_chart, context, "hotelBookings"),
-                  _buildActionButton(
-                      "Payments", Icons.payments, context, "managerPayments"),
-                ],
-              ),
+            /// ⚡ Quick Actions
+            Text(
+              "Quick Actions",
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
 
-              const SizedBox(height: 30),
-
-              // // 📅 Upcoming Bookings
-              // Text("Upcoming Check-ins",
-              //     style: Theme.of(context).textTheme.titleMedium),
-              // const SizedBox(height: 10),
-              // bookingsAsync.when(
-              //   loading: () => const Center(child: CircularProgressIndicator()),
-              //   error: (err, _) => Text("Error loading bookings: $err"),
-              //   data: (bookings) {
-              //     if (bookings.isEmpty) {
-              //       return const Text("No upcoming check-ins.");
-              //     }
-
-              //     final limited = bookings.take(5).toList();
-              //     return Column(
-              //       children: [
-              //         ...limited.map((b) => Card(
-              //               child: ListTile(
-              //                 leading: const Icon(Icons.person),
-              //                 title: Text(b.guestName),
-              //                 subtitle: Text(
-              //                     "Room ${b.roomNumber} • ${b.checkInDate.toLocal()}"),
-              //                 trailing:
-              //                     const Icon(Icons.arrow_forward_ios, size: 16),
-              //                 onTap: () {
-              //                   context.pushNamed("bookingDetail",
-              //                       pathParameters: {"bookingId": b.id});
-              //                 },
-              //               ),
-              //             )),
-              //         if (bookings.length > 5)
-              //           TextButton(
-              //             onPressed: () =>
-              //                 context.pushNamed("managerBookings"),
-              //             child: const Text("View all"),
-              //           )
-              //       ],
-              //     );
-              //   },
-              // ),
-            ],
-          ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildActionButton(
+                  "Hotels",
+                  Icons.book_online,
+                  context,
+                  "hotelList",
+                  pathParameters: {
+                    "managerUserId":
+                        authService.currentUser?.id ?? ""
+                  },
+                ),
+                _buildActionButton(
+                  "Rooms",
+                  Icons.meeting_room,
+                  context,
+                  "rooms",
+                ),
+                _buildActionButton(
+                  "Offerings",
+                  Icons.people,
+                  context,
+                  "offerings",
+                ),
+                _buildActionButton(
+                  "Bookings",
+                  Icons.bar_chart,
+                  context,
+                  "hotelBookings",
+                ),
+                _buildActionButton(
+                  "Payments",
+                  Icons.payments,
+                  context,
+                  "managerPayments",
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
-  
-  Future<List<ManagerHotel>> _fetchHotelsFromRepo(WidgetRef ref) async {
+
+  Future<List<ManagerHotel>> _fetchHotelsFromRepo() async {
     final managerUserId = authService.currentUser?.id;
     if (managerUserId == null || managerUserId.isEmpty) return [];
-  // Use ref to access repo/provider
-  final hotelsAsync = ref.watch(managerHotelsProvider(managerUserId));
 
-  return hotelsAsync.when(
-    data: (hotels) => hotels,
-    loading: () => [],
-    error: (err, _) => [],
-  );
-}
+    return await ref.read(
+      managerHotelsProvider(managerUserId).future,
+    );
+  }
 
   Widget _buildActionButton(
-      String label, IconData icon, BuildContext context, String routeName, {Map<String, String>? pathParameters}) {
+    String label,
+    IconData icon,
+    BuildContext context,
+    String routeName, {
+    Map<String, String>? pathParameters,
+  }) {
     return GestureDetector(
       onTap: () async {
-        final needsParam = {'rooms', 'myHotel', 'hotelBookings', 'offerings', 'managerPayments'}.contains(routeName);
+        final needsParam = {
+          'rooms',
+          'myHotel',
+          'hotelBookings',
+          'offerings',
+          'managerPayments',
+        }.contains(routeName);
 
         if (needsParam) {
-          final selectedHotel = await showEntityPicker<ManagerHotel>(
+          final selectedHotel =
+              await showEntityPicker<ManagerHotel>(
             context: context,
             title: 'Select a hotel',
-            fetchItems: () => _fetchHotelsFromRepo(ref),
+            fetchItems: _fetchHotelsFromRepo,
             display: (h) => h.name,
           );
+
           if (selectedHotel == null) return;
 
           context.pushNamed(
@@ -208,8 +196,13 @@ class _ManagerDashboardScreenState
               ...?pathParameters,
             },
           );
+          return;
         }
-         context.pushNamed(routeName, pathParameters: pathParameters ?? {});
+
+        context.pushNamed(
+          routeName,
+          pathParameters: pathParameters ?? {},
+        );
       },
       child: Container(
         width: 100,
@@ -221,7 +214,7 @@ class _ManagerDashboardScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: Theme.of(context).primaryColor),
+            Icon(icon, size: 32),
             const SizedBox(height: 8),
             Text(label, textAlign: TextAlign.center),
           ],

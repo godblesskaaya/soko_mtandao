@@ -18,6 +18,9 @@ class RouteNames {
   static const offerings = '/offerings/:hotelId';
   static const rooms = '/rooms/:hotelId';
   static const hotelBookings = '/bookings/:hotelId';
+  static const editHotel = '/edit-hotel/:hotelId';
+  static const editRoom = '/edit-room/:roomId/:hotelId';
+  static const editOffering = '/edit-offering/:offeringId/:hotelId';
 
   // System Admin
   static const systemAdminHome = '/system-admin/home';
@@ -46,5 +49,9 @@ class RouteNames {
   static const roomDetails = '/room-details/:roomId';
 
   static const managerPayments = '/manager-payments/:hotelId';
+
+  static const deleteAccount = '/delete-account/:isManager';
+
+  static const settings = '/settings';
 
 }

@@ -39,7 +39,7 @@ abstract class ManagerDataSource {
   Future<void> inviteStaff(String hotelId, String email, String role);
   Future<void> changeStaffRole(String staffId, String role);
 
-  void deleteRoom(String roomId) {}
+  void deleteRoom(String roomId);
 
   Future<List<ManagerRoomModel>> getRoomsByOffering(String offeringId);
 
