@@ -3,13 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/features/splash/splash_provider.dart';
 
-class SplashScreen extends StatefulWidget {
-  @override
-  _SplashScreenState createState() => _SplashScreenState();
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
+
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
   with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _animation;
@@ -23,6 +25,10 @@ class _SplashScreenState extends State<SplashScreen>
     )..repeat(reverse: true);
 
     _animation = Tween<double>(begin: 1.0, end: 1.2).animate(_animationController);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(splashRedirectProvider);
+    });
   }
 
   @override
@@ -30,8 +36,25 @@ class _SplashScreenState extends State<SplashScreen>
     _animationController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<String>>(splashRedirectProvider, (previous, next) {
+      next.whenData((route) {
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Use router to navigate (router is set to use named routes)
+            context.go(route);
+          });
+        }
+      });
+
+      if (next is AsyncError) {
+        debugPrint('Error during splash redirect: ${next.error}');
+        if (mounted) context.goNamed('guestHome');
+      }
+    });
+
     return Consumer(
       builder: (context, ref, child) {
         ref.listen<AsyncValue<String>>(splashRedirectProvider, (previous, next) {

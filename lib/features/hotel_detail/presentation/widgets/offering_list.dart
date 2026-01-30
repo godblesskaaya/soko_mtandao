@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
+import 'package:uuid/uuid.dart';
 
 class OfferingsList extends ConsumerWidget {
   final List<Offering> offerings;
@@ -65,22 +67,37 @@ void _showRoomModal(BuildContext context, WidgetRef ref, Offering offering) {
                   return ListTile(
                     title: Text("Room ${room.number}"),
                     trailing: ElevatedButton(
-                      onPressed: () async {
-                        ref
-                            .read(bookingCartProvider.notifier)
-                            .addItemToBooking(
-                              hotelId: hotelId,
-                              startDate: startDate,
-                              endDate: endDate,
-                              item: BookingItemInput(
-                                offering: offering,
-                                room: room,
-                              ),
-                              ref: ref,
-                            );
+                      onPressed: () {
+                        // fetch hotel, room, offering
+                        final hotelAsync = ref.read(hotelDetailProvider(hotelId));
+                        final hotel = hotelAsync.value!;
+                        final booking = BookingInput(
+                          id: const Uuid().v4(),
+                          hotel: hotel,
+                          startDate: startDate,
+                          endDate: endDate,
+                          items: const [],
+                        );
+
+                        final item = BookingItemInput(
+                          room: room,
+                          offering: offering,
+                        );
+
+                        // add to booking cart and case of error show snackbar
+                        try {
+                          ref.read(bookingCartProvider.notifier).addRoom(
+                            booking: booking,
+                            item: item,
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("$e")),
+                          );
+                        }
                         Navigator.pop(context);
                       },
-                      child: const Text("Add"),
+                      child: const Text("Add to cart"),
                     ),
                   );
                 }).toList(),

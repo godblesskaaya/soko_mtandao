@@ -7,7 +7,7 @@ class AppConfig {
   // Pick the global mock behavior when useMockData = true
   static const MockState globalMockState = MockState.success;
 
-  static const Duration paymentPollInterval = Duration(seconds: 60);
+  static const Duration paymentPollInterval = Duration(seconds: 5);
 
   static var paybillNumber = '123456';
 

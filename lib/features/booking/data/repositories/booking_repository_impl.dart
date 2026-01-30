@@ -12,8 +12,8 @@ class BookingRepositoryImpl implements BookingRepository {
   BookingRepositoryImpl(this.ds);
 
   @override
-  Future<Booking> initiateBooking({required BookingCart cart, required UserInfo user}) {
-    return ds.initiateBooking(user: UserModel.fromEntity(user), cart: BookingCartModel.fromEntity(cart));
+  Future<Booking> initiateBooking({required BookingCart cart, required UserInfo user, required String sessionId}) {
+    return ds.initiateBooking(user: UserModel.fromEntity(user), cart: BookingCartModel.fromEntity(cart), sessionId: sessionId);
   }
 
   @override

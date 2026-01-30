@@ -9,68 +9,68 @@ class BookingCartModal extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cart = ref.watch(bookingCartProvider);
+    final state = ref.watch(bookingCartProvider);
     final notifier = ref.read(bookingCartProvider.notifier);
+
+    if (state.isEmpty) {
+      return const Center(child: Text("No items in cart"));
+    }
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text("Booking Cart", style: Theme.of(context).textTheme.titleLarge),
+          Text("Booking Cart",
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
-          if (cart == null || cart.isEmpty)
-            Text("No items in cart")
-          else
-            Expanded(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: cart.bookings.length,
-                itemBuilder: (_, index) {
-                  final booking = cart.bookings[index];
-                  final nights = booking.endDate.difference(booking.startDate).inDays;
 
-                  return ExpansionTile(
-                    title: Text(booking.hotel.name),
-                    subtitle: Text("${booking.totalItems} rooms | ${nights} nights | \$${booking.totalPrice.toStringAsFixed(2)}",
-                    ),
-                    children: [
-                      ...booking.items.map((item) {
-                        return ListTile(
-                          leading: const Icon(Icons.hotel),
-                          title: Text("Room ${item.room.number} - ${nights} nights"),
-                          subtitle: Text("\$${item.offering.pricePerNight} / night"),
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => notifier.removeItemFromBooking(booking, item),
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  );
-                  // return ListTile(
-                  //   title: Text("${booking.items.first.room.number} - ${nights} nights"),
-                  //   subtitle: Text("\$${booking.offering.pricePerNight} / night"),
-                  //   trailing: IconButton(
-                  //     icon: Icon(Icons.delete, color: Colors.red),
-                  //     onPressed: () => notifier.removeFromCart(booking),
-                  //   ),
-                  // );
-                },
-              ),
+          Expanded(
+            child: ListView(
+              children: state.cart.bookings.map((booking) {
+                return ExpansionTile(
+                  title: Text(booking.hotel.name),
+                  subtitle: Text(
+                    "${booking.items.length} rooms · "
+                    "${booking.startDate.toIso8601String().substring(0, 10)} to ${booking.endDate.toIso8601String().substring(0, 10)} · "
+                    "\$${booking.totalPrice.toStringAsFixed(2)}",
+                  ),
+                  children: booking.items.map((item) {
+                    return ListTile(
+                      leading: const Icon(Icons.hotel),
+                      title: Text("Room ${item.room.number} - ${item.offering.title}"),
+                      subtitle: Text(
+                        "\$${item.offering.pricePerNight} / night",
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          notifier.removeRoom(
+                            bookingId: booking.id,
+                            roomId: item.room.id,
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 12),
+          ),
+
+          const SizedBox(height: 12),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Total: \$${cart?.totalPrice.toStringAsFixed(2)}",
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                "Total: \$${state.totalPrice.toStringAsFixed(2)}",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               ElevatedButton(
                 onPressed: () {
-                  // Navigate to booking screen
                   context.pushNamed("bookingInitiate");
                 },
-                child: Text("Continue"),
+                child: const Text("Continue"),
               ),
             ],
           ),

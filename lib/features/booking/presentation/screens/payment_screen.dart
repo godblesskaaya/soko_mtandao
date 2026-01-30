@@ -82,7 +82,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             booking.status == BookingStatusEnum.confirmed;
         if (isDone && context.mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            context.go('${RouteNames.bookingConfirmation}/${booking.id}');
+            context.push('${RouteNames.bookingConfirmation}/${booking.id}');
           });
         }
       });

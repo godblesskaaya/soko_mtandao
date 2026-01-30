@@ -83,7 +83,7 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                               if (id != null && mounted) {
                                 // Optionally clear cart after successful initiation
                                 // ref.read(bookingCartProvider.notifier).clearCart();
-                                context.go('${RouteNames.bookingReview}/$id');
+                                context.push('${RouteNames.bookingReview}/$id');
                               } else {
                                 // get the error from the notifier and display it
                                 final error = ref.read(bookingFlowProvider.notifier).state.error;

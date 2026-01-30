@@ -15,6 +15,7 @@ import 'package:soko_mtandao/features/booking/domain/usecases/cancel_booking.dar
 import 'package:soko_mtandao/features/booking/domain/usecases/get_booking.dart';
 import 'package:soko_mtandao/features/booking/domain/usecases/get_booking_status.dart';
 import 'package:soko_mtandao/features/booking/domain/usecases/initiate_booking.dart';
+import 'package:soko_mtandao/features/booking/presentation/riverpod/session_provider.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
 import '../../../hotel_detail/domain/entities/booking_input.dart';
 
@@ -64,7 +65,9 @@ class BookingFlowNotifier extends StateNotifier<BookingFlowState> {
       final cartState = ref.read(bookingCartProvider);
       if (cartState.isEmpty) throw Exception('Cart is empty');
 
-      final booking = await ref.read(initiateBookingProvider).call(user: user, cart: cartState);
+      final sessionId = ref.read(bookingSessionProvider).id;
+
+      final booking = await ref.read(initiateBookingProvider).call(user: user, cart: cartState.cart, sessionId: sessionId);
       state = state.copyWith(booking: booking, isLoading: false);
       return booking.id;
     } catch (e, stackTrace) {

@@ -33,12 +33,6 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
       });
     }
 
-    // Create booking with selected dates and hotel
-    ref.read(bookingCartProvider.notifier).createBooking(
-      hotel: await ref.read(hotelDetailProvider(widget.hotelId).future),
-      startDate: picked!.start,
-      endDate: picked!.end,
-    );
   }
 
   @override
@@ -121,19 +115,6 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
           );
         },
       ),
-    //   floatingActionButton: Consumer(
-    //     builder: (context, ref, _) {
-    //       final cart = ref.watch(bookingCartProvider);
-    //       if (cart.isEmpty) return const SizedBox.shrink();
-    //       return FloatingActionButton.extended(
-    //         onPressed: () {
-    //           // Navigate to booking summary / checkout
-    //         },
-    //         label: Text("Book (${cart.length})"),
-    //         icon: const Icon(Icons.shopping_cart),
-    //       );
-    //     },
-    //   ),
 
     floatingActionButton: Consumer(
       builder: (context, ref, _) {

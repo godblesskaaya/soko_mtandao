@@ -28,5 +28,5 @@ class BookingConflictException implements Exception {
   });
 
   @override
-  String toString() => 'BookingConflictException: $message (${conflicts.length} conflicts)';
+  String toString() => 'BookingConflict: $message (${conflicts.length} conflicts)';
 }

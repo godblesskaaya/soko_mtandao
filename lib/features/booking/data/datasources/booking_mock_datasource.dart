@@ -18,6 +18,7 @@ class BookingMockDataSource implements BookingDataSource {
   Future<BookingModel> initiateBooking({
     required UserModel user,
     required BookingCartModel cart,
+    required String sessionId,
   }) async {
     if (mockState == MockState.loading) {
       await Future.delayed(const Duration(seconds: 2));

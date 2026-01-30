@@ -237,7 +237,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
                                   // ));
                                 },
                                 onDetails: () {
-                                  context.goNamed('hotelDetail', pathParameters: {'hotelId': h.id});
+                                  context.pushNamed('hotelDetail', pathParameters: {'hotelId': h.id});
                                 },
                               );
                             },

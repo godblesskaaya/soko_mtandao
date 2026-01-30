@@ -9,6 +9,7 @@ abstract class BookingDataSource {
   Future<BookingModel> initiateBooking({
     required UserModel user,
     required BookingCartModel cart,
+    required String sessionId,
   });
 
   Future<BookingModel> getBooking(String bookingId);

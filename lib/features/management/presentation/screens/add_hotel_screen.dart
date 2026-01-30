@@ -111,67 +111,70 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
 
   void _submit() async {
     if (_formKey.currentState?.validate() ?? false) {
-      if (widget.hotelId == null) {
-        final notifier = ref.read(addHotelProvider.notifier);
-
-        await notifier.addHotel(
-          name: _nameController.text,
-          address: _addressController.text,
-          description: _descriptionController.text,
-          images: images.map((image) => image.path).toList(),
-          amenities: selectedAmenities,
-          lat: _latController.text,
-          lng: _lngController.text,
-          rating: double.tryParse(_ratingController.text) ?? 0.0,
-          totalRooms: int.tryParse(_roomsController.text) ?? 0,
-          region: _regionController.text,
-          country: _countryController.text,
-          city: _cityController.text,
-          phoneNumber: _phoneController.text,
-          email: _emailController.text,
-          website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
-        );
-      } else {
-        final notifier = ref.read(editHotelProvider.notifier);
-
-        await notifier.updateHotel(
-          hotelId: widget.hotelId!,
-          name: _nameController.text,
-          address: _addressController.text,
-          description: _descriptionController.text,
-          images: images,
-          amenities: selectedAmenities,
-          lat: double.tryParse(_latController.text) ?? 0.0,
-          lng: double.tryParse(_lngController.text) ?? 0.0,
-          rating: double.tryParse(_ratingController.text) ?? 0.0,
-          totalRooms: int.tryParse(_roomsController.text) ?? 0,
-          region: _regionController.text,
-          country: _countryController.text,
-          city: _cityController.text,
-          phoneNumber: _phoneController.text,
-          email: _emailController.text,
-          website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
-        );
-      }
-
-      if(widget.hotelId != null) {
-        ref.invalidate(hotelDetailProvider(widget.hotelId!));
-      }
-
-      ref.invalidate(managerHotelsProvider);
-
-      if (mounted) {
-        // Show success message
-        if (widget.hotelId != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Hotel updated successfully')),
+      try {
+        if (widget.hotelId == null) {
+          final notifier = ref.read(addHotelProvider.notifier);
+        
+          await notifier.addHotel(
+            name: _nameController.text,
+            address: _addressController.text,
+            description: _descriptionController.text,
+            images: images.map((image) => image.path).toList(),
+            amenities: selectedAmenities,
+            lat: _latController.text,
+            lng: _lngController.text,
+            rating: double.tryParse(_ratingController.text) ?? 0.0,
+            totalRooms: int.tryParse(_roomsController.text) ?? 0,
+            region: _regionController.text,
+            country: _countryController.text,
+            city: _cityController.text,
+            phoneNumber: _phoneController.text,
+            email: _emailController.text,
+            website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Hotel added successfully')),
+          final notifier = ref.read(editHotelProvider.notifier);
+        
+          await notifier.updateHotel(
+            hotelId: widget.hotelId!,
+            name: _nameController.text,
+            address: _addressController.text,
+            description: _descriptionController.text,
+            images: images,
+            amenities: selectedAmenities,
+            lat: double.tryParse(_latController.text) ?? 0.0,
+            lng: double.tryParse(_lngController.text) ?? 0.0,
+            rating: double.tryParse(_ratingController.text) ?? 0.0,
+            totalRooms: int.tryParse(_roomsController.text) ?? 0,
+            region: _regionController.text,
+            country: _countryController.text,
+            city: _cityController.text,
+            phoneNumber: _phoneController.text,
+            email: _emailController.text,
+            website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
           );
         }
-        Navigator.pop(context, true); // return success
+        
+        if(widget.hotelId != null) {
+          ref.invalidate(hotelDetailProvider(widget.hotelId!));
+        }
+        
+        ref.invalidate(managerHotelsProvider);
+        
+        if (mounted) {
+          // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(widget.hotelId != null ? 'Hotel updated successfully' : 'Hotel added successfully')),
+            );
+        
+          Navigator.pop(context, true); // return success
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+          );
+        }
       }
     }
   }
@@ -212,8 +215,9 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   }
   Widget _buildForm(BuildContext context, AsyncValue amenitiesAsync) {
     final editState = ref.watch(editHotelProvider);
+    final addState = ref.watch(addHotelProvider);
 
-    return editState.isLoading
+    return editState.isLoading || addState.isLoading
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -298,10 +302,37 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                   _buildTextField("Country", _countryController),
                   _buildTextField("City", _cityController),
                   _buildTextField("Phone Number", _phoneController,
-                      keyboard: TextInputType.phone),
+                      keyboard: TextInputType.phone,
+                      validator: (val) {
+                        if (val != null && val.isNotEmpty) {
+                          final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                          if (!phoneRegex.hasMatch(val)) {
+                            return 'Please enter a valid phone number';
+                          }
+                        }
+                        return null;
+                      }),
                   _buildTextField("Email", _emailController,
-                      keyboard: TextInputType.emailAddress),
-                  _buildTextField("Website", _websiteController),
+                      keyboard: TextInputType.emailAddress,
+                      validator: (val) {
+                        if (val != null && val.isNotEmpty) {
+                          final emailRegex = RegExp(
+                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                          if (!emailRegex.hasMatch(val)) {
+                            return 'Please enter a valid email address';
+                          }
+                        }
+                        return null;
+                      }),
+                  _buildTextField("Website", _websiteController, validator: (val) {
+                    if (val != null && val.isNotEmpty) {
+                      final uri = Uri.tryParse(val);
+                      if (uri == null || !uri.hasAbsolutePath) {
+                        return 'Please enter a valid URL';
+                      }
+                    }
+                    return null;
+                  }, keyboard: TextInputType.url),
 
                   const SizedBox(height: 16),
 
@@ -399,7 +430,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
 
                   ElevatedButton(
                     onPressed: editState.isLoading ? null : _submit,
-                    child: const Text("Save Hotel"),
+                    child: Text(widget.hotelId == null ? "Save Hotel" : "Update Hotel"),
                   ),
                 ],
               ),
@@ -412,6 +443,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
     TextEditingController controller, {
     TextInputType keyboard = TextInputType.text,
     int maxLines = 1,
+    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

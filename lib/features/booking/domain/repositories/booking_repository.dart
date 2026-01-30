@@ -10,6 +10,7 @@ abstract class BookingRepository {
   Future<Booking> initiateBooking({
     required UserInfo user,
     required BookingCart cart, // reuse your existing cart entity
+    required String sessionId,
   });
 
   Future<Booking> getBooking(String bookingId);

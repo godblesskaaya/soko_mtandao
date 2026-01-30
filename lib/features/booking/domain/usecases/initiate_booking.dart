@@ -8,7 +8,7 @@ class InitiateBooking {
   final BookingRepository repo;
   InitiateBooking(this.repo);
 
-  Future<Booking> call({required UserInfo user, required BookingCart cart}) {
-    return repo.initiateBooking(user: user, cart: cart);
+  Future<Booking> call({required UserInfo user, required BookingCart cart, required String sessionId}) {
+    return repo.initiateBooking(user: user, cart: cart, sessionId: sessionId);
   }
 }

@@ -63,6 +63,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           'lastName': lastNameController.text.trim(),
         },
       );
+      // show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Signup successful! Taking you home.')),
+      );
       if (mounted) context.go(RouteNames.splash);
     } catch (e) {
       if (mounted) {
@@ -173,7 +177,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   
                   const SizedBox(height: 20),
                   TextButton(
-                    onPressed: () => context.go(RouteNames.login),
+                    onPressed: () => context.push(RouteNames.login),
                     child: const Text("Already have an account? Login", 
                       style: TextStyle(color: Colors.white, fontSize: 15)),
                   ),

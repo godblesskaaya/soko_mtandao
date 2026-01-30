@@ -19,6 +19,7 @@ class BookingRemoteDataSource implements BookingDataSource {
   Future<BookingModel> initiateBooking({
     required UserModel user,
     required BookingCartModel cart,
+    required String sessionId,
   }) async {
     // Payload shape matches your backend RPC contract
     final payload = {
@@ -33,13 +34,14 @@ class BookingRemoteDataSource implements BookingDataSource {
           'price_per_night': i.offering.pricePerNight,
         }).toList(),
       }).toList(),
+      'p_session_id': sessionId,
     };
 
     // log the payload for debugging
     print('Booking initiation payload: $payload');
 
     // Example RPC (you can swap to REST or table insert)
-    final res = await _client.rpc('bookings_initiate', params: payload);
+    final res = await _client.rpc('create_booking', params: payload);
 
     // log the response for debugging
     print('Booking initiation response: $res');

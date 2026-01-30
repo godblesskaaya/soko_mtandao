@@ -92,7 +92,7 @@ class _BookingConfirmationScreenState
                 const Spacer(),
                 ElevatedButton(
                   onPressed: () {
-                    context.go(RouteNames.guestHome);
+                    context.push(RouteNames.guestHome);
                   },
                   child: const Text('Back to Home'),
                 ),
