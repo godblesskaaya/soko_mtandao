@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
@@ -56,7 +57,7 @@ void _showRoomModal(BuildContext context, WidgetRef ref, Offering offering) {
 
           return roomsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text("Error: $err")),
+            error: (err, _) => Center(child: Text(userMessageForError(err))),
             // check if rooms list is empty and show message
             data: (rooms) {
               if (rooms.isEmpty) {
@@ -92,7 +93,7 @@ void _showRoomModal(BuildContext context, WidgetRef ref, Offering offering) {
                           );
                         } catch (e) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("$e")),
+                            SnackBar(content: Text(userMessageForError(e))),
                           );
                         }
                         Navigator.pop(context);

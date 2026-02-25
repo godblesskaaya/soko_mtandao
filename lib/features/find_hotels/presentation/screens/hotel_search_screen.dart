@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/filter_sheet.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/hotel_list.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/search_bar.dart';
@@ -21,7 +22,7 @@ class HotelSearchScreen extends ConsumerWidget {
             icon: const Icon(Icons.sort),
             onPressed: () => showModalBottomSheet(
               context: context,
-              builder: (_) => SortSheet(),
+              builder: (_) => const SortSheet(),
             ),
           ),
           IconButton(
@@ -38,6 +39,16 @@ class HotelSearchScreen extends ConsumerWidget {
       body: Column(
         children: [
           SearchBarWidget(),
+          if (state.error != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: Colors.red.shade50,
+              child: Text(
+                userMessageForError(state.error!),
+                style: TextStyle(color: Colors.red.shade800),
+              ),
+            ),
 
           Expanded(
             child: HotelListWidget(

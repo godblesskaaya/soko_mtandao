@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/failure_mapper.dart';
 import 'package:soko_mtandao/features/find_hotels/domain/entities/hotel_search_params.dart';
 import 'package:soko_mtandao/features/find_hotels/domain/entities/hotel_search_state.dart';
 import '../../domain/usecases/search_hotels.dart';
 
 class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
   final SearchHotels searchHotels;
+  static const int _pageSize = 20;
 
   HotelSearchNotifier(this.searchHotels) : super(const HotelSearchState()) {
     runSearch(reset: true);
@@ -24,10 +26,11 @@ class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
         hotels: [],
         page: 1,
         hasMore: true,
+        clearError: true,
       );
     }
 
-    state = state.copyWith(isLoading: true);
+    state = state.copyWith(isLoading: true, clearError: true);
 
     final params = HotelSearchParams(
       searchQuery: state.query,
@@ -38,7 +41,8 @@ class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
       guests: state.guests,
       sortOption: state.sortOption,
       page: state.page,
-      limit: 20,
+      limit: _pageSize,
+      offset: (state.page - 1) * _pageSize,
     );
 
     try {
@@ -47,12 +51,15 @@ class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
       state = state.copyWith(
         hotels: reset ? results : [...state.hotels, ...results],
         isLoading: false,
-        hasMore: results.length == 20,
+        clearError: true,
+        hasMore: results.length == _pageSize,
         page: state.page + 1,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false);
-      rethrow;
+      state = state.copyWith(
+        isLoading: false,
+        error: failureFromError(e),
+      );
     }
   }
 

@@ -23,18 +23,25 @@ class HotelListWidget extends StatefulWidget {
 class _HotelListWidgetState extends State<HotelListWidget> {
   final ScrollController _controller = ScrollController();
 
+  void _onScroll() {
+    if (_controller.position.pixels >= _controller.position.maxScrollExtent - 100 &&
+        !widget.isLoading &&
+        widget.hasMore) {
+      widget.onLoadMore();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _controller.addListener(_onScroll);
+  }
 
-    _controller.addListener(() {
-      if (_controller.position.pixels >=
-              _controller.position.maxScrollExtent - 100 &&
-          !widget.isLoading &&
-          widget.hasMore) {
-        widget.onLoadMore();
-      }
-    });
+  @override
+  void dispose() {
+    _controller.removeListener(_onScroll);
+    _controller.dispose();
+    super.dispose();
   }
 
   @override

@@ -29,7 +29,12 @@ class HotelRemoteDataSource implements HotelDetailDataSource {
 
   @override
   Future<List<OfferingModel>> fetchHotelOfferings(String hotelId) async {
-    final response = await supabase.from('offerings').select().eq('hotel_id', hotelId);
+    final response = await supabase
+        .from('offerings')
+        .select()
+        .eq('hotel_id', hotelId)
+        .order('price', ascending: true)
+        .order('title', ascending: true);
     return response.map((item) => OfferingModel.fromJson(item)).toList();
   }
 

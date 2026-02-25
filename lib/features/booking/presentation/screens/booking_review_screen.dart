@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_providers.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_cart_summary.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_hotel_section.dart';
@@ -27,7 +28,7 @@ class BookingReviewScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (flow.error != null) {
-      return Scaffold(body: Center(child: Text('Error: ${flow.error}')));
+      return Scaffold(body: Center(child: Text(userMessageForError(flow.error!))));
     }
     final booking = flow.booking!;
     final cart = booking.bookingCart;

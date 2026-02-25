@@ -1,6 +1,7 @@
 // domain/usecases/rooms/get_room_availability.dart
 
 import 'package:dartz/dartz.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/core/usecases/usecase.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availability.dart';
@@ -15,8 +16,9 @@ class GetRoomAvailability implements UseCase<RoomAvailability, AvailabilityParam
     try {
       RoomAvailability availability = await repository.getRoomAvailability(params.roomId, params.startDate, params.endDate);
       return Right(availability);
-    } catch (e) {
-      return Left(ServerFailure("Failed to fetch room availability: $e"));
+    } catch (e, stackTrace) {
+      ErrorReporter.report(e, stackTrace, source: 'GetRoomAvailability.call');
+      return Left(ServerFailure("Failed to fetch room availability"));
     }
   }
 }

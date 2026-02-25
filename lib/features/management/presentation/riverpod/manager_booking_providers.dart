@@ -1,6 +1,5 @@
 // presentation/riverpod/bookings/booking_providers.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:soko_mtandao/features/management/data/models/manager_booking_item_model.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_room.dart';
@@ -32,14 +31,42 @@ final bookingDetailProvider = FutureProvider.family<ManagerBooking, String>((ref
   );
 });
 
-final bookingListCombinedProvider = FutureProvider.family<List<BookingWithRoomAndDetail>, String>((ref, hotelId) async {
-  final bookings = await ref.watch(bookingsProvider(BookingQueryParams(hotelId: hotelId, filters: {})).future);
+final bookingListCombinedProvider = FutureProvider.family<List<BookingWithRoomAndDetail>, BookingQueryParams>((ref, query) async {
+  final bookings = await ref.watch(bookingsProvider(query).future);
+
+  final roomIds = bookings
+      .map((b) => b.roomId)
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
+      .toSet()
+      .toList();
+
+  final bookingIds = bookings
+      .map((b) => b.bookingId)
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
+      .toSet()
+      .toList();
+
+  final roomEntries = await Future.wait(
+    roomIds.map((id) async => MapEntry(id, await ref.watch(roomProvider(id).future))),
+  );
+  final detailEntries = await Future.wait(
+    bookingIds.map((id) async => MapEntry(id, await ref.watch(bookingDetailProvider(id).future))),
+  );
+
+  final roomById = Map<String, ManagerRoom>.fromEntries(roomEntries);
+  final detailById = Map<String, ManagerBooking>.fromEntries(detailEntries);
 
   final results = <BookingWithRoomAndDetail>[];
-
   for (final b in bookings) {
-    final room = await ref.watch(roomProvider(b.roomId ?? '').future);
-    final detail = await ref.watch(bookingDetailProvider(b.bookingId ?? '').future);
+    final roomId = b.roomId;
+    final bookingId = b.bookingId;
+    if (roomId == null || bookingId == null) continue;
+    final room = roomById[roomId];
+    final detail = detailById[bookingId];
+    if (room == null || detail == null) continue;
+
     results.add(BookingWithRoomAndDetail(
       booking: b,
       room: room,

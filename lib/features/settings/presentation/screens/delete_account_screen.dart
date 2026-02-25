@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -131,16 +133,12 @@ class _DeleteAccountScreenState
       context.goNamed('guestHome');
     } on FunctionException catch (e) {
       if (context.mounted) Navigator.pop(context);
-      _showErrorSnackBar(
-        context,
-        "Server Error: ${e.status} - ${e.details}",
-      );
-    } catch (_) {
+      ErrorReporter.report(e, StackTrace.current, source: 'ui.delete_account.function');
+      _showErrorSnackBar(context, userMessageForError(e));
+    } catch (e, stackTrace) {
       if (context.mounted) Navigator.pop(context);
-      _showErrorSnackBar(
-        context,
-        "An unexpected error occurred. Please try again.",
-      );
+      ErrorReporter.report(e, stackTrace, source: 'ui.delete_account');
+      _showErrorSnackBar(context, "An unexpected error occurred. Please try again.");
     }
   }
 

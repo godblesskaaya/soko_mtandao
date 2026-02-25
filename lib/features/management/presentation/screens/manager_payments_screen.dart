@@ -3,11 +3,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart'; // Add intl to your pubspec.yaml
-import 'package:soko_mtandao/core/errors/failures.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_payment_provider.dart';
 
-class ManagerPaymentsScreen extends ConsumerWidget {
+class ManagerPaymentsScreen extends ConsumerStatefulWidget {
   final String hotelId;
 
   const ManagerPaymentsScreen({
@@ -16,19 +16,44 @@ class ManagerPaymentsScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final paymentsAsync = ref.watch(managerPaymentsProvider(hotelId));
+  ConsumerState<ManagerPaymentsScreen> createState() => _ManagerPaymentsScreenState();
+}
+
+class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
+  static const int _pageSize = 20;
+  int _page = 1;
+  String _sortBy = 'settled_at';
+  bool _sortAsc = false;
+  String? _settlementStatus;
+
+  ManagerPaymentListQuery get _query => ManagerPaymentListQuery(
+        hotelId: widget.hotelId,
+        page: _page,
+        limit: _pageSize,
+        sortBy: _sortBy,
+        sortAscending: _sortAsc,
+        settlementStatus: _settlementStatus,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final paymentsAsync = ref.watch(managerPaymentsPageProvider(_query));
 
     return Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(),
+          _buildHeader(context),
           const Divider(height: 1),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
-                await ref.refresh(managerPaymentsProvider(hotelId).future);
+                ref.invalidate(managerPaymentsPageProvider(_query));
+                try {
+                  await ref
+                      .read(managerPaymentsPageProvider(_query).future)
+                      .timeout(const Duration(seconds: 8));
+                } catch (_) {}
               },
               child: paymentsAsync.when(
                 loading: () => const Center(
@@ -47,8 +72,8 @@ class ManagerPaymentsScreen extends ConsumerWidget {
                     const SizedBox(height: 200),
                     Center(
                       child: _ErrorState(
-                        message: err is Failure ? err.message : 'Connection error',
-                        onRetry: () => ref.invalidate(managerPaymentsProvider(hotelId)),
+                        message: userMessageForError(err),
+                        onRetry: () => ref.invalidate(managerPaymentsPageProvider(_query)),
                       ),
                     ),
                   ],
@@ -66,6 +91,7 @@ class ManagerPaymentsScreen extends ConsumerWidget {
 
                   final totalRevenue =
                       payments.fold(0.0, (sum, p) => sum + p.amount);
+                  final hasNext = payments.length == _pageSize;
 
                   return CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -82,12 +108,19 @@ class ManagerPaymentsScreen extends ConsumerWidget {
                             return PaymentListTile(
                               payment: payment,
                               onClose: () {
-                                // Optional: refresh after detail closes
-                                ref.invalidate(managerPaymentsProvider(hotelId));
+                                ref.invalidate(managerPaymentsPageProvider(_query));
                               },
                             );
                           },
                           childCount: payments.length,
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: _PaginationControls(
+                          page: _page,
+                          hasNext: hasNext,
+                          onPrev: _page > 1 ? () => setState(() => _page -= 1) : null,
+                          onNext: hasNext ? () => setState(() => _page += 1) : null,
                         ),
                       ),
                     ],
@@ -101,11 +134,79 @@ class ManagerPaymentsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader() => const Padding(
-        padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
-        child: Text(
-          'Revenue & Payments',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  Widget _buildHeader(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Revenue & Payments',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final value = await showMenu<String>(
+                            context: context,
+                            position: const RelativeRect.fromLTRB(100, 100, 0, 0),
+                            items: const [
+                              PopupMenuItem(value: 'settled_at', child: Text('Sort: Settled At')),
+                              PopupMenuItem(value: 'settled_amount', child: Text('Sort: Amount')),
+                              PopupMenuItem(value: 'customer_name', child: Text('Sort: Customer')),
+                            ],
+                          );
+                          if (value != null) {
+                            setState(() {
+                              _sortBy = value;
+                              _page = 1;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.sort),
+                        label: const Text('Sort'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => setState(() {
+                          _sortAsc = !_sortAsc;
+                          _page = 1;
+                        }),
+                        icon: Icon(_sortAsc ? Icons.arrow_upward : Icons.arrow_downward),
+                        label: Text(_sortAsc ? 'Asc' : 'Desc'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final value = await showMenu<String?>(
+                            context: context,
+                            position: const RelativeRect.fromLTRB(140, 140, 0, 0),
+                            items: const [
+                              PopupMenuItem<String?>(value: null, child: Text('Status: All')),
+                              PopupMenuItem<String?>(value: 'settled', child: Text('Status: Settled')),
+                              PopupMenuItem<String?>(value: 'success', child: Text('Status: Success')),
+                              PopupMenuItem<String?>(value: 'pending', child: Text('Status: Pending')),
+                            ],
+                          );
+                          setState(() {
+                            _settlementStatus = value;
+                            _page = 1;
+                          });
+                        },
+                        icon: const Icon(Icons.filter_list),
+                        label: Text(_settlementStatus == null ? 'All Status' : _settlementStatus!),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       );
 }
@@ -302,6 +403,35 @@ class _StatusBadge extends StatelessWidget {
       child: Text(
         status.toUpperCase(),
         style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
+
+class _PaginationControls extends StatelessWidget {
+  final int page;
+  final bool hasNext;
+  final VoidCallback? onPrev;
+  final VoidCallback? onNext;
+
+  const _PaginationControls({
+    required this.page,
+    required this.hasNext,
+    this.onPrev,
+    this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          OutlinedButton(onPressed: onPrev, child: const Text("Previous")),
+          Text("Page $page"),
+          OutlinedButton(onPressed: hasNext ? onNext : null, child: const Text("Next")),
+        ],
       ),
     );
   }

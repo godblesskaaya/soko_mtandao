@@ -10,25 +10,23 @@ class HotelSearchRemoteDataSource {
   HotelSearchRemoteDataSource(this.client);
 
   Future<List<HotelEntity>> searchHotels(HotelSearchParams params) async {
-    print('Search Query: ${params.searchQuery}, Region: ${params.region}, City: ${params.city}, Min Price: ${params.minPrice}, Max Price: ${params.maxPrice}, Guests: ${params.guests}, Start Date: ${params.startDate}, End Date: ${params.endDate}, Sort Option: ${params.sortOption}, Limit: ${params.limit}, Offset: ${params.offset}');
     final response = await client.rpc(
       'search_hotels_advanced',
       params: {
-        'search_query': params.searchQuery,
-        'region_filter': params.region,
-        'city_filter': params.city,
+        'search_query': params.normalizedSearchQuery,
+        'region_filter': params.normalizedRegion,
+        'city_filter': params.normalizedCity,
         'min_price': params.minPrice,
         'max_price': params.maxPrice,
         'guests': params.guests,
         'start_date': params.startDate?.toIso8601String(),
         'end_date': params.endDate?.toIso8601String(),
-        'sort_option': params.sortOption,
-        'limit_count': params.limit,
-        'offset_count': params.offset,
+        'sort_option': params.normalizedSortOption,
+        'limit_count': params.effectiveLimit,
+        'offset_count': params.effectiveOffset,
       },
     );
 
-    print (response);
     if (response == null || response.isEmpty) return [];
 
     return (response as List<dynamic>).map((row) {

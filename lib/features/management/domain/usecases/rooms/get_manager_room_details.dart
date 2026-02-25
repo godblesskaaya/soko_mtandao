@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
-import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_room.dart';
@@ -25,8 +25,7 @@ class ManagerRoomDetails{
       }
       return Right(ManagerRoomDetailsData(room: room!, offering: offering, bookings: bookings));
     } catch (e, stackTrace) {
-      print("error fetching room details: $e");
-      print(stackTrace);
+      ErrorReporter.report(e, stackTrace, source: 'ManagerRoomDetails.call');
       return Left(ServerFailure("Failed to fetch room details"));
     }
   }

@@ -1,5 +1,6 @@
 // domain/usecases/hotels/get_hotel_detail.dart
 import 'package:dartz/dartz.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/core/usecases/usecase.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
@@ -14,8 +15,9 @@ class GetHotelDetail implements UseCase<ManagerHotel, String> {
     try {
       ManagerHotel hotel = await repository.getHotelDetail(hotelId);
       return Right(hotel);
-    } catch (e) {
-      return Left(ServerFailure("Failed to fetch hotel details: $e"));
+    } catch (e, stackTrace) {
+      ErrorReporter.report(e, stackTrace, source: 'GetHotelDetail.call');
+      return Left(ServerFailure("Failed to fetch hotel details"));
     }
   }
 }

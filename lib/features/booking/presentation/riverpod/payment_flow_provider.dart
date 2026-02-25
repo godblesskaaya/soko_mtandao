@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/failure_mapper.dart';
+import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/features/booking/data/services/payment_services.dart';
 import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,12 +10,14 @@ enum CheckoutState { idle, loading, error }
 class PaymentFlowState {
   final CheckoutState state;
   final String? checkoutUrl;
-  final String? errorMessage;
+  final Failure? error;
   PaymentFlowState({
     required this.state,
     this.checkoutUrl,
-    this.errorMessage,
+    this.error,
   });
+
+  String? get errorMessage => error?.message;
 }
 
 class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
@@ -29,7 +33,7 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
     } catch (e) {
       state = PaymentFlowState(
         state: CheckoutState.error,
-        errorMessage: e.toString(),
+        error: failureFromError(e),
       );
     }
   }

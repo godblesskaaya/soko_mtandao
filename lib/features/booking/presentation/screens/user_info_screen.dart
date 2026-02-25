@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/user_info.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_providers.dart';
 import 'package:soko_mtandao/router/route_names.dart';
@@ -18,6 +19,14 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
   final nameCtrl = TextEditingController();
   final emailCtrl = TextEditingController();
   final phoneCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    emailCtrl.dispose();
+    phoneCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +55,7 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                       validator: (v) {
                         if (v == null || v.isEmpty) return null;
                         final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                        if (!emailRegex.hasMatch(v!)) return 'Invalid email';
+                        if (!emailRegex.hasMatch(v)) return 'Invalid email';
                         return null;
                       },
                     ),
@@ -76,19 +85,21 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                                       phone: phoneCtrl.text.trim(),
                                     ),
                                   );
-
-                              // print the id for debugging
-                              print('Booking initiated with ID: $id');
-
                               if (id != null && mounted) {
                                 // Optionally clear cart after successful initiation
                                 // ref.read(bookingCartProvider.notifier).clearCart();
                                 context.push('${RouteNames.bookingReview}/$id');
                               } else {
                                 // get the error from the notifier and display it
-                                final error = ref.read(bookingFlowProvider.notifier).state.error;
+                                final error = ref.read(bookingFlowProvider).error;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text((error ?? 'Failed to create booking').toString())),
+                                  SnackBar(
+                                    content: Text(
+                                      error == null
+                                          ? 'Failed to create booking'
+                                          : userMessageForError(error),
+                                    ),
+                                  ),
                                 );
                               }
                             },

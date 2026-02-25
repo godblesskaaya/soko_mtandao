@@ -2,8 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
-import 'package:url_launcher/url_launcher.dart'; // Added for external links
 import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import '../../../../core/services/auth_service.dart';
@@ -69,14 +70,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
       if (mounted) context.go(RouteNames.splash);
     } catch (e) {
+      ErrorReporter.report(e, StackTrace.current, source: 'ui.signup');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Signup failed: $e')),
+          SnackBar(content: Text(userMessageForError(e))),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    firstNameController.dispose();
+    lastNameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -186,7 +197,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   TextButton(
                     onPressed: () {
                       // Navigate to your account deletion screen
-                      context.pushNamed('deleteAccount'); 
+                      context.pushNamed('deleteAccount', pathParameters: {'isManager': 'false'});
                     },
                     child: const Text("Need to delete an existing account?", 
                       style: TextStyle(color: Colors.white60, fontSize: 13, decoration: TextDecoration.underline)),

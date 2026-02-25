@@ -9,20 +9,19 @@ import '../entities/manager_hotel.dart';
 import '../entities/manager_offering.dart';
 import '../entities/manager_room.dart';
 import '../entities/staff_member.dart';
-import '../entities/manager_booking_summary.dart';
 
 abstract class ManagerRepository {
   // Hotels
-  Future<List<ManagerHotel>> getManagedHotels(String managerUserId);
+  Future<List<ManagerHotel>> getManagedHotels(String managerUserId, {Map<String, dynamic>? filters});
   Future<ManagerHotel> getHotelDetail(String hotelId);
   Future<ManagerHotel> createHotel(ManagerHotel hotel);
   Future<ManagerHotel> updateHotel(ManagerHotel hotel);
   Future<void> deactivateHotel(String hotelId);
   Future<List<ManagerAmenity>> getAmenities();
-  Future<List<ManagerPayment>> getPayments(String hotelId);
+  Future<List<ManagerPayment>> getPayments(String hotelId, {Map<String, dynamic>? filters});
 
   // Offerings
-  Future<List<ManagerOffering>> getOfferings(String hotelId);
+  Future<List<ManagerOffering>> getOfferings(String hotelId, {Map<String, dynamic>? filters});
   Future<ManagerOffering> createOffering(ManagerOffering offering);
   Future<ManagerOffering> updateOffering(ManagerOffering offering);
   Future<void> deleteOffering(String offeringId);

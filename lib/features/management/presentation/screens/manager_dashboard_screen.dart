@@ -2,12 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
 import 'package:soko_mtandao/widgets/entity_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManagerDashboardScreen extends ConsumerStatefulWidget {
   const ManagerDashboardScreen({super.key});
@@ -22,7 +22,12 @@ class _ManagerDashboardScreenState
   final AuthService authService = AuthService();
 
   Future<void> _refresh() async {
-    await ref.refresh(managerProfileProvider.future);
+    ref.invalidate(managerProfileProvider);
+    try {
+      await ref
+          .read(managerProfileProvider.future)
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {}
   }
 
   @override
@@ -57,7 +62,7 @@ class _ManagerDashboardScreenState
               error: (err, _) => Card(
                 child: ListTile(
                   title: const Text("Error loading profile"),
-                  subtitle: Text(err.toString()),
+                  subtitle: Text(userMessageForError(err)),
                   trailing: const Text("Pull to retry"),
                 ),
               ),

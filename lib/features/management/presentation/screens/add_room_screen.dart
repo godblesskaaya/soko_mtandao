@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:soko_mtandao/features/management/data/models/manager_room_model.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_room.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/edit_room_provider.dart';
@@ -149,7 +149,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           body: Center(child: CircularProgressIndicator()),
         ),
         error: (err, _) => Scaffold(
-          body: Center(child: Text('Error loading room: $err')),
+          body: Center(child: Text(userMessageForError(err))),
         ),
       );
     } else {

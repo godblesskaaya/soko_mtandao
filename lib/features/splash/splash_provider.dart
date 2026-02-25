@@ -1,5 +1,4 @@
 // lib/features/splash/presentation/riverpod/splash_provider.dart
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/router/route_names.dart';
@@ -9,8 +8,17 @@ final splashRedirectProvider = FutureProvider<String>((ref) async {
   await Future.delayed(Duration(seconds: 2));
 
   final authNotifier = ref.read(authNotifierProvider);
-  final role = authNotifier.role;
   final session = authNotifier.isLoggedIn;
+
+  if (session) {
+    var attempts = 0;
+    while (!authNotifier.isRoleResolved && attempts < 20) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      attempts++;
+    }
+  }
+
+  final role = authNotifier.role;
 
   if (!session) {
     return RouteNames.guestHome;

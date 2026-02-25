@@ -98,9 +98,8 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
               maxPriceController.clear();
               guestsController.clear();
 
-              // notifier.clearFilters();
-
-              // Navigator.pop(context); // optionally close the sheet
+              notifier.clearFilters();
+              Navigator.pop(context);
             },
             child: const Text(
               "Clear Filters",

@@ -1,5 +1,6 @@
 // domain/usecases/rooms/get_rooms_for_offering.dart
 import 'package:dartz/dartz.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/core/usecases/usecase.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_room.dart';
@@ -15,9 +16,8 @@ class GetRoomById implements UseCase<ManagerRoom, String> {
       ManagerRoom room = await repository.getRoomById(roomId);
       return Right(room);
     } catch (e, stackTrace) {
-      print("serverFailure $e");
-      print(stackTrace);
-      return Left(ServerFailure("Failed to fetch room: $e"));
+      ErrorReporter.report(e, stackTrace, source: 'GetRoomById.call');
+      return Left(ServerFailure("Failed to fetch room"));
     }
   }
 }

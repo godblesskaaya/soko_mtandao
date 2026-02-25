@@ -11,26 +11,39 @@ class BookingModel extends Booking {
     required super.paymentStatus,
     super.ticketNumber,
     super.totalPrice,
+    super.createdAt,
+    super.expiresAt,
     required super.bookingCart,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
     BookingStatusEnum _toBookingStatus(String? s) {
       switch (s) {
-        case 'pending': return BookingStatusEnum.pending;
-        case 'confirmed': return BookingStatusEnum.confirmed;
-        case 'cancelled': return BookingStatusEnum.cancelled;
-        default: return BookingStatusEnum.pending;
+        case 'pending':
+          return BookingStatusEnum.pending;
+        case 'confirmed':
+          return BookingStatusEnum.confirmed;
+        case 'cancelled':
+          return BookingStatusEnum.cancelled;
+        default:
+          return BookingStatusEnum.pending;
       }
     }
 
     PaymentStatusEnum _toPaymentStatus(String? s) {
       switch (s) {
-        case 'initiated': return PaymentStatusEnum.initiated;
-        case 'pending': return PaymentStatusEnum.pending;
-        case 'completed': return PaymentStatusEnum.completed;
-        case 'failed': return PaymentStatusEnum.failed;
-        default: return PaymentStatusEnum.initiated;
+        case 'initiated':
+          return PaymentStatusEnum.initiated;
+        case 'pending':
+          return PaymentStatusEnum.pending;
+        case 'unpaid':
+          return PaymentStatusEnum.pending;
+        case 'completed':
+          return PaymentStatusEnum.completed;
+        case 'failed':
+          return PaymentStatusEnum.failed;
+        default:
+          return PaymentStatusEnum.initiated;
       }
     }
 
@@ -42,18 +55,26 @@ class BookingModel extends Booking {
       ticketNumber: json['ticket_number'],
       totalPrice: (json['total_price'] as num?)?.toDouble(),
       bookingCart: BookingCartModel.fromJson(json['cart']),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
+      expiresAt: json['expires_at'] != null
+          ? DateTime.tryParse(json['expires_at'].toString())
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'user_data': UserModel.fromEntity(user).toJson(),
-    'status': status.name,
-    'payment_status': paymentStatus.name,
-    'ticket_number': ticketNumber,
-    'total_price': totalPrice,
-    'cart': BookingCartModel.fromEntity(bookingCart).toJson(),
-  };
+        'id': id,
+        'user_data': UserModel.fromEntity(user).toJson(),
+        'status': status.name,
+        'payment_status': paymentStatus.name,
+        'ticket_number': ticketNumber,
+        'total_price': totalPrice,
+        'cart': BookingCartModel.fromEntity(bookingCart).toJson(),
+        'created_at': createdAt?.toIso8601String(),
+        'expires_at': expiresAt?.toIso8601String(),
+      };
 
   factory BookingModel.fromEntity(Booking booking) {
     return BookingModel(
@@ -64,6 +85,8 @@ class BookingModel extends Booking {
       ticketNumber: booking.ticketNumber,
       totalPrice: booking.totalPrice,
       bookingCart: BookingCartModel.fromEntity(booking.bookingCart),
+      createdAt: booking.createdAt,
+      expiresAt: booking.expiresAt,
     );
   }
 }

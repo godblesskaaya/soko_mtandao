@@ -1,6 +1,5 @@
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availability.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
-import 'package:soko_mtandao/features/management/data/models/manager_booking_model.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
@@ -12,14 +11,14 @@ import '../../domain/entities/manager_hotel.dart';
 import '../../domain/entities/manager_offering.dart';
 import '../../domain/entities/manager_room.dart';
 import '../../domain/entities/staff_member.dart';
-import '../../domain/entities/manager_booking_summary.dart';
 
 class ManagerRepositoryImpl implements ManagerRepository {
   final ManagerDataSource dataSource;
   ManagerRepositoryImpl(this.dataSource);
 
   @override
-  Future<List<ManagerHotel>> getManagedHotels(String managerUserId) => dataSource.fetchManagedHotels(managerUserId);
+  Future<List<ManagerHotel>> getManagedHotels(String managerUserId, {Map<String, dynamic>? filters}) =>
+      dataSource.fetchManagedHotels(managerUserId, filters: filters);
 
   @override
   Future<ManagerHotel> createHotel(ManagerHotel hotel) => dataSource.createHotel(hotel);
@@ -31,7 +30,8 @@ class ManagerRepositoryImpl implements ManagerRepository {
   Future<void> deactivateHotel(String hotelId) => dataSource.deactivateHotel(hotelId);
 
   @override
-  Future<List<ManagerOffering>> getOfferings(String hotelId) => dataSource.fetchOfferings(hotelId);
+  Future<List<ManagerOffering>> getOfferings(String hotelId, {Map<String, dynamic>? filters}) =>
+      dataSource.fetchOfferings(hotelId, filters: filters);
 
   @override
   Future<ManagerOffering> createOffering(ManagerOffering offering) => dataSource.createOffering(offering);
@@ -123,7 +123,7 @@ class ManagerRepositoryImpl implements ManagerRepository {
   }
 
   @override
-  Future<List<ManagerPayment>> getPayments(String hotelId) {
-    return dataSource.fetchPayments(hotelId);
+  Future<List<ManagerPayment>> getPayments(String hotelId, {Map<String, dynamic>? filters}) {
+    return dataSource.fetchPayments(hotelId, filters: filters);
   }
 }

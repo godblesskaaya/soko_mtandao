@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:soko_mtandao/core/usecases/usecase.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/domain/entities/editable_image.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/add_hotel_provider.dart';
@@ -13,7 +13,6 @@ import 'package:soko_mtandao/features/management/presentation/riverpod/manager_a
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart' hide addHotelProvider;
 import 'package:soko_mtandao/features/management/presentation/widgets/location_picker.dart';
 import 'package:soko_mtandao/widgets/dynamic_multiselect_field.dart';
-import '../../../hotel_detail/domain/entities/amenity.dart';
 
 class AddHotelScreen extends ConsumerStatefulWidget {
   final String? hotelId;
@@ -172,7 +171,10 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(userMessageForError(e)),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -181,7 +183,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(addHotelProvider);
     final amenitiesAsync = ref.watch(managerAmenitiesProvider);
 
 /// ------- EDIT MODE -------
@@ -197,7 +198,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
         error: (err, _) {
           return Scaffold(
             appBar: AppBar(title: const Text("Edit Hotel")),
-            body: Center(child: Text("Error loading hotel: $err")),
+            body: Center(child: Text(userMessageForError(err))),
           );
         },
         data: (hotel) {

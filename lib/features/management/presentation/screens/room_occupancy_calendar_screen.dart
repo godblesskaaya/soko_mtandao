@@ -1,6 +1,7 @@
 // features/manager/presentation/screens/room_occupancy_calendar_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_booking_providers.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -27,7 +28,12 @@ class _RoomOccupancyCalendarScreenState
       appBar: AppBar(title: const Text("Room Occupancy")),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.refresh(roomBookingsProvider(widget.roomId).future);
+          ref.invalidate(roomBookingsProvider(widget.roomId));
+          try {
+            await ref
+                .read(roomBookingsProvider(widget.roomId).future)
+                .timeout(const Duration(seconds: 8));
+          } catch (_) {}
         },
         child: bookingsAsync.when(
           loading: () => ListView(
@@ -44,7 +50,7 @@ class _RoomOccupancyCalendarScreenState
               Center(
                 child: Column(
                   children: [
-                    Text("Error: $err"),
+                    Text(userMessageForError(err)),
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () =>
@@ -111,7 +117,7 @@ class _RoomOccupancyCalendarScreenState
                                 ),
                                 error: (err, _) => ListTile(
                                   title: const Text("Failed to load booking"),
-                                  subtitle: Text(err.toString()),
+                                  subtitle: Text(userMessageForError(err)),
                                 ),
                                 data: (booking) {
                                   final userData = {

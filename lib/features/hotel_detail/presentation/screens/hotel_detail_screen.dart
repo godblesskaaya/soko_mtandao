@@ -1,13 +1,11 @@
 // hotel_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/booking_cart_modal.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/header_carousel.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/offering_list.dart';
-import '../../domain/entities/hotel.dart';
-import '../../domain/entities/offering.dart';
-import '../../domain/entities/room.dart';
 
 class HotelDetailScreen extends ConsumerStatefulWidget {
   final String hotelId;
@@ -43,7 +41,7 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
       appBar: AppBar(title: const Text("Hotel Details")),
       body: hotelAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text("Error: $err")),
+        error: (err, _) => Center(child: Text(userMessageForError(err))),
         data: (hotel) {
           return CustomScrollView(
             slivers: [
@@ -65,7 +63,7 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
                             ref.watch(hotelAmenitiesProvider(hotel.id));
                         return amenities.when(
                           loading: () => const CircularProgressIndicator(),
-                          error: (err, _) => Text("Amenities error: $err"),
+                          error: (err, _) => Text(userMessageForError(err)),
                           data: (a) => Wrap(
                             spacing: 8,
                             children:
@@ -99,7 +97,7 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
                                 return offeringsAsync.when(
                                   loading: () =>
                                       const CircularProgressIndicator(),
-                                  error: (err, _) => Text("Error: $err"),
+                                  error: (err, _) => Text(userMessageForError(err)),
                                   data: (offerings) =>
                                       OfferingsList(offerings: offerings, hotelId: hotel.id, startDate: _selectedRange!.start, endDate: _selectedRange!.end),
                                 );
@@ -119,7 +117,7 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
     floatingActionButton: Consumer(
       builder: (context, ref, _) {
         final cart = ref.watch(bookingCartProvider);
-        if (cart == null || cart.isEmpty) return SizedBox.shrink();
+        if (cart.isEmpty) return SizedBox.shrink();
 
         return FloatingActionButton.extended(
           onPressed: () {

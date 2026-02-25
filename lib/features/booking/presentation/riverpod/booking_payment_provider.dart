@@ -15,7 +15,7 @@ final monitorBookingPaymentProvider = Provider((ref) {
 });
 
 final bookingPaymentStreamProvider =
-    StreamProvider.family<Booking, String>((ref, bookingId) {
+    StreamProvider.autoDispose.family<Booking, String>((ref, bookingId) {
   final monitor = ref.watch(monitorBookingPaymentProvider);
   return monitor(bookingId);
 });

@@ -6,7 +6,6 @@ import 'package:soko_mtandao/features/management/data/models/manager_room_model.
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
-import 'package:soko_mtandao/features/management/domain/entities/manager_booking_summary.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
@@ -16,12 +15,12 @@ import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availabi
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
 
 abstract class ManagerDataSource {
-  Future<List<ManagerHotelModel>> fetchManagedHotels(String managerUserId);
+  Future<List<ManagerHotelModel>> fetchManagedHotels(String managerUserId, {Map<String, dynamic>? filters});
   Future<ManagerHotelModel> createHotel(ManagerHotel hotel);
   Future<ManagerHotelModel> updateHotel(ManagerHotel hotel);
   Future<void> deactivateHotel(String hotelId);
 
-  Future<List<ManagerOfferingModel>> fetchOfferings(String hotelId);
+  Future<List<ManagerOfferingModel>> fetchOfferings(String hotelId, {Map<String, dynamic>? filters});
   Future<ManagerOfferingModel> createOffering(ManagerOffering offering);
   Future<ManagerOfferingModel> updateOffering(ManagerOffering offering);
   Future<void> deleteOffering(String offeringId);
@@ -59,5 +58,5 @@ abstract class ManagerDataSource {
 
   Future<List<ManagerAmenity>> fetchAmenities();
 
-  Future<List<ManagerPayment>> fetchPayments(String hotelId);
+  Future<List<ManagerPayment>> fetchPayments(String hotelId, {Map<String, dynamic>? filters});
 }

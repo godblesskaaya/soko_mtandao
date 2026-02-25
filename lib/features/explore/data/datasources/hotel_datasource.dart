@@ -39,6 +39,7 @@ class SupabaseHotelDataSource implements HotelDataSource {
         .from('hotels')
         .select()
         // .eq('is_active', true)
+        .order('name', ascending: true)
         .limit(300);
 
     final all = _mapRows(res);
@@ -60,8 +61,6 @@ class SupabaseHotelDataSource implements HotelDataSource {
           'west': west,
         });
 
-        print(res);
-
     return _mapRows(res);
   }
 
@@ -77,6 +76,7 @@ class SupabaseHotelDataSource implements HotelDataSource {
         .select()
         .or('name.ilike.%$query%,description.ilike.%$query%')
         // .eq('is_active', true)
+        .order('name', ascending: true)
         .limit(200);
 
     final hotels = _mapRows(res);

@@ -34,18 +34,14 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
 
     // Register drag callbacks
     _pointManager?.dragEvents(
-      onBegin: (annotation) {
-        print("Drag started: ${annotation.id}");
-      },
+      onBegin: (annotation) {},
       onChanged: (annotation) {
         selectedLat = annotation.geometry.coordinates.lat as double?;
         selectedLng = annotation.geometry.coordinates.lng as double?;
         // update marker position
         setState(() {});
       },
-      onEnd: (annotation) {
-        print("Drag ended at: $selectedLat, $selectedLng");
-      },
+      onEnd: (annotation) {},
     );
   }
 

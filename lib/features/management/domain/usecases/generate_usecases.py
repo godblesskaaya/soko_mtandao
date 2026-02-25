@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 # Define the base path
 # base_path = Path("features/hotel_manager/domain/usecases")
@@ -52,4 +53,4 @@ for folder, files in structure.items():
         file_path = folder_path / file_name
         file_path.touch()
 
-print(f"✅ Created use case structure under: {base_path}")
+logging.info("Created use case structure under: %s", base_path)

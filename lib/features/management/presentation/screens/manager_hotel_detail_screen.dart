@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
 
 class ManagerHotelDetailScreen extends ConsumerWidget {
@@ -32,9 +33,12 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.refresh(
-            hotelDetailProvider(hotelId).future,
-          );
+          ref.invalidate(hotelDetailProvider(hotelId));
+          try {
+            await ref
+                .read(hotelDetailProvider(hotelId).future)
+                .timeout(const Duration(seconds: 8));
+          } catch (_) {}
         },
         child: hotelAsync.when(
           loading: () => const Center(
@@ -45,7 +49,7 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
               const SizedBox(height: 200),
-              Center(child: Text("Error: $err")),
+              Center(child: Text(userMessageForError(err))),
               const SizedBox(height: 8),
               const Center(child: Text("Pull down to retry")),
             ],

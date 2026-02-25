@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/router/route_names.dart';
-import '../../../../core/services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -15,7 +17,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final authService = AuthService();
   bool _isLoading = false;
 
   void login() async {
@@ -23,20 +24,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await authService.signIn(
+      await ref.read(authNotifierProvider).signIn(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
       if (mounted) context.goNamed('splash');
     } catch (e) {
+      ErrorReporter.report(e, StackTrace.current, source: 'ui.login');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: $e')),
+          SnackBar(content: Text(userMessageForError(e))),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 
   @override

@@ -1,15 +1,14 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/explore/domain/entities/hotel.dart';
 import 'package:soko_mtandao/features/explore/presentation/riverpod/map_state.dart' as custom_map_state;
 import 'package:soko_mtandao/features/explore/presentation/widgets/hotel_list_item.dart';
 import '../../../../core/config/map_config.dart';
-import '../../../../router/route_names.dart';
 
 class ExploreMapScreen extends ConsumerStatefulWidget {
   const ExploreMapScreen({super.key});
@@ -209,7 +208,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
                         loading: () => const Center(child: CircularProgressIndicator()),
                         error: (e, st) => Center(child: Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text('Failed to fetch hotels.\n$e', textAlign: TextAlign.center),
+                          child: Text(userMessageForError(e), textAlign: TextAlign.center),
                         )),
                         data: (hotels) {
                           // Update pins when data changes

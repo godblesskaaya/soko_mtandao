@@ -2,7 +2,6 @@ import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/user_info.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_cart.dart';
 
-
 class Booking {
   final String id;
   final BookingCart bookingCart;
@@ -13,6 +12,8 @@ class Booking {
 
   final String? ticketNumber;
   final double? totalPrice; // optional snapshot from backend
+  final DateTime? createdAt;
+  final DateTime? expiresAt;
 
   Booking({
     required this.id,
@@ -22,6 +23,7 @@ class Booking {
     required this.paymentStatus,
     this.ticketNumber,
     this.totalPrice,
+    this.createdAt,
+    this.expiresAt,
   });
-  
 }

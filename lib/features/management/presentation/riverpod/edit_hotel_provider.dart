@@ -1,13 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/failure_mapper.dart';
+import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/features/management/domain/entities/editable_image.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class EditHotelState {
   final bool isLoading;
-  final String? error;
+  final Failure? error;
 
   const EditHotelState({
     this.isLoading = false,
@@ -16,7 +18,7 @@ class EditHotelState {
 
   EditHotelState copyWith({
     bool? isLoading,
-    String? error,
+    Failure? error,
   }) {
     return EditHotelState(
       isLoading: isLoading ?? this.isLoading,
@@ -104,7 +106,7 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
         });
       }
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: failureFromError(e));
       rethrow;
     } finally {
       state = state.copyWith(isLoading: false);

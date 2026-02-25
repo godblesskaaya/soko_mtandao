@@ -55,39 +55,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       }
     });
 
-    return Consumer(
-      builder: (context, ref, child) {
-        ref.listen<AsyncValue<String>>(splashRedirectProvider, (previous, next) {
-          next.whenData((route) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              // Use router to navigate (router is set to use named routes)
-              context.go(route);
-            });
-          });
-        });
-
-        return Scaffold(
-          backgroundColor: Color.fromARGB(255, 6, 101, 153),
-          body: Center(
-            child: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _animation.value,
-                  child: Text(
-                    'Soko Mtandao',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 24.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                );
-              }
-            ),
-          ),
-        );
-      },
+    return Scaffold(
+      backgroundColor: Color.fromARGB(255, 6, 101, 153),
+      body: Center(
+        child: AnimatedBuilder(
+          animation: _animation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _animation.value,
+              child: Text(
+                'Soko Mtandao',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24.0,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          }
+        ),
+      ),
     );
   }
 }

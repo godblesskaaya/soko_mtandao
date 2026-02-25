@@ -28,6 +28,7 @@ import 'package:soko_mtandao/features/management/presentation/screens/offering_m
 import 'package:soko_mtandao/features/management/presentation/screens/room_management_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/room_occupancy_calendar_screen.dart';
 import 'package:soko_mtandao/features/settings/presentation/screens/delete_account_screen.dart';
+import 'package:soko_mtandao/features/settings/presentation/screens/profile_screen.dart';
 // import 'package:soko_mtandao/features/explore/presentation/screens/hotel_detail_screen.dart';
 import 'package:soko_mtandao/features/splash/splash_screen.dart';
 import 'package:soko_mtandao/layouts/admin_layout.dart';
@@ -72,26 +73,31 @@ class AppRouter {
               // App layout (guest/customer/staff) — nested ShellRoute with dynamic bottom nav
               ShellRoute(
                 builder: (context, state, child) {
-                  final selectedIndex = _computeIndex(state.uri.toString(), authNotifier.role);
+                  final selectedIndex = _computeIndex(state.uri.path, authNotifier.role);
                   return AppLayout(child: child, selectedIndex: selectedIndex);
                 },
                 routes: [
                   GoRoute(path: RouteNames.guestHome, name: 'guestHome', builder: (c, s) => const ExploreMapScreen()),
                   GoRoute(path: RouteNames.hotels, name: 'hotels', builder: (c, s) => const HotelSearchScreen()),
                   GoRoute(path: RouteNames.bookings, name: 'bookings', builder: (c, s) => const FindBookingScreen()),
-                  GoRoute(path: RouteNames.profile, name: 'profile', redirect: (context, state) {
-                    final authNotifier = ref.read(authNotifierProvider);
-                    if (!authNotifier.isLoggedIn) {
-                      return RouteNames.login;
-                    }
-                    if (authNotifier.role == UserRole.systemAdmin) {
-                      return RouteNames.systemAdminHome;
-                    }
-                    if (authNotifier.role == UserRole.hotelAdmin) {
-                      return RouteNames.hotelAdminHome;
-                    }
-                    return null;
-                  }),
+                  GoRoute(
+                    path: RouteNames.profile,
+                    name: 'profile',
+                    builder: (c, s) => const ProfileScreen(),
+                    redirect: (context, state) {
+                      final authNotifier = ref.read(authNotifierProvider);
+                      if (!authNotifier.isLoggedIn) {
+                        return RouteNames.login;
+                      }
+                      if (authNotifier.role == UserRole.systemAdmin) {
+                        return RouteNames.systemAdminHome;
+                      }
+                      if (authNotifier.role == UserRole.hotelAdmin) {
+                        return RouteNames.hotelAdminHome;
+                      }
+                      return null;
+                    },
+                  ),
                   GoRoute(path: RouteNames.staffHome, name: 'staffHome', builder: (c, s) => const /* StaffDashboard() */Placeholder()),
                   GoRoute(path: RouteNames.hotelDetail, name: 'hotelDetail', builder: (c, s) {
                     final hotelId = s.pathParameters['hotelId'] ?? '';
@@ -124,7 +130,7 @@ class AppRouter {
               // Admin layout
               ShellRoute(
                 builder: (context, state, child) {
-                  final selectedAdminIndex = _computeIndex(state.uri.toString(), authNotifier.role);
+                  final selectedAdminIndex = _computeIndex(state.uri.path, authNotifier.role);
                   return AdminLayout(selectedIndex: selectedAdminIndex, child: child,);
                 },
                 routes: [
@@ -243,6 +249,11 @@ class AppRouter {
 }
 
 _computeIndex(String location, UserRole role) {
+  bool matchesPath(String template) {
+    final staticPrefix = template.split('/:').first;
+    return location == staticPrefix || location.startsWith('$staticPrefix/');
+  }
+
   // compute bottom nav index based on route and role
   if (role == UserRole.customer || role == UserRole.guest) {
     if (location.startsWith(RouteNames.guestHome)) return 0;
@@ -260,10 +271,10 @@ _computeIndex(String location, UserRole role) {
     if (location.startsWith(RouteNames.guestHome)) return 0;
     if (location.startsWith(RouteNames.hotels)) return 1;
     if (location.startsWith(RouteNames.profile)) return 2;
-    if (location.startsWith(RouteNames.managerHotel)) return 3;
-    if (location.startsWith(RouteNames.rooms)) return 4;
-    if (location.startsWith(RouteNames.offerings)) return 5;
-    if (location.startsWith(RouteNames.hotelBookings)) return 6;
+    if (matchesPath(RouteNames.managerHotel)) return 3;
+    if (matchesPath(RouteNames.offerings)) return 4;
+    if (matchesPath(RouteNames.rooms)) return 5;
+    if (matchesPath(RouteNames.hotelBookings)) return 6;
   }
   return 0;
 }

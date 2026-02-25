@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soko_mtandao/features/booking/data/models/booking_model.dart';
-import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_providers.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_details.dart';
 import 'package:soko_mtandao/router/route_names.dart';
@@ -60,7 +59,7 @@ class _BookingConfirmationScreenState
                 children: [
                   const Icon(Icons.error_outline, color: Colors.red, size: 48),
                   const SizedBox(height: 16),
-                  Text('Something went wrong: ${flow.error}'),
+                  Text(userMessageForError(flow.error!)),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {

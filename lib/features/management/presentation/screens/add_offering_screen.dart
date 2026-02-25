@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/edit_offering_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_offering_providers.dart';
@@ -140,7 +141,7 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
           return _buildForm(context);
         },
         loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+        error: (e, st) => Scaffold(body: Center(child: Text(userMessageForError(e)))),
       );
     } else {
       // Adding new offering

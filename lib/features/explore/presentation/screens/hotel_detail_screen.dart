@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import '../../domain/entities/hotel.dart';
 import '../riverpod/hotels_provider.dart';
 
@@ -15,7 +16,7 @@ class HotelDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Hotel Details')),
       body: hotelAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, st) => Center(child: Text('Error: $e')),
+        error: (e, st) => Center(child: Text(userMessageForError(e))),
         data: (hotel) => _Details(hotel: hotel),
       ),
     );

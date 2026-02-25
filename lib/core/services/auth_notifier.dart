@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import '../constants/roles.dart';
 import 'user_service.dart';
 import 'auth_service.dart';
@@ -18,6 +19,9 @@ class AuthNotifier extends ChangeNotifier {
 
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
+
+  bool _isRoleResolved = true;
+  bool get isRoleResolved => _isRoleResolved;
 
   bool _isInPasswordRecovery = false;
   bool get isInPasswordRecovery => _isInPasswordRecovery;
@@ -68,6 +72,7 @@ class AuthNotifier extends ChangeNotifier {
     // 🚨 During password recovery, do NOT treat as logged in
     if (_isInPasswordRecovery) {
       _isLoggedIn = false;
+      _isRoleResolved = true;
       _role = UserRole.guest;
       _staffHasHotel = false;
       return;
@@ -76,10 +81,12 @@ class AuthNotifier extends ChangeNotifier {
     _isLoggedIn = session != null;
     // default to guest; we'll try to fetch role synchronously-ish (async below)
     if (!_isLoggedIn) {
+      _isRoleResolved = true;
       _role = UserRole.guest;
       _staffHasHotel = false;
       return;
     }
+    _isRoleResolved = false;
     // fire-and-forget fetch role & association, then notify when done
     _fetchRoleAndAssoc();
   }
@@ -87,6 +94,7 @@ class AuthNotifier extends ChangeNotifier {
   Future<void> _fetchRoleAndAssoc() async {
     final uid = _authService.userId;
     if (uid == null) {
+      _isRoleResolved = true;
       _role = UserRole.guest;
       _staffHasHotel = false;
       notifyListeners();
@@ -101,11 +109,18 @@ class AuthNotifier extends ChangeNotifier {
       } else {
         _staffHasHotel = false;
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      ErrorReporter.report(
+        e,
+        stackTrace,
+        source: 'auth_notifier.fetchRoleAndAssoc',
+        context: {'uid': uid},
+      );
       // keep defaults on error
       _role = UserRole.guest;
       _staffHasHotel = false;
     }
+    _isRoleResolved = true;
     notifyListeners();
   }
 

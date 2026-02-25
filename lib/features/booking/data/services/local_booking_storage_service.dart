@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/features/booking/data/models/booking_model.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
 
@@ -9,22 +10,25 @@ class LocalBookingStorage {
 
   Future<void> saveBooking(BookingModel booking) async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     // 1. Get existing history
     final List<String> rawList = prefs.getStringList(_storageKey) ?? [];
-    
-    // 2. Avoid Duplicates: Check if this booking ID is already saved
-    final exists = rawList.any((item) {
+
+    // 2. Upsert by booking id so pending/confirmed status can be refreshed.
+    final encoded = jsonEncode(booking.toJson());
+    final existingIndex = rawList.indexWhere((item) {
       final Map<String, dynamic> json = jsonDecode(item);
       return json['id'] == booking.id;
     });
 
-    if (exists) return; // Don't save again if it exists
+    if (existingIndex >= 0) {
+      rawList.removeAt(existingIndex);
+    }
 
-    // 3. Add new booking to the TOP of the list (newest first)
-    rawList.insert(0, jsonEncode(booking.toJson()));
+    // 3. Add latest record to top (newest first).
+    rawList.insert(0, encoded);
 
-    // 4. Save back to storage
+    // 4. Save back to storage.
     await prefs.setStringList(_storageKey, rawList);
   }
 
@@ -32,33 +36,27 @@ class LocalBookingStorage {
     final prefs = await SharedPreferences.getInstance();
     final List<String> rawList = prefs.getStringList(_storageKey) ?? [];
 
-    // print debug info
-    print('Retrieved ${rawList.length} bookings from local storage.');
-    print('Raw data: $rawList');
-
     final List<Booking> bookings = [];
-    for (var i=0; i<rawList.length; i++) {
+    for (var i = 0; i < rawList.length; i++) {
       final item = rawList[i];
 
       try {
         final Map<String, dynamic> json = jsonDecode(item);
-        print(  'decoded json type: ${json.runtimeType}');
-        print('decoded json content: ${json.keys}');
-        print('decoded jsonvalues: ${json.values}');
-
         final booking = BookingModel.fromJson(json);
-        print('successfully parsed booking with id: ${booking.id}');
         bookings.add(booking);
       } catch (e, stackTrace) {
-        // If parsing fails, skip this entry
-        print('Failed to parse booking from local storage: $e');
-        print('Stack trace: $stackTrace');
+        ErrorReporter.report(
+          e,
+          stackTrace,
+          source: 'local_booking_storage.getLocalBookings',
+          context: {'index': i},
+        );
       }
     }
 
     return bookings;
   }
-  
+
   // Optional: Clear history
   Future<void> clearHistory() async {
     final prefs = await SharedPreferences.getInstance();

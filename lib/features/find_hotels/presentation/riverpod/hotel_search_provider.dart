@@ -1,9 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/features/find_hotels/domain/entities/hotel_search_state.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/riverpod/hotel_search_notifier.dart';
-import 'package:soko_mtandao/features/hotel_detail/domain/entities/hotel.dart';
-import '../../domain/entities/hotel_entity.dart';
-import '../../domain/entities/hotel_search_params.dart';
 import '../../domain/usecases/search_hotels.dart';
 import '../../data/repositories/hotel_search_repository_impl.dart';
 import '../../data/datasources/hotel_search_remote_datasource.dart';

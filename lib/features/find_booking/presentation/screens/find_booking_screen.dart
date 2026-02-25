@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
+import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_details.dart';
+import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
+import 'package:soko_mtandao/router/route_names.dart';
 import '../riverpod/find_booking_provider.dart';
-
-// 1. RE-USE the provider we defined in the previous step
-final localBookingHistoryProvider = FutureProvider.autoDispose<List<Booking>>((ref) async {
-  final storage = ref.watch(localBookingStorageProvider);
-  return storage.getLocalBookings();
-});
 
 class FindBookingScreen extends ConsumerStatefulWidget {
   const FindBookingScreen({super.key});
@@ -21,6 +20,14 @@ class FindBookingScreen extends ConsumerStatefulWidget {
 class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
   final _controller = TextEditingController();
   String? _searchId; // Use a nullable string to toggle state
+
+  bool _canResumePayment(Booking booking) {
+    final isPending = booking.status == BookingStatusEnum.pending &&
+        booking.paymentStatus == PaymentStatusEnum.pending;
+    if (!isPending) return false;
+    if (booking.expiresAt == null) return true;
+    return DateTime.now().isBefore(booking.expiresAt!);
+  }
 
   void _performSearch() {
     if (_controller.text.trim().isNotEmpty) {
@@ -44,14 +51,12 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch search result ONLY if we are searching
-    final searchAsync = _searchId != null
-        ? ref.watch(findBookingProvider(_searchId!))
-        : null;
+    final searchAsync =
+        _searchId != null ? ref.watch(findBookingProvider(_searchId!)) : null;
 
     // Watch local history ONLY if we are NOT searching
-    final historyAsync = _searchId == null 
-        ? ref.watch(localBookingHistoryProvider) 
-        : null;
+    final historyAsync =
+        _searchId == null ? ref.watch(localBookingHistoryProvider) : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -81,12 +86,13 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.search),
                       // Show clear button if there is text or an active search
-                      suffixIcon: (_controller.text.isNotEmpty || _searchId != null)
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: _clearSearch,
-                            )
-                          : null,
+                      suffixIcon:
+                          (_controller.text.isNotEmpty || _searchId != null)
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: _clearSearch,
+                                )
+                              : null,
                     ),
                     onSubmitted: (_) => _performSearch(),
                   ),
@@ -95,7 +101,8 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                 ElevatedButton(
                   onPressed: _performSearch,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
                   ),
                   child: const Text("Find"),
                 ),
@@ -118,7 +125,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
   Widget _buildSearchResults(AsyncValue searchAsync) {
     return searchAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text("Error: $e")),
+      error: (e, _) => Center(child: Text(userMessageForError(e))),
       data: (result) {
         if (!result.found) {
           return Center(
@@ -142,7 +149,24 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
         // If found, show details
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: BookingDetailsWidget(booking: result.booking!),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              BookingDetailsWidget(booking: result.booking!),
+              if (_canResumePayment(result.booking!))
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      context
+                          .push('${RouteNames.payment}/${result.booking!.id}');
+                    },
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Resume Payment'),
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -152,18 +176,19 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
   Widget _buildLocalHistory(AsyncValue<List<Booking>> historyAsync) {
     return historyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text("Error loading history: $e")),
+      error: (e, _) => Center(child: Text(userMessageForError(e))),
       data: (bookings) {
         if (bookings.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.history_toggle_off, size: 64, color: Colors.grey),
+                const Icon(Icons.history_toggle_off,
+                    size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
                 const Text("No saved bookings on this device."),
                 const SizedBox(height: 8),
-                const Text("Bookings you confirm will appear here."),
+                const Text("Pending and confirmed bookings will appear here."),
               ],
             ),
           );
@@ -177,25 +202,58 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               elevation: 2,
-              child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Colors.blueAccent,
-                  child: Icon(Icons.bookmark, color: Colors.white),
-                ),
-                title: Text("Booking #${booking.ticketNumber}"),
-                // convert date to readable format
-                subtitle: Text("Place: ${booking.bookingCart.bookings.first.hotel.name}\nDate: ${booking.bookingCart.bookings.first.startDate.toIso8601String().substring(0, 10)} to ${booking.bookingCart.bookings.first.endDate.toIso8601String().substring(0, 10)}"),
-                isThreeLine: true,
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  // Pre-fill the search box and trigger search to get latest status
-                  _controller.text = booking.id;
-                  _performSearch();
-                  
-                  // OR: If you just want to show the local data without network:
-                  // Navigator.push(context, MaterialPageRoute(builder: (_) => 
-                  //   BookingDetailsScreen(booking: booking)));
-                },
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Colors.blueAccent,
+                      child: Icon(Icons.bookmark, color: Colors.white),
+                    ),
+                    title: Text("Booking #${booking.ticketNumber}"),
+                    // convert date to readable format
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                            "Place: ${booking.bookingCart.bookings.first.hotel.name}"),
+                        Text(
+                            "Date: ${booking.bookingCart.bookings.first.startDate.toIso8601String().substring(0, 10)} to ${booking.bookingCart.bookings.first.endDate.toIso8601String().substring(0, 10)}"),
+                        if (booking.status == BookingStatusEnum.pending &&
+                            booking.paymentStatus ==
+                                PaymentStatusEnum.pending &&
+                            booking.expiresAt != null)
+                          BookingExpiryCountdown(
+                            expiresAt: booking.expiresAt!,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                      ],
+                    ),
+                    isThreeLine: booking.status == BookingStatusEnum.pending &&
+                        booking.paymentStatus == PaymentStatusEnum.pending &&
+                        booking.expiresAt != null,
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      // Pre-fill the search box and trigger search to get latest status
+                      _controller.text = booking.id;
+                      _performSearch();
+                    },
+                  ),
+                  if (_canResumePayment(booking))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            context.push('${RouteNames.payment}/${booking.id}');
+                          },
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text('Resume Payment'),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             );
           },

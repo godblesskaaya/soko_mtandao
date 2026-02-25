@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_custom_tabs/flutter_custom_tabs.dart' hide launchUrl;
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_payment_provider.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/payment_flow_provider.dart';
+import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -20,7 +21,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _paymentLaunched = false;
   bool _isProcessing = false;
-  bool _isLaunching = false;
+  bool _didNavigateToConfirmation = false;
 
   @override
   void initState() {
@@ -56,7 +57,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // );
 
       // use url_launcher and custom tabs
-      await launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView, webViewConfiguration: const WebViewConfiguration());
+      await launchUrl(Uri.parse(url),
+          mode: LaunchMode.inAppBrowserView,
+          webViewConfiguration: const WebViewConfiguration());
     } catch (e) {
       debugPrint('Error launching payment tab: $e');
       if (mounted) {
@@ -80,7 +83,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       next.whenData((booking) {
         final isDone = booking.paymentStatus == PaymentStatusEnum.completed &&
             booking.status == BookingStatusEnum.confirmed;
-        if (isDone && context.mounted) {
+        if (isDone && !_didNavigateToConfirmation && context.mounted) {
+          _didNavigateToConfirmation = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             context.push('${RouteNames.bookingConfirmation}/${booking.id}');
           });
@@ -107,7 +111,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   return Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Error starting checkout:\n${flowState.errorMessage}',
+                      userMessageForError(
+                          flowState.errorMessage ?? 'checkout_error'),
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.red),
                     ),
@@ -164,8 +169,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ),
                     if (!isPaid)
                       const Text('Waiting for payment confirmation...'),
-                    if (isPaid)
-                      const Text('Payment confirmed! Redirecting...'),
+                    if (!isPaid && booking.expiresAt != null) ...[
+                      const SizedBox(height: 8),
+                      BookingExpiryCountdown(expiresAt: booking.expiresAt!),
+                    ],
+                    if (isPaid) const Text('Payment confirmed! Redirecting...'),
                   ],
                 ),
               );
@@ -176,7 +184,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
             error: (e, _) => Padding(
               padding: const EdgeInsets.all(8),
-              child: Text('Error: $e'),
+              child: Text(userMessageForError(e)),
             ),
           ),
         ],

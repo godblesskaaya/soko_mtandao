@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_rom_details_provider.dart';
-import 'package:soko_mtandao/features/management/presentation/riverpod/manager_room_actions_provider.dart';
 import '../widgets/room_header_card.dart';
 import '../widgets/room_action_buttons.dart';
 
@@ -22,7 +21,12 @@ class ManagerRoomDetailsPage extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await ref.refresh(managerRoomDetailsProvider(roomId).future);
+          ref.invalidate(managerRoomDetailsProvider(roomId));
+          try {
+            await ref
+                .read(managerRoomDetailsProvider(roomId).future)
+                .timeout(const Duration(seconds: 8));
+          } catch (_) {}
         },
         child: asyncRoomDetails.when(
           loading: () => ListView(
@@ -39,7 +43,7 @@ class ManagerRoomDetailsPage extends ConsumerWidget {
               Center(
                 child: Column(
                   children: [
-                    Text('Error loading room details: $error'),
+                    Text(userMessageForError(error)),
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () {

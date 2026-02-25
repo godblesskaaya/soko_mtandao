@@ -17,8 +17,8 @@ class PaymentService {
     final url = '${AppConfig.supabaseFunctionsBaseUrl}/create_checkout';
     final payload = {
       'booking_id': bookingId,
-      'redirectSuccessURL':
-          successRedirect ?? '${AppConfig.appBaseUrl}/payment-success/$bookingId',
+      'redirectSuccessURL': successRedirect ??
+          '${AppConfig.appBaseUrl}/payment-success/$bookingId',
       'redirectFailURL':
           failRedirect ?? '${AppConfig.appBaseUrl}/payment-failed',
     };
@@ -42,6 +42,7 @@ class PaymentService {
         .eq('id', bookingId)
         .maybeSingle();
 
-    return (res?['payment_status'] ?? '').toString().toLowerCase() == 'paid';
+    return (res?['payment_status'] ?? '').toString().toLowerCase() ==
+        'completed';
   }
 }

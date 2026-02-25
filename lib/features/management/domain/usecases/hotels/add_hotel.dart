@@ -1,8 +1,8 @@
 // domain/usecases/hotels/add_hotel.dart
 import 'package:dartz/dartz.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/core/usecases/usecase.dart';
-import 'package:soko_mtandao/features/explore/domain/entities/hotel.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/domain/repositories/manager_repository.dart';
 
@@ -15,8 +15,9 @@ class AddHotel implements UseCase<ManagerHotel, ManagerHotel> {
     try {
       ManagerHotel createdHotel = await repository.createHotel(hotel);
       return Right(createdHotel);
-    } catch (e) {
-      return Left(ServerFailure("Failed to add hotel: $e"));
+    } catch (e, stackTrace) {
+      ErrorReporter.report(e, stackTrace, source: 'AddHotel.call');
+      return Left(ServerFailure("Failed to add hotel"));
     }
   }
 }

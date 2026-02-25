@@ -1,50 +1,71 @@
-// Central redirect logic used by router — relies on providers passed in at runtime
+// Central redirect logic used by router.
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/roles.dart';
 import 'route_names.dart';
 
-String? globalRedirect(Uri location, {required bool isLoggedIn, required UserRole? role, required bool hasRedirectedAfterLogin, required bool isInPasswordRecovery}) {
+String? globalRedirect(
+  Uri location, {
+  required bool isLoggedIn,
+  required UserRole? role,
+  required bool hasRedirectedAfterLogin,
+  required bool isInPasswordRecovery,
+}) {
   final path = location.path;
 
-  
-  // ✅ Always allow reset password during recovery
+  bool matches(String template) {
+    final staticPrefix = template.split('/:').first;
+    return path == staticPrefix || path.startsWith('$staticPrefix/');
+  }
+
+  // Allow reset page only during recovery mode.
   if (isInPasswordRecovery && path == RouteNames.resetPassword) {
     return null;
   }
 
-  // Prevent navigating away during recovery
   if (isInPasswordRecovery && path != RouteNames.resetPassword) {
     return RouteNames.resetPassword;
   }
 
-  if (path == RouteNames.forgotPassword) {
-    return null;
-  }
-
-  // If not logged in and trying to access auth-protected routes
   if (!isLoggedIn) {
-    // allow access to guest/home, login, signup, splash
-    if (path == RouteNames.guestHome || path == RouteNames.login || path == RouteNames.signup || path == RouteNames.splash || path == RouteNames.bookings || path == RouteNames.hotelDetail) {
-      return null;
-    }
-    // return RouteNames.login;
-    return null;
+    final isPublicRoute = path == RouteNames.splash ||
+        path == RouteNames.guestHome ||
+        path == RouteNames.hotels ||
+        path == RouteNames.bookings ||
+        path == RouteNames.login ||
+        path == RouteNames.signup ||
+        path == RouteNames.forgotPassword ||
+        path == RouteNames.bookingInitiate ||
+        path.startsWith('${RouteNames.bookingReview}/') ||
+        path.startsWith('${RouteNames.payment}/') ||
+        path.startsWith('${RouteNames.bookingConfirmation}/') ||
+        path.startsWith(RouteNames.deleteAccount.split('/:').first) ||
+        matches(RouteNames.hotelDetail);
+
+    return isPublicRoute ? null : RouteNames.login;
   }
 
-  // if logged in, role is hoteladmin and coming from login page redirect to hotel admin home
+  // Logged-in users should not remain on auth pages.
+  if (path == RouteNames.login ||
+      path == RouteNames.signup ||
+      path == RouteNames.forgotPassword) {
+    if (role == UserRole.systemAdmin) return RouteNames.systemAdminHome;
+    if (role == UserRole.hotelAdmin) return RouteNames.hotelAdminHome;
+    if (role == UserRole.staff) return RouteNames.staffHome;
+    return RouteNames.guestHome;
+  }
+
+  // First role redirect after login.
   if (isLoggedIn && role == UserRole.hotelAdmin && !hasRedirectedAfterLogin) {
     return RouteNames.hotelAdminHome;
   }
 
-  // If logged in but role doesn't match admin area
+  // Role-gated admin areas.
   if (path.startsWith('/hotel-admin') && role != UserRole.hotelAdmin) {
-    return RouteNames.guestHome; // or a 403 page
+    return RouteNames.guestHome;
   }
   if (path.startsWith('/system-admin') && role != UserRole.systemAdmin) {
     return RouteNames.guestHome;
   }
 
-  // Allow
   return null;
 }
