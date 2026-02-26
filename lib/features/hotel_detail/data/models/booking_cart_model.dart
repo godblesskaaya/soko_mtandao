@@ -18,9 +18,7 @@ class BookingCartModel extends BookingCart {
   factory BookingCartModel.fromJson(dynamic json) {
     if (json is List) {
       return BookingCartModel(
-        bookings: json
-            .map((e) => BookingInputModel.fromJson(e))
-            .toList(),
+        bookings: json.map((e) => BookingInputModel.fromJson(e)).toList(),
       );
     } else if (json is Map<String, dynamic>) {
       return BookingCartModel(
@@ -38,7 +36,9 @@ class BookingCartModel extends BookingCart {
   // Method to serialize BookingCartModel into JSON
   Map<String, dynamic> toJson() {
     return {
-      'bookings': bookings.map((booking) => BookingInputModel.fromEntity(booking).toJson()).toList(),
+      'bookings': bookings
+          .map((booking) => BookingInputModel.fromEntity(booking).toJson())
+          .toList(),
     };
   }
 }

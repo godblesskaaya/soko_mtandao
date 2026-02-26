@@ -14,5 +14,10 @@ class AppConfig {
   static var accountName = 'Soko Mtandao Company Ltd';
 
   static var appBaseUrl = 'soko_mtandao://';
-  static var supabaseFunctionsBaseUrl = 'https://wqmarlzyzukreiwibwjs.supabase.co/functions/v1';
+  static var supabaseFunctionsBaseUrl =
+      'https://wqmarlzyzukreiwibwjs.supabase.co/functions/v1';
+
+  static const privacyPolicyUrl =
+      'https://sites.google.com/view/sokomtandaocompany-privacy';
+  static const supportEmail = 'support@sokomtandao.co.tz';
 }

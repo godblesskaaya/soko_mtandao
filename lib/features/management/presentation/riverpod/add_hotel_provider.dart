@@ -60,7 +60,8 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
           throw Exception("Image upload failed");
         }
 
-        final publicUrl = _supabase.storage.from('hotel-images').getPublicUrl(fileName);
+        final publicUrl =
+            _supabase.storage.from('hotel-images').getPublicUrl(fileName);
         urls.add(publicUrl);
       }
 
@@ -110,7 +111,8 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
         });
       }
     } catch (e) {
-      ErrorReporter.report(e, StackTrace.current, source: 'add_hotel_provider.addHotel');
+      ErrorReporter.report(e, StackTrace.current,
+          source: 'add_hotel_provider.addHotel');
       state = state.copyWith(error: failureFromError(e));
       rethrow;
     } finally {
@@ -119,7 +121,7 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
   }
 }
 
-final addHotelProvider = StateNotifierProvider<AddHotelNotifier, AddHotelState>((ref) {
+final addHotelProvider =
+    StateNotifierProvider<AddHotelNotifier, AddHotelState>((ref) {
   return AddHotelNotifier();
 });
-

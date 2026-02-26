@@ -12,7 +12,8 @@ class ErrorReporter {
     String source = 'app',
     Map<String, Object?> context = const {},
   }) {
-    final message = error is Failure ? userMessageForError(error) : error.toString();
+    final message =
+        error is Failure ? userMessageForError(error) : error.toString();
     final signature = '[$source][$message]';
     final now = DateTime.now();
     if (_lastSignature == signature &&

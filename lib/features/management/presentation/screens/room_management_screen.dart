@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_room_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
+import 'package:soko_mtandao/features/management/presentation/widgets/active_hotel_context_bar.dart';
 
 class RoomListScreen extends ConsumerStatefulWidget {
   final String hotelId;
@@ -19,6 +21,15 @@ class _RoomListScreenState extends ConsumerState<RoomListScreen> {
   bool _sortAsc = true;
   bool? _isActive;
 
+  void _syncActiveHotelSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selectedHotelId = ref.read(selectedManagerHotelIdProvider);
+      if (selectedHotelId == widget.hotelId) return;
+      ref.read(selectedManagerHotelIdProvider.notifier).state = widget.hotelId;
+    });
+  }
+
   ManagerRoomListQuery get _query => ManagerRoomListQuery(
         hotelId: widget.hotelId,
         page: _page,
@@ -27,6 +38,20 @@ class _RoomListScreenState extends ConsumerState<RoomListScreen> {
         sortAscending: _sortAsc,
         isActive: _isActive,
       );
+
+  @override
+  void initState() {
+    super.initState();
+    _syncActiveHotelSelection();
+  }
+
+  @override
+  void didUpdateWidget(covariant RoomListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.hotelId != widget.hotelId) {
+      _syncActiveHotelSelection();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,9 +68,11 @@ class _RoomListScreenState extends ConsumerState<RoomListScreen> {
               _page = 1;
             }),
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'room_number', child: Text('Sort: Room Number')),
+              PopupMenuItem(
+                  value: 'room_number', child: Text('Sort: Room Number')),
               PopupMenuItem(value: 'capacity', child: Text('Sort: Capacity')),
-              PopupMenuItem(value: 'is_active', child: Text('Sort: Active First')),
+              PopupMenuItem(
+                  value: 'is_active', child: Text('Sort: Active First')),
             ],
           ),
           IconButton(
@@ -65,92 +92,120 @@ class _RoomListScreenState extends ConsumerState<RoomListScreen> {
             itemBuilder: (_) => const [
               PopupMenuItem<bool?>(value: null, child: Text('Filter: All')),
               PopupMenuItem<bool?>(value: true, child: Text('Filter: Active')),
-              PopupMenuItem<bool?>(value: false, child: Text('Filter: Inactive')),
+              PopupMenuItem<bool?>(
+                  value: false, child: Text('Filter: Inactive')),
             ],
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(roomsPageProvider(_query));
-          try {
-            await ref.read(roomsPageProvider(_query).future).timeout(const Duration(seconds: 8));
-          } catch (_) {}
-        },
-        child: roomsAsync.when(
-          loading: () => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: const [SizedBox(height: 200), Center(child: CircularProgressIndicator())],
+      body: Column(
+        children: [
+          ActiveHotelContextBar(
+            activeHotelId: widget.hotelId,
+            routeName: 'rooms',
+            subtitle: 'You are managing rooms for this hotel.',
           ),
-          error: (err, _) => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              const SizedBox(height: 200),
-              Center(
-                child: Column(
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(roomsPageProvider(_query));
+                try {
+                  await ref
+                      .read(roomsPageProvider(_query).future)
+                      .timeout(const Duration(seconds: 8));
+                } catch (_) {}
+              },
+              child: roomsAsync.when(
+                loading: () => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 200),
+                    Center(child: CircularProgressIndicator())
+                  ],
+                ),
+                error: (err, _) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   children: [
-                    Text(userMessageForError(err)),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () => ref.invalidate(roomsPageProvider(_query)),
-                      child: const Text("Retry"),
+                    const SizedBox(height: 200),
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(userMessageForError(err)),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () =>
+                                ref.invalidate(roomsPageProvider(_query)),
+                            child: const Text("Retry"),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          data: (rooms) {
-            if (rooms.isEmpty) {
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  const SizedBox(height: 200),
-                  Center(child: Text(_page > 1 ? "No more rooms." : "No rooms yet.")),
-                ],
-              );
-            }
+                data: (rooms) {
+                  if (rooms.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 200),
+                        Center(
+                            child: Text(_page > 1
+                                ? "No more rooms."
+                                : "No rooms yet.")),
+                      ],
+                    );
+                  }
 
-            final hasNext = rooms.length == _pageSize;
-            return ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: rooms.length + 1,
-              itemBuilder: (_, i) {
-                if (i == rooms.length) {
-                  return _PaginationControls(
-                    page: _page,
-                    hasNext: hasNext,
-                    onPrev: _page > 1 ? () => setState(() => _page -= 1) : null,
-                    onNext: hasNext ? () => setState(() => _page += 1) : null,
+                  final hasNext = rooms.length == _pageSize;
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: rooms.length + 1,
+                    itemBuilder: (_, i) {
+                      if (i == rooms.length) {
+                        return _PaginationControls(
+                          page: _page,
+                          hasNext: hasNext,
+                          onPrev: _page > 1
+                              ? () => setState(() => _page -= 1)
+                              : null,
+                          onNext:
+                              hasNext ? () => setState(() => _page += 1) : null,
+                        );
+                      }
+
+                      final room = rooms[i];
+                      return Card(
+                        margin: const EdgeInsets.all(8),
+                        child: ListTile(
+                          title: Text('Room Number: ${room.roomNumber}'),
+                          subtitle: Text("Capacity: ${room.capacity} people"),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => context.pushNamed(
+                              "editRoom",
+                              pathParameters: {
+                                "roomId": room.id,
+                                "hotelId": widget.hotelId
+                              },
+                            ),
+                          ),
+                          onTap: () => context.pushNamed(
+                            "roomDetails",
+                            pathParameters: {"roomId": room.id},
+                          ),
+                        ),
+                      );
+                    },
                   );
-                }
-
-                final room = rooms[i];
-                return Card(
-                  margin: const EdgeInsets.all(8),
-                  child: ListTile(
-                    title: Text('Room Number: ${room.roomNumber}'),
-                    subtitle: Text("Capacity: ${room.capacity} people"),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => context.pushNamed(
-                        "editRoom",
-                        pathParameters: {"roomId": room.id, "hotelId": widget.hotelId},
-                      ),
-                    ),
-                    onTap: () => context.pushNamed(
-                      "roomDetails",
-                      pathParameters: {"roomId": room.id},
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
+                },
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.pushNamed("addRooms", pathParameters: {"hotelId": widget.hotelId}),
+        onPressed: () => context
+            .pushNamed("addRooms", pathParameters: {"hotelId": widget.hotelId}),
         child: const Icon(Icons.add),
       ),
     );
@@ -179,7 +234,8 @@ class _PaginationControls extends StatelessWidget {
         children: [
           OutlinedButton(onPressed: onPrev, child: const Text("Previous")),
           Text("Page $page"),
-          OutlinedButton(onPressed: hasNext ? onNext : null, child: const Text("Next")),
+          OutlinedButton(
+              onPressed: hasNext ? onNext : null, child: const Text("Next")),
         ],
       ),
     );

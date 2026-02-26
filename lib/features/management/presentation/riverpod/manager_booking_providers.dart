@@ -14,10 +14,11 @@ final getBookingItemsProvider = Provider<GetBookingItems>((ref) {
   return GetBookingItems(repo);
 });
 
-final bookingsProvider = FutureProvider.family<List<ManagerBookingItem>, BookingQueryParams>((ref, params) {
+final bookingsProvider =
+    FutureProvider.family<List<ManagerBookingItem>, BookingQueryParams>(
+        (ref, params) {
   return ref.watch(getBookingItemsProvider).call(params).then((result) =>
-    result.fold((failure) => throw failure, (bookings) => bookings)
-  );
+      result.fold((failure) => throw failure, (bookings) => bookings));
 });
 
 final getBookingDetailProvider = Provider<GetBookingDetail>((ref) {
@@ -25,13 +26,15 @@ final getBookingDetailProvider = Provider<GetBookingDetail>((ref) {
   return GetBookingDetail(repo);
 });
 
-final bookingDetailProvider = FutureProvider.family<ManagerBooking, String>((ref, bookingId) {
+final bookingDetailProvider =
+    FutureProvider.family<ManagerBooking, String>((ref, bookingId) {
   return ref.watch(getBookingDetailProvider).call(bookingId).then((result) =>
-    result.fold((failure) => throw failure, (booking) => booking)
-  );
+      result.fold((failure) => throw failure, (booking) => booking));
 });
 
-final bookingListCombinedProvider = FutureProvider.family<List<BookingWithRoomAndDetail>, BookingQueryParams>((ref, query) async {
+final bookingListCombinedProvider =
+    FutureProvider.family<List<BookingWithRoomAndDetail>, BookingQueryParams>(
+        (ref, query) async {
   final bookings = await ref.watch(bookingsProvider(query).future);
 
   final roomIds = bookings
@@ -49,10 +52,12 @@ final bookingListCombinedProvider = FutureProvider.family<List<BookingWithRoomAn
       .toList();
 
   final roomEntries = await Future.wait(
-    roomIds.map((id) async => MapEntry(id, await ref.watch(roomProvider(id).future))),
+    roomIds.map(
+        (id) async => MapEntry(id, await ref.watch(roomProvider(id).future))),
   );
   final detailEntries = await Future.wait(
-    bookingIds.map((id) async => MapEntry(id, await ref.watch(bookingDetailProvider(id).future))),
+    bookingIds.map((id) async =>
+        MapEntry(id, await ref.watch(bookingDetailProvider(id).future))),
   );
 
   final roomById = Map<String, ManagerRoom>.fromEntries(roomEntries);
@@ -82,12 +87,11 @@ final getRoomBookingsProvider = Provider<GetBookingItemsForRoom>((ref) {
   return GetBookingItemsForRoom(repo);
 });
 
-final roomBookingsProvider = FutureProvider.family<List<ManagerBookingItem>, String>((ref, roomId) {
+final roomBookingsProvider =
+    FutureProvider.family<List<ManagerBookingItem>, String>((ref, roomId) {
   return ref.watch(getRoomBookingsProvider).call(roomId).then((result) =>
-    result.fold((failure) => throw failure, (bookings) => bookings)
-  );
+      result.fold((failure) => throw failure, (bookings) => bookings));
 });
-
 
 class BookingWithRoomAndDetail {
   final ManagerBookingItem booking;

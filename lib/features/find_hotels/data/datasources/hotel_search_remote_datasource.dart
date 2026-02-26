@@ -38,11 +38,12 @@ class HotelSearchRemoteDataSource {
         region: row['region'],
         country: row['country'],
         rating: (row['rating'] as num?)?.toDouble() ?? 0.0,
-        images: row['images'] is String ? List<String>.from(jsonDecode(row['images'])) :
-        (row['images'] as List<dynamic>?)
-              ?.map((image) => image.toString())
-              .toList() ??
-          [],
+        images: row['images'] is String
+            ? List<String>.from(jsonDecode(row['images']))
+            : (row['images'] as List<dynamic>?)
+                    ?.map((image) => image.toString())
+                    .toList() ??
+                [],
         availableRooms: row['available_rooms'],
         cheapestPrice: (row['cheapest_price'] as num).toDouble(),
       );

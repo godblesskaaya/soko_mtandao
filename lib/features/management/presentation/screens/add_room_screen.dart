@@ -61,7 +61,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       await ref.read(addRoomProvider.notifier).addRoom(room);
     }
 
-    ref.invalidate( roomsProvider(widget.hotelId) );
+    ref.invalidate(roomsProvider(widget.hotelId));
 
     if (mounted) {
       Navigator.of(context).pop();
@@ -91,7 +91,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       final roomMutationNotifier = ref.read(RoomMutationProvider.notifier);
       await roomMutationNotifier.deleteRoom(widget.roomId!);
 
-      ref.invalidate( roomsProvider(widget.hotelId) );
+      ref.invalidate(roomsProvider(widget.hotelId));
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -101,7 +101,6 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     ref.listen(RoomMutationProvider, (prev, next) {
       next.whenData((either) {
         either?.fold(
@@ -130,7 +129,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           (room) {
             if (room != null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Room added successfully: ${room.roomNumber}')),
+                SnackBar(
+                    content:
+                        Text('Room added successfully: ${room.roomNumber}')),
               );
             }
           },
@@ -171,8 +172,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
               icon: const Icon(Icons.delete),
               onPressed: _confirmDelete,
             ),
-          ],
-        ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -180,7 +181,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           child: ListView(
             children: [
               AsyncDropdownField<ManagerOffering, String>(
-                providerBuilder: (ref) => offeringsProvider(widget.hotelId), 
+                providerBuilder: (ref) => offeringsProvider(widget.hotelId),
                 getLabel: (o) => o.title,
                 getId: (o) => o.id!,
                 label: 'offering',
@@ -196,7 +197,8 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
               TextFormField(
                 controller: _roomNumberController,
                 decoration: const InputDecoration(labelText: 'Room Number'),
-                validator: (value) => value!.isEmpty ? 'Enter room number' : null,
+                validator: (value) =>
+                    value!.isEmpty ? 'Enter room number' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(

@@ -74,7 +74,7 @@ class BookingMockDataSource implements BookingDataSource {
               "startDate": "2025-09-01T00:00:00Z",
               "endDate": "2025-09-05T00:00:00Z",
               "hotel": {
-                  "id": "h2",
+                "id": "h2",
                 "name": "remada resort",
                 "description": "Another cozy place with mock data.",
                 "address": "456 Mock Avenue",
@@ -84,16 +84,8 @@ class BookingMockDataSource implements BookingDataSource {
                   "https://picsum.photos/801/400"
                 ],
                 "amenities": [
-                  {
-                    "id": "a1",
-                    "name": "Free WiFi",
-                    "icon": "wifi"
-                  },
-                  {
-                    "id": "a2",
-                    "name": "Swimming Pool",
-                    "icon": "pool"
-                  }
+                  {"id": "a1", "name": "Free WiFi", "icon": "wifi"},
+                  {"id": "a2", "name": "Swimming Pool", "icon": "pool"}
                 ]
               },
               "items": [
@@ -120,52 +112,50 @@ class BookingMockDataSource implements BookingDataSource {
     await Future.delayed(const Duration(milliseconds: 600));
     // flip to completed sometimes
     final completed = DateTime.now().second % 6 == 0;
-    BookingStatusEnum status = completed ? BookingStatusEnum.confirmed : BookingStatusEnum.pending;
+    BookingStatusEnum status =
+        completed ? BookingStatusEnum.confirmed : BookingStatusEnum.pending;
     PaymentStatusEnum paymentStatus =
         completed ? PaymentStatusEnum.completed : PaymentStatusEnum.pending;
 
-    return BookingModel.fromJson(
-      {
-        "id": bookingId,
-        "status": status.name,
-        "payment_status": paymentStatus.name,
-        "ticket_number": "ABC123",
-        "total_price": 999.99,
-        "user": {
-          "name": "Jane Doe",
-          "email": "jane@example.com",
-          "phone": "1234567890"
-        },
-        "booking_cart": {
-          "totalItems": 3,
-          "totalPrice": 999.99,
-          "bookings": [
-            {
-              "startDate": "2025-09-01",
-              "endDate": "2025-09-05",
-              "hotel": {
-                "id": "hotel1",
-                "name": "Sunset Hotel",
-              },
-              "items": [
-                {
-                  "offering": {
-                    "id": "off1",
-                    "title": "Deluxe Room",
-                    "price_per_night": 199.99,
-                  },
-                  "room": {
-                    "id": "room1",
-                    "number": "101",
-                  }
+    return BookingModel.fromJson({
+      "id": bookingId,
+      "status": status.name,
+      "payment_status": paymentStatus.name,
+      "ticket_number": "ABC123",
+      "total_price": 999.99,
+      "user": {
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "phone": "1234567890"
+      },
+      "booking_cart": {
+        "totalItems": 3,
+        "totalPrice": 999.99,
+        "bookings": [
+          {
+            "startDate": "2025-09-01",
+            "endDate": "2025-09-05",
+            "hotel": {
+              "id": "hotel1",
+              "name": "Sunset Hotel",
+            },
+            "items": [
+              {
+                "offering": {
+                  "id": "off1",
+                  "title": "Deluxe Room",
+                  "price_per_night": 199.99,
+                },
+                "room": {
+                  "id": "room1",
+                  "number": "101",
                 }
-              ]
-            }
-          ]
-        }
+              }
+            ]
+          }
+        ]
       }
-
-    );
+    });
   }
 
   @override
@@ -182,7 +172,7 @@ class BookingMockDataSource implements BookingDataSource {
       return BookingSearchResult(booking: null, found: false);
     }
   }
-  
+
   @override
   Stream<BookingModel> monitorBookingPayment(String bookingId) {
     // TODO: implement monitorBookingPayment

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/utils/currency.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
@@ -12,7 +13,11 @@ class OfferingsList extends ConsumerWidget {
   final String hotelId;
   final DateTime startDate;
   final DateTime endDate;
-  const OfferingsList({required this.offerings, required this.hotelId, required this.startDate, required this.endDate});
+  const OfferingsList(
+      {required this.offerings,
+      required this.hotelId,
+      required this.startDate,
+      required this.endDate});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,7 +32,7 @@ class OfferingsList extends ConsumerWidget {
           margin: const EdgeInsets.symmetric(vertical: 8),
           child: ListTile(
             title: Text(off.title),
-            subtitle: Text("From \$${off.pricePerNight}/night"),
+            subtitle: Text("From ${formatTzs(off.pricePerNight)} / night"),
             trailing: ElevatedButton(
               onPressed: () {
                 _showRoomModal(context, ref, off);
@@ -40,75 +45,76 @@ class OfferingsList extends ConsumerWidget {
     );
   }
 
-void _showRoomModal(BuildContext context, WidgetRef ref, Offering offering) {
-  showModalBottomSheet(
-    context: context,
-    builder: (_) {
-      return Consumer(
-        builder: (context, ref, _) {
-          final roomsAsync = ref.watch(
-            roomAvailabilityProvider((
-              hotelId: hotelId,
-              offeringId: offering.id,
-              startdate: startDate,
-              enddate: endDate,
-            )),
-          );
+  void _showRoomModal(BuildContext context, WidgetRef ref, Offering offering) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        return Consumer(
+          builder: (context, ref, _) {
+            final roomsAsync = ref.watch(
+              roomAvailabilityProvider((
+                hotelId: hotelId,
+                offeringId: offering.id,
+                startdate: startDate,
+                enddate: endDate,
+              )),
+            );
 
-          return roomsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text(userMessageForError(err))),
-            // check if rooms list is empty and show message
-            data: (rooms) {
-              if (rooms.isEmpty) {
-                return const Center(child: Text("No rooms available for this offering."));
-              }
-              return ListView(
-                children: rooms.map((room) {
-                  return ListTile(
-                    title: Text("Room ${room.number}"),
-                    trailing: ElevatedButton(
-                      onPressed: () {
-                        // fetch hotel, room, offering
-                        final hotelAsync = ref.read(hotelDetailProvider(hotelId));
-                        final hotel = hotelAsync.value!;
-                        final booking = BookingInput(
-                          id: const Uuid().v4(),
-                          hotel: hotel,
-                          startDate: startDate,
-                          endDate: endDate,
-                          items: const [],
-                        );
-
-                        final item = BookingItemInput(
-                          room: room,
-                          offering: offering,
-                        );
-
-                        // add to booking cart and case of error show snackbar
-                        try {
-                          ref.read(bookingCartProvider.notifier).addRoom(
-                            booking: booking,
-                            item: item,
+            return roomsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(child: Text(userMessageForError(err))),
+              // check if rooms list is empty and show message
+              data: (rooms) {
+                if (rooms.isEmpty) {
+                  return const Center(
+                      child: Text("No rooms available for this offering."));
+                }
+                return ListView(
+                  children: rooms.map((room) {
+                    return ListTile(
+                      title: Text("Room ${room.number}"),
+                      trailing: ElevatedButton(
+                        onPressed: () {
+                          // fetch hotel, room, offering
+                          final hotelAsync =
+                              ref.read(hotelDetailProvider(hotelId));
+                          final hotel = hotelAsync.value!;
+                          final booking = BookingInput(
+                            id: const Uuid().v4(),
+                            hotel: hotel,
+                            startDate: startDate,
+                            endDate: endDate,
+                            items: const [],
                           );
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(userMessageForError(e))),
-                          );
-                        }
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Add to cart"),
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
-}
 
+                          final item = BookingItemInput(
+                            room: room,
+                            offering: offering,
+                          );
+
+                          // add to booking cart and case of error show snackbar
+                          try {
+                            ref.read(bookingCartProvider.notifier).addRoom(
+                                  booking: booking,
+                                  item: item,
+                                );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(userMessageForError(e))),
+                            );
+                          }
+                          Navigator.pop(context);
+                        },
+                        child: const Text("Add to cart"),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
 }

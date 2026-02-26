@@ -16,10 +16,14 @@ class SortSheet extends ConsumerWidget {
       children: [
         _option(context, "Relevance", "relevance", selected, notifier),
         _option(context, "Price: Low -> High", "price_asc", selected, notifier),
-        _option(context, "Price: High -> Low", "price_desc", selected, notifier),
-        _option(context, "Rating: Low -> High", "rating_asc", selected, notifier),
-        _option(context, "Rating: High -> Low", "rating_desc", selected, notifier),
-        _option(context, "Rooms Available: High -> Low", "rooms_desc", selected, notifier),
+        _option(
+            context, "Price: High -> Low", "price_desc", selected, notifier),
+        _option(
+            context, "Rating: Low -> High", "rating_asc", selected, notifier),
+        _option(
+            context, "Rating: High -> Low", "rating_desc", selected, notifier),
+        _option(context, "Rooms Available: High -> Low", "rooms_desc", selected,
+            notifier),
         _option(context, "Name: A -> Z", "name_asc", selected, notifier),
         _option(context, "Name: Z -> A", "name_desc", selected, notifier),
       ],

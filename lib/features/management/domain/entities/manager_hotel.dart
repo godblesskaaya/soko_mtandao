@@ -12,7 +12,7 @@ class ManagerHotel {
   final double lng;
   final double rating;
   final String region;
-  final String country;   
+  final String country;
   final String city;
   final String phoneNumber;
   final String email;

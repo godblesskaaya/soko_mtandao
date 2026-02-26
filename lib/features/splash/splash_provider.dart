@@ -45,7 +45,7 @@ final splashRedirectProvider = FutureProvider<String>((ref) async {
 //   final authNotifier = ref.read(authNotifierProvider);
 //   final role = authNotifier.role;
 //   final staffAssoc = authNotifier.staffHasHotel;
-  
+
 //   // Check if staff has hotel association
 //   if (role == UserRole.staff) {
 //     return staffAssoc ? RouteNames.staffHome : RouteNames.requestHotelAssociation;

@@ -43,6 +43,21 @@ async function getAzamPayToken() {
   return token;
 }
 
+function isHttpUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.trim().length === 0) return false;
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(value.trim());
+}
+
 serve(async (req) => {
   try {
     const body = await req.json();
@@ -56,7 +71,7 @@ serve(async (req) => {
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id,total_price,customer_name,customer_phone,payment_status")
+      .select("id,total_price,customer_name,customer_phone,payment_status,currency")
       .eq("id", booking_id)
       .maybeSingle();
 
@@ -72,10 +87,15 @@ serve(async (req) => {
       });
     }
 
+    const currency = (body.currency?.toString() || booking.currency || "TZS").toUpperCase();
+    if ((booking.currency || "").toString().toUpperCase() !== currency) {
+      await supabase.from("bookings").update({ currency }).eq("id", booking.id);
+    }
+
     // One active payment per booking: reuse existing pending checkout url.
     const { data: existingPayment } = await supabase
       .from("payments")
-      .select("id,status,checkout_url")
+      .select("id,status,checkout_url,retry_count")
       .eq("booking_id", booking.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -90,34 +110,72 @@ serve(async (req) => {
 
     const token = await getAzamPayToken();
     const externalId = `booking_${booking.id}_${Date.now()}`;
+    const vendorId = Deno.env.get("AZAMPAY_VENDOR_ID")?.trim();
+    const vendorName = Deno.env.get("AZAMPAY_VENDOR_NAME")?.trim();
 
-    const payload = {
+    const fallbackSuccessUrl =
+      Deno.env.get("AZAMPAY_REDIRECT_SUCCESS_URL") || "https://yourapp.com/payment-success";
+    const fallbackFailUrl =
+      Deno.env.get("AZAMPAY_REDIRECT_FAIL_URL") || "https://yourapp.com/payment-failed";
+
+    // AzamPay expects web URLs. Ignore custom deep-link schemes from mobile clients.
+    const safeRedirectSuccessURL = isHttpUrl(redirectSuccessURL)
+      ? redirectSuccessURL
+      : fallbackSuccessUrl;
+    const safeRedirectFailURL = isHttpUrl(redirectFailURL)
+      ? redirectFailURL
+      : fallbackFailUrl;
+
+    const requestOrigin =
+      Deno.env.get("AZAMPAY_REQUEST_ORIGIN") || new URL(safeRedirectSuccessURL).origin;
+
+    const payload: Record<string, unknown> = {
       amount: booking.total_price.toString(),
       appName: Deno.env.get("AZAMPAY_APP_NAME"),
       clientId: Deno.env.get("AZAMPAY_CLIENT_ID"),
-      currency: "TZS",
+      currency,
       externalId,
       language: "en",
-      redirectFailURL: redirectFailURL || "https://yourapp.com/payment-failed",
-      redirectSuccessURL: redirectSuccessURL || "https://yourapp.com/payment-success",
-      requestOrigin: Deno.env.get("AZAMPAY_REQUEST_ORIGIN") || "https://yourapp.com",
+      redirectFailURL: safeRedirectFailURL,
+      redirectSuccessURL: safeRedirectSuccessURL,
+      requestOrigin,
       cart: {
-        booking_id: booking.id,
-        customer_name: booking.customer_name,
-        customer_phone: booking.customer_phone,
+        // Keep shape aligned to AzamPay PostCheckoutRequest.cart contract.
+        items: [
+          {
+            name: `Booking ${booking.id}`,
+          },
+        ],
       },
     };
 
-    const resp = await fetch("https://sandbox.azampay.co.tz/api/v1/Partner/PostCheckout", {
+    // Keep backwards compatibility: vendor fields are optional.
+    if (vendorId && vendorName && isUuid(vendorId)) {
+      payload.vendorId = vendorId;
+      payload.vendorName = vendorName;
+    } else if (vendorId || vendorName) {
+      console.warn(
+        "AZAMPAY_VENDOR_ID/AZAMPAY_VENDOR_NAME provided but invalid. Skipping vendor fields.",
+        { hasVendorId: !!vendorId, hasVendorName: !!vendorName, vendorId },
+      );
+    }
+
+    const checkoutEndpoint =
+      Deno.env.get("AZAMPAY_CHECKOUT_URL") ||
+      "https://sandbox.azampay.co.tz/api/v1/Partner/PostCheckout";
+
+    const resp = await fetch(checkoutEndpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        Accept: "application/json, text/plain, text/json",
       },
       body: JSON.stringify(payload),
     });
 
     const raw = await resp.text();
+    const locationHeader = resp.headers.get("location");
     let checkoutUrl = "";
     let azampayResponse: unknown = raw;
 
@@ -133,13 +191,36 @@ serve(async (req) => {
       checkoutUrl = raw.replace(/^"|"$/g, "");
     }
 
+    // Some gateways respond 200 with empty body and provide URL in headers/redirect.
+    if (!checkoutUrl && locationHeader && isHttpUrl(locationHeader)) {
+      checkoutUrl = locationHeader;
+    }
+    if (!checkoutUrl && resp.redirected && isHttpUrl(resp.url)) {
+      checkoutUrl = resp.url;
+    }
+
     if (!resp.ok || !checkoutUrl) {
+      console.error("AzamPay checkout creation failed", {
+        status: resp.status,
+        statusText: resp.statusText,
+        contentType: resp.headers.get("content-type"),
+        locationHeader,
+        redirected: resp.redirected,
+        responseUrl: resp.url,
+        raw,
+      });
       return new Response(
         JSON.stringify({
           error: "Failed to create hosted checkout",
+          azamStatus: resp.status,
+          azamStatusText: resp.statusText,
+          contentType: resp.headers.get("content-type"),
+          locationHeader,
+          redirected: resp.redirected,
+          responseUrl: resp.url,
           details: azampayResponse,
         }),
-        { status: 502 },
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -147,14 +228,18 @@ serve(async (req) => {
       booking_id: booking.id,
       external_id: externalId,
       amount: booking.total_price,
-      currency: "TZS",
+      currency,
       status: "pending",
       checkout_url: checkoutUrl,
+      retry_count: (existingPayment?.retry_count || 0) + 1,
+      last_retry_at: new Date().toISOString(),
+      idempotency_key: `checkout_${booking.id}_${Date.now()}`,
       azampay_response: azampayResponse,
       metadata: {
         booking_id: booking.id,
         customer_name: booking.customer_name,
         customer_phone: booking.customer_phone,
+        retry: (existingPayment?.retry_count || 0) + 1,
       },
     };
 

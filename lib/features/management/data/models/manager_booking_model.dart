@@ -83,5 +83,4 @@ class ManagerBookingModel extends ManagerBooking {
   }
 }
 
-  // 🚫 Removed: final List<BookingItem> items;
-
+// 🚫 Removed: final List<BookingItem> items;

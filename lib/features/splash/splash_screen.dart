@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/features/splash/splash_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -8,11 +9,10 @@ class SplashScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
-
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
-  with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _animation;
 
@@ -24,7 +24,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       duration: Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _animation = Tween<double>(begin: 1.0, end: 1.2).animate(_animationController);
+    _animation =
+        Tween<double>(begin: 1.0, end: 1.2).animate(_animationController);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(splashRedirectProvider);
@@ -56,24 +57,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     });
 
     return Scaffold(
-      backgroundColor: Color.fromARGB(255, 6, 101, 153),
+      backgroundColor: AppColors.brand,
       body: Center(
         child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _animation.value,
-              child: Text(
-                'Soko Mtandao',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24.0,
-                  fontWeight: FontWeight.bold,
+            animation: _animation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _animation.value,
+                child: Text(
+                  'Soko Mtandao',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24.0,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            );
-          }
-        ),
+              );
+            }),
       ),
     );
   }

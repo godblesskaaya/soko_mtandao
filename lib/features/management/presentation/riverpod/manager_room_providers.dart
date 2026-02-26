@@ -64,14 +64,17 @@ final getRoomsForOfferingProvider = Provider<GetRooms>((ref) {
   return GetRooms(repo);
 });
 
-final roomsPageProvider = FutureProvider.family<List<ManagerRoom>, ManagerRoomListQuery>((ref, query) {
-  return ref.watch(getRoomsForOfferingProvider).call(query.params).then((result) =>
-    result.fold((failure) => throw failure, (rooms) => rooms)
-  );
+final roomsPageProvider =
+    FutureProvider.family<List<ManagerRoom>, ManagerRoomListQuery>(
+        (ref, query) {
+  return ref.watch(getRoomsForOfferingProvider).call(query.params).then(
+      (result) => result.fold((failure) => throw failure, (rooms) => rooms));
 });
 
-final roomsProvider = FutureProvider.family<List<ManagerRoom>, String>((ref, hotelId) {
-  return ref.watch(roomsPageProvider(ManagerRoomListQuery(hotelId: hotelId)).future);
+final roomsProvider =
+    FutureProvider.family<List<ManagerRoom>, String>((ref, hotelId) {
+  return ref
+      .watch(roomsPageProvider(ManagerRoomListQuery(hotelId: hotelId)).future);
 });
 
 final getRoomAvailabilityProvider = Provider<GetRoomAvailability>((ref) {
@@ -82,16 +85,14 @@ final getRoomAvailabilityProvider = Provider<GetRoomAvailability>((ref) {
 final roomAvailabilityProvider = FutureProvider.family
     .autoDispose<RoomAvailability, AvailabilityParams>((ref, params) {
   return ref.watch(getRoomAvailabilityProvider).call(params).then((result) =>
-    result.fold((failure) => throw failure, (availability) => availability)
-  );
+      result.fold((failure) => throw failure, (availability) => availability));
 });
 
 final roomProvider = FutureProvider.family<ManagerRoom, String>((ref, roomId) {
   final repo = ref.watch(managerRepositoryProvider);
   final getRoomById = GetRoomById(repo);
-  return getRoomById.call(roomId).then((result) =>
-    result.fold((failure) => throw failure, (room) => room)
-  );
+  return getRoomById.call(roomId).then(
+      (result) => result.fold((failure) => throw failure, (room) => room));
 });
 
 final addRoomUseCaseProvider = Provider<AddRoom>((ref) {
@@ -99,15 +100,17 @@ final addRoomUseCaseProvider = Provider<AddRoom>((ref) {
   return AddRoom(repo);
 });
 
-final addRoomProvider = StateNotifierProvider<AddRoomNotifier, AsyncValue<Either<Failure, ManagerRoom>?>>((ref) {
+final addRoomProvider = StateNotifierProvider<AddRoomNotifier,
+    AsyncValue<Either<Failure, ManagerRoom>?>>((ref) {
   final usecase = ref.read(addRoomUseCaseProvider);
   return AddRoomNotifier(usecase);
 });
 
-class AddRoomNotifier extends StateNotifier<AsyncValue<Either<Failure, ManagerRoom>?>> {
+class AddRoomNotifier
+    extends StateNotifier<AsyncValue<Either<Failure, ManagerRoom>?>> {
   final AddRoom _useCase;
 
-  AddRoomNotifier(this._useCase) : super( const AsyncData(null));
+  AddRoomNotifier(this._useCase) : super(const AsyncData(null));
 
   Future<void> addRoom(ManagerRoom room) async {
     state = const AsyncLoading();

@@ -68,28 +68,34 @@ final addHotelUseCaseProvider = Provider<AddHotel>((ref) {
 });
 
 // FutureProviders for data fetching
-final managerHotelsPageProvider = FutureProvider.family<List<ManagerHotel>, ManagerHotelListQuery>((ref, query) {
+final managerHotelsPageProvider =
+    FutureProvider.family<List<ManagerHotel>, ManagerHotelListQuery>(
+        (ref, query) {
   return ref
       .watch(getHotelsForManagerProvider)
-      .call(HotelListParams(managerUserId: query.managerUserId, filters: query.filters))
+      .call(HotelListParams(
+          managerUserId: query.managerUserId, filters: query.filters))
       .then((result) =>
           result.fold((failure) => throw failure, (hotels) => hotels));
 });
 
-final managerHotelsProvider = FutureProvider.family<List<ManagerHotel>, String>((ref, managerUserId) {
+final managerHotelsProvider =
+    FutureProvider.family<List<ManagerHotel>, String>((ref, managerUserId) {
   return ref.watch(
-    managerHotelsPageProvider(ManagerHotelListQuery(managerUserId: managerUserId)).future,
+    managerHotelsPageProvider(
+            ManagerHotelListQuery(managerUserId: managerUserId))
+        .future,
   );
 });
 
-final hotelDetailProvider = FutureProvider.family<ManagerHotel, String>((ref, hotelId) {
-  return ref.watch(getHotelDetailProvider).call(hotelId).then((result) =>
-    result.fold((failure) => throw failure, (hotel) => hotel)
-  );
+final hotelDetailProvider =
+    FutureProvider.family<ManagerHotel, String>((ref, hotelId) {
+  return ref.watch(getHotelDetailProvider).call(hotelId).then(
+      (result) => result.fold((failure) => throw failure, (hotel) => hotel));
 });
 
-final addHotelProvider = FutureProvider.family<ManagerHotel, ManagerHotel>((ref, hotel) {
-  return ref.watch(addHotelUseCaseProvider).call(hotel).then((result) =>
-    result.fold((failure) => throw failure, (hotel) => hotel)
-  );
+final addHotelProvider =
+    FutureProvider.family<ManagerHotel, ManagerHotel>((ref, hotel) {
+  return ref.watch(addHotelUseCaseProvider).call(hotel).then(
+      (result) => result.fold((failure) => throw failure, (hotel) => hotel));
 });

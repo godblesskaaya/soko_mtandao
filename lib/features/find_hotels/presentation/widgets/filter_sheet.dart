@@ -15,6 +15,8 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
   late TextEditingController minPriceController;
   late TextEditingController maxPriceController;
   late TextEditingController guestsController;
+  DateTime? _checkIn;
+  DateTime? _checkOut;
 
   @override
   void initState() {
@@ -23,12 +25,14 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
 
     regionController = TextEditingController(text: state.region);
     cityController = TextEditingController(text: state.city);
-    minPriceController = TextEditingController(
-        text: state.minPrice?.toString() ?? "");
-    maxPriceController = TextEditingController(
-        text: state.maxPrice?.toString() ?? "");
-    guestsController = TextEditingController(
-        text: state.guests?.toString() ?? "");
+    minPriceController =
+        TextEditingController(text: state.minPrice?.toString() ?? "");
+    maxPriceController =
+        TextEditingController(text: state.maxPrice?.toString() ?? "");
+    guestsController =
+        TextEditingController(text: state.guests?.toString() ?? "");
+    _checkIn = state.checkIn;
+    _checkOut = state.checkOut;
   }
 
   @override
@@ -54,12 +58,10 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
             controller: regionController,
             decoration: const InputDecoration(labelText: "Region"),
           ),
-
           TextField(
             controller: cityController,
             decoration: const InputDecoration(labelText: "City"),
           ),
-
           Row(
             children: [
               Expanded(
@@ -79,13 +81,58 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
               ),
             ],
           ),
-
           TextField(
             controller: guestsController,
             decoration: const InputDecoration(labelText: "Guests"),
             keyboardType: TextInputType.number,
           ),
-
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              _checkIn == null
+                  ? 'Check-in date'
+                  : 'Check-in: ${_checkIn!.toIso8601String().substring(0, 10)}',
+            ),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () async {
+              final now = DateTime.now();
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _checkIn ?? now,
+                firstDate: now,
+                lastDate: now.add(const Duration(days: 365)),
+              );
+              if (picked == null) return;
+              setState(() {
+                _checkIn = picked;
+                if (_checkOut != null && !_checkOut!.isAfter(_checkIn!)) {
+                  _checkOut = null;
+                }
+              });
+            },
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              _checkOut == null
+                  ? 'Check-out date'
+                  : 'Check-out: ${_checkOut!.toIso8601String().substring(0, 10)}',
+            ),
+            trailing: const Icon(Icons.calendar_today),
+            onTap: () async {
+              final now = DateTime.now();
+              final min = _checkIn ?? now;
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _checkOut ?? min.add(const Duration(days: 1)),
+                firstDate: min.add(const Duration(days: 1)),
+                lastDate: now.add(const Duration(days: 365)),
+              );
+              if (picked == null) return;
+              setState(() => _checkOut = picked);
+            },
+          ),
           const SizedBox(height: 20),
           TextButton(
             onPressed: () {
@@ -97,6 +144,10 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
               minPriceController.clear();
               maxPriceController.clear();
               guestsController.clear();
+              setState(() {
+                _checkIn = null;
+                _checkOut = null;
+              });
 
               notifier.clearFilters();
               Navigator.pop(context);
@@ -106,7 +157,6 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
               style: TextStyle(color: Color.fromARGB(129, 232, 99, 90)),
             ),
           ),
-
           ElevatedButton(
             child: const Text("Apply Filters"),
             onPressed: () {
@@ -120,9 +170,8 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
                 maxPriceController.text,
               );
 
-              notifier.updateGuests(
-                guestsController.text
-              );
+              notifier.updateGuests(guestsController.text);
+              notifier.updateDateRange(_checkIn, _checkOut);
 
               notifier.applyFilters();
               Navigator.pop(context);

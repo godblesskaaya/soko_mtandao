@@ -49,7 +49,9 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
   Future<void> _setMarker(double lat, double lng) async {
     selectedLat = lat;
     selectedLng = lng;
-    final Uint8List iconImage = await rootBundle.load('assets/icons/hotel_icon_blue.png').then((byteData) => byteData.buffer.asUint8List());
+    final Uint8List iconImage = await rootBundle
+        .load('assets/icons/hotel_icon_blue.png')
+        .then((byteData) => byteData.buffer.asUint8List());
 
     // Remove previous marker
     if (_marker != null) {
@@ -124,7 +126,8 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
                 Navigator.of(context).pop();
               }
             },
-            child: const Text("Save", style: TextStyle(color: Color.fromARGB(255, 134, 174, 242))),
+            child: const Text("Save",
+                style: TextStyle(color: Color.fromARGB(255, 134, 174, 242))),
           ),
         ],
       ),
@@ -133,7 +136,8 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
           MapWidget(
             key: const ValueKey("mapbox_location_picker"),
             cameraOptions: CameraOptions(
-              center: Point(coordinates: Position(39.2083, -6.7924)), // Dar city
+              center:
+                  Point(coordinates: Position(39.2083, -6.7924)), // Dar city
               zoom: 12,
             ),
             onMapCreated: (controller) async {

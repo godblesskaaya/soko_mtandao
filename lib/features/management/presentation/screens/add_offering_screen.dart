@@ -57,7 +57,9 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
     );
 
     if (widget.isEditing) {
-      await ref.read(offeringMutationProvider.notifier).updateOffering(offering);
+      await ref
+          .read(offeringMutationProvider.notifier)
+          .updateOffering(offering);
     } else {
       await ref.read(addOfferingProvider.notifier).addOffering(offering);
     }
@@ -115,7 +117,7 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
       });
     });
 
-     ref.listen(addOfferingProvider, (prev, next) {
+    ref.listen(addOfferingProvider, (prev, next) {
       next.whenData((result) {
         result?.fold(
           (failure) => ScaffoldMessenger.of(context).showSnackBar(
@@ -134,28 +136,32 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
 
     if (widget.isEditing) {
       // Editing existing offering
-      final offeringAsync = ref.watch(offeringDetailsProvider(widget.offeringId!));
+      final offeringAsync =
+          ref.watch(offeringDetailsProvider(widget.offeringId!));
       return offeringAsync.when(
-        data: (offering) { 
-          _populateFields(offering); 
+        data: (offering) {
+          _populateFields(offering);
           return _buildForm(context);
         },
-        loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-        error: (e, st) => Scaffold(body: Center(child: Text(userMessageForError(e)))),
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
+        error: (e, st) =>
+            Scaffold(body: Center(child: Text(userMessageForError(e)))),
       );
     } else {
       // Adding new offering
       return _buildForm(context);
     }
   }
-    
-Widget _buildForm(BuildContext context) {
+
+  Widget _buildForm(BuildContext context) {
     final addOfferingState = ref.watch(addOfferingProvider);
     final mutationState = ref.watch(offeringMutationProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: Text(widget.isEditing ? 'Edit Offering' : 'Add Offering'),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit Offering' : 'Add Offering'),
         actions: [
           if (widget.isEditing)
             IconButton(
@@ -201,7 +207,8 @@ Widget _buildForm(BuildContext context) {
                 },
                 child: addOfferingState.isLoading || mutationState.isLoading
                     ? const CircularProgressIndicator()
-                    : Text(widget.isEditing ? 'Update Offering' : 'Add Offering'),
+                    : Text(
+                        widget.isEditing ? 'Update Offering' : 'Add Offering'),
               ),
             ],
           ),

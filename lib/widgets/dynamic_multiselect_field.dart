@@ -9,8 +9,8 @@ class AsyncMultiSelectField<T, ID> extends ConsumerWidget {
   final List<ID> values;
   final void Function(List<ID>)? onChanged;
   final FormFieldValidator<List<ID>>? validator;
-  
-  /// Called before opening the dialog. 
+
+  /// Called before opening the dialog.
   /// Return true to proceed opening, false to cancel.
   final Future<void> Function(WidgetRef)? onFetch;
 
@@ -35,7 +35,7 @@ class AsyncMultiSelectField<T, ID> extends ConsumerWidget {
       initialValue: values,
       validator: validator,
       // Key helps reset state if parent changes 'values' drastically
-      key: ValueKey(values.hashCode), 
+      key: ValueKey(values.hashCode),
       builder: (state) {
         // 1. Determine Display Text and Icons based on Async State
         String displayText = 'Select $label';
@@ -48,7 +48,7 @@ class AsyncMultiSelectField<T, ID> extends ConsumerWidget {
                 .where((item) => state.value?.contains(getId(item)) ?? false)
                 .map(getLabel)
                 .join(', ');
-            
+
             if (selectedLabels.isNotEmpty) {
               displayText = selectedLabels;
             }
@@ -59,13 +59,13 @@ class AsyncMultiSelectField<T, ID> extends ConsumerWidget {
             suffixIcon = const Padding(
               padding: EdgeInsets.all(12.0),
               child: SizedBox(
-                width: 12, 
-                height: 12, 
+                width: 12,
+                height: 12,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             );
             // If strictly loading and not refreshing, you might want to disable tap:
-            // isDisabled = true; 
+            // isDisabled = true;
           },
           error: (err, stack) {
             displayText = 'Error loading options';
@@ -112,11 +112,12 @@ class AsyncMultiSelectField<T, ID> extends ConsumerWidget {
                       },
                       error: (error, _) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to load items: $error')),
+                          SnackBar(
+                              content: Text('Failed to load items: $error')),
                         );
                       },
-                      // If still loading after onFetch, arguably we shouldn't open dialog 
-                      // or we should show a loading dialog. 
+                      // If still loading after onFetch, arguably we shouldn't open dialog
+                      // or we should show a loading dialog.
                     );
                   }
                 },
@@ -132,8 +133,8 @@ class AsyncMultiSelectField<T, ID> extends ConsumerWidget {
               displayText,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: asyncValue.hasError 
-                  ? TextStyle(color: Theme.of(context).colorScheme.error) 
+              style: asyncValue.hasError
+                  ? TextStyle(color: Theme.of(context).colorScheme.error)
                   : null,
             ),
           ),
@@ -161,7 +162,8 @@ class _MultiSelectDialog<T, ID> extends StatefulWidget {
   });
 
   @override
-  State<_MultiSelectDialog<T, ID>> createState() => _MultiSelectDialogState<T, ID>();
+  State<_MultiSelectDialog<T, ID>> createState() =>
+      _MultiSelectDialogState<T, ID>();
 }
 
 class _MultiSelectDialogState<T, ID> extends State<_MultiSelectDialog<T, ID>> {
@@ -179,33 +181,33 @@ class _MultiSelectDialogState<T, ID> extends State<_MultiSelectDialog<T, ID>> {
       title: Text('Select ${widget.label}'),
       // Use constrained width for better tablet/web look
       content: SizedBox(
-        width: 400, 
+        width: 400,
         height: MediaQuery.of(context).size.height * 0.6,
         // Use ListView.builder for performance with large lists
-        child: widget.items.isEmpty 
-          ? const Center(child: Text("No items available"))
-          : ListView.builder(
-              itemCount: widget.items.length,
-              itemBuilder: (context, index) {
-                final item = widget.items[index];
-                final id = widget.getId(item);
-                final isSelected = selected.contains(id);
-                
-                return CheckboxListTile(
-                  title: Text(widget.getLabel(item)),
-                  value: isSelected,
-                  onChanged: (checked) {
-                    setState(() {
-                      if (checked == true) {
-                        selected.add(id);
-                      } else {
-                        selected.remove(id);
-                      }
-                    });
-                  },
-                );
-              },
-            ),
+        child: widget.items.isEmpty
+            ? const Center(child: Text("No items available"))
+            : ListView.builder(
+                itemCount: widget.items.length,
+                itemBuilder: (context, index) {
+                  final item = widget.items[index];
+                  final id = widget.getId(item);
+                  final isSelected = selected.contains(id);
+
+                  return CheckboxListTile(
+                    title: Text(widget.getLabel(item)),
+                    value: isSelected,
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          selected.add(id);
+                        } else {
+                          selected.remove(id);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(

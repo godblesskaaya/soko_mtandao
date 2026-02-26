@@ -7,11 +7,12 @@ class UserService {
   final _supabase = Supabase.instance.client;
 
   /// Fetch role for the given userId
-  Future<UserRole> fetchUserRole (String userId) async {
+  Future<UserRole> fetchUserRole(String userId) async {
     if (userId.isEmpty) return UserRole.guest;
 
     final res = await _supabase
-        .from('user_roles_view') // You can create a view or join logic in backend
+        .from(
+            'user_roles_view') // You can create a view or join logic in backend
         .select('role')
         .eq('user_id', userId)
         .maybeSingle();

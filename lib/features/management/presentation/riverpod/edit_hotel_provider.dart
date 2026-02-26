@@ -64,13 +64,10 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
           final fileName =
               "${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}";
 
-          await _supabase.storage
-              .from('hotel-images')
-              .upload(fileName, file);
+          await _supabase.storage.from('hotel-images').upload(fileName, file);
 
-          final publicUrl = _supabase.storage
-              .from('hotel-images')
-              .getPublicUrl(fileName);
+          final publicUrl =
+              _supabase.storage.from('hotel-images').getPublicUrl(fileName);
 
           finalImageUrls.add(publicUrl);
         }
@@ -94,10 +91,7 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
       }).eq('id', hotelId);
 
       /// 3. Sync amenities (simple approach)
-      await _supabase
-          .from('hotel_amenities')
-          .delete()
-          .eq('hotel_id', hotelId);
+      await _supabase.from('hotel_amenities').delete().eq('hotel_id', hotelId);
 
       for (final amenity in amenities) {
         await _supabase.from('hotel_amenities').insert({

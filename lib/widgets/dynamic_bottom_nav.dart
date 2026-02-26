@@ -6,7 +6,11 @@ class DynamicBottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
 
-  const DynamicBottomNav({super.key, required this.items, required this.selectedIndex, required this.onTap});
+  const DynamicBottomNav(
+      {super.key,
+      required this.items,
+      required this.selectedIndex,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {

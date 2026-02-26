@@ -4,14 +4,43 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
 
-class ManagerHotelDetailScreen extends ConsumerWidget {
+class ManagerHotelDetailScreen extends ConsumerStatefulWidget {
   final String hotelId;
   const ManagerHotelDetailScreen({super.key, required this.hotelId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final hotelAsync = ref.watch(hotelDetailProvider(hotelId));
+  ConsumerState<ManagerHotelDetailScreen> createState() =>
+      _ManagerHotelDetailScreenState();
+}
+
+class _ManagerHotelDetailScreenState
+    extends ConsumerState<ManagerHotelDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(selectedManagerHotelIdProvider.notifier).state = widget.hotelId;
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ManagerHotelDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.hotelId != widget.hotelId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(selectedManagerHotelIdProvider.notifier).state =
+            widget.hotelId;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hotelAsync = ref.watch(hotelDetailProvider(widget.hotelId));
 
     return Scaffold(
       appBar: AppBar(
@@ -22,21 +51,21 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
             onPressed: () async {
               await context.pushNamed(
                 "editHotel",
-                pathParameters: {"hotelId": hotelId},
+                pathParameters: {"hotelId": widget.hotelId},
               );
 
               // Refresh after edit
-              ref.invalidate(hotelDetailProvider(hotelId));
+              ref.invalidate(hotelDetailProvider(widget.hotelId));
             },
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(hotelDetailProvider(hotelId));
+          ref.invalidate(hotelDetailProvider(widget.hotelId));
           try {
             await ref
-                .read(hotelDetailProvider(hotelId).future)
+                .read(hotelDetailProvider(widget.hotelId).future)
                 .timeout(const Duration(seconds: 8));
           } catch (_) {}
         },
@@ -44,7 +73,6 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
           loading: () => const Center(
             child: CircularProgressIndicator(),
           ),
-
           error: (err, _) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             children: [
@@ -54,7 +82,6 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
               const Center(child: Text("Pull down to retry")),
             ],
           ),
-
           data: (hotel) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -170,25 +197,25 @@ class ManagerHotelDetailScreen extends ConsumerWidget {
                   _buildActionButton("Offerings", Icons.add_box, () {
                     context.pushNamed(
                       "offerings",
-                      pathParameters: {"hotelId": hotelId},
+                      pathParameters: {"hotelId": widget.hotelId},
                     );
                   }),
                   _buildActionButton("Rooms", Icons.add_home_work, () {
                     context.pushNamed(
                       "rooms",
-                      pathParameters: {"hotelId": hotelId},
+                      pathParameters: {"hotelId": widget.hotelId},
                     );
                   }),
                   _buildActionButton("View Bookings", Icons.book_online, () {
                     context.pushNamed(
                       "hotelBookings",
-                      pathParameters: {"hotelId": hotelId},
+                      pathParameters: {"hotelId": widget.hotelId},
                     );
                   }),
                   _buildActionButton("Payments", Icons.payments, () {
                     context.pushNamed(
                       "managerPayments",
-                      pathParameters: {"hotelId": hotelId},
+                      pathParameters: {"hotelId": widget.hotelId},
                     );
                   }),
                 ],

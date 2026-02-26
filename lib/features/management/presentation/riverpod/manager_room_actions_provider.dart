@@ -6,7 +6,8 @@ import 'package:soko_mtandao/features/management/presentation/riverpod/manager_p
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_rom_details_provider.dart';
 
 final managerRoomActionsProvider =
-    AsyncNotifierProvider<ManagerRoomActionsNotifier, void>(ManagerRoomActionsNotifier.new);
+    AsyncNotifierProvider<ManagerRoomActionsNotifier, void>(
+        ManagerRoomActionsNotifier.new);
 
 class ManagerRoomActionsNotifier extends AsyncNotifier<void> {
   late final UpdateRoomStatus usecase;
@@ -21,7 +22,6 @@ class ManagerRoomActionsNotifier extends AsyncNotifier<void> {
     usecase = ref.watch(updateRoomStatusUsecaseProvider);
   }
 
-
   Future<void> updateRoomStatus(RoomStatus status) async {
     state = const AsyncLoading();
 
@@ -35,5 +35,4 @@ class ManagerRoomActionsNotifier extends AsyncNotifier<void> {
       },
     );
   }
-  
 }

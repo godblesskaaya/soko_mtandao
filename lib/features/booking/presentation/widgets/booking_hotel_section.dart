@@ -23,7 +23,8 @@ class BookingHotelSection extends StatelessWidget {
           '${booking.startDate.toIso8601String().substring(0, 10)} → ${booking.endDate.toIso8601String().substring(0, 10)}  ($nights nights)',
         ),
         const SizedBox(height: 8),
-        ...booking.items.map((item) => BookingRoomItem(item: item, nights: nights)),
+        ...booking.items
+            .map((item) => BookingRoomItem(item: item, nights: nights)),
         const Divider(height: 32),
       ],
     );

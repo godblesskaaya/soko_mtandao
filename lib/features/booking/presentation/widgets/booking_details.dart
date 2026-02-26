@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soko_mtandao/core/utils/currency.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
@@ -58,14 +59,15 @@ class BookingDetailsWidget extends StatelessWidget {
                     title: Text(item.offering.title),
                     subtitle: Text(
                         "Room: ${item.room.number} | Guests: ${item.offering.maxGuests}"),
-                    trailing: Text("\$${item.offering.pricePerNight} / night"),
+                    trailing: Text(
+                        "${formatTzs(item.offering.pricePerNight)} / night"),
                   )),
             ],
             const Divider(),
 
             if (showPriceSummary) ...[
               const Divider(),
-              Text("Total Price: \$${booking.totalPrice?.toStringAsFixed(2)}",
+              Text("Total Price: ${formatTzs(booking.totalPrice)}",
                   style: Theme.of(context).textTheme.titleMedium),
             ],
           ],

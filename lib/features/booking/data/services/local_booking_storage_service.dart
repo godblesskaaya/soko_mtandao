@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/features/booking/data/models/booking_model.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
+import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 
 class LocalBookingStorage {
   static const _storageKey = 'anonymous_booking_history';
@@ -37,13 +38,28 @@ class LocalBookingStorage {
     final List<String> rawList = prefs.getStringList(_storageKey) ?? [];
 
     final List<Booking> bookings = [];
+    final List<String> cleanedRawList = [];
+    bool didPruneExpired = false;
     for (var i = 0; i < rawList.length; i++) {
       final item = rawList[i];
 
       try {
         final Map<String, dynamic> json = jsonDecode(item);
         final booking = BookingModel.fromJson(json);
+
+        final isPendingUnpaid = booking.status == BookingStatusEnum.pending &&
+            booking.paymentStatus == PaymentStatusEnum.pending;
+        final isExpired = booking.expiresAt != null &&
+            DateTime.now().isAfter(booking.expiresAt!);
+
+        // Remove pending expired bookings from local history.
+        if (isPendingUnpaid && isExpired) {
+          didPruneExpired = true;
+          continue;
+        }
+
         bookings.add(booking);
+        cleanedRawList.add(item);
       } catch (e, stackTrace) {
         ErrorReporter.report(
           e,
@@ -52,6 +68,10 @@ class LocalBookingStorage {
           context: {'index': i},
         );
       }
+    }
+
+    if (didPruneExpired || cleanedRawList.length != rawList.length) {
+      await prefs.setStringList(_storageKey, cleanedRawList);
     }
 
     return bookings;

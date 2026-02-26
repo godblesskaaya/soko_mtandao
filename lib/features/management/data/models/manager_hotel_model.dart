@@ -29,7 +29,6 @@ class ManagerHotelModel extends ManagerHotel {
           description: description,
           images: images,
           amenities: amenities,
-
           lat: lat,
           lng: lng,
           rating: rating,
@@ -57,11 +56,12 @@ class ManagerHotelModel extends ManagerHotel {
       lng: json['lng'],
       address: json['address'],
       totalRooms: json['total_rooms'],
-      images: json['images'] is String ? List<String>.from(jsonDecode(json['images'])) :
-        (json['images'] as List<dynamic>?)
-              ?.map((image) => image.toString())
-              .toList() ??
-          [],
+      images: json['images'] is String
+          ? List<String>.from(jsonDecode(json['images']))
+          : (json['images'] as List<dynamic>?)
+                  ?.map((image) => image.toString())
+                  .toList() ??
+              [],
       description: json['description'] ?? '',
       amenities: [],
       // (json['amenities'] as List<dynamic>?)
@@ -109,7 +109,8 @@ class ManagerHotelModel extends ManagerHotel {
       'totalRooms': totalRooms,
       'images': images,
       'description': description,
-      'amenities': amenities.map((a) => AmenityModel.fromEntity(a).toJson()).toList(),
+      'amenities':
+          amenities.map((a) => AmenityModel.fromEntity(a).toJson()).toList(),
     };
   }
 }

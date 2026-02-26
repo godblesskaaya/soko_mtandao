@@ -18,12 +18,16 @@ final hotelDataSourceProvider = Provider<HotelDataSource>((ref) {
   }
   return SupabaseHotelDataSource();
 });
-final hotelRepositoryProvider = Provider((ref) => HotelRepositoryImpl(ref.watch(hotelDataSourceProvider)));
-final getHotelsInBoundsProvider = Provider((ref) => GetHotelsInBounds(ref.watch(hotelRepositoryProvider)));
-final searchHotelsProvider = Provider((ref) => SearchHotels(ref.watch(hotelRepositoryProvider)));
+final hotelRepositoryProvider =
+    Provider((ref) => HotelRepositoryImpl(ref.watch(hotelDataSourceProvider)));
+final getHotelsInBoundsProvider =
+    Provider((ref) => GetHotelsInBounds(ref.watch(hotelRepositoryProvider)));
+final searchHotelsProvider =
+    Provider((ref) => SearchHotels(ref.watch(hotelRepositoryProvider)));
 
 // === User location
-final initialLocationProvider = FutureProvider<({double lat, double lng})>((ref) async {
+final initialLocationProvider =
+    FutureProvider<({double lat, double lng})>((ref) async {
   final loc = await LocationService().getCurrentPositionOrFallback();
   return loc;
 });
@@ -52,7 +56,8 @@ final selectedHotelIdProvider = StateProvider<String?>((ref) => null);
 final exploreSearchQueryProvider = StateProvider<String>((ref) => '');
 
 // Hotels list (drives list + pins). We refetch when camera moves far enough or zoom changes meaningfully.
-final hotelsInViewProvider = FutureProvider.autoDispose<List<Hotel>>((ref) async {
+final hotelsInViewProvider =
+    FutureProvider.autoDispose<List<Hotel>>((ref) async {
   final camera = ref.watch(cameraStateProvider);
   final query = ref.watch(exploreSearchQueryProvider);
 
@@ -61,8 +66,14 @@ final hotelsInViewProvider = FutureProvider.autoDispose<List<Hotel>>((ref) async
     final loc = await ref.watch(initialLocationProvider.future);
     // prime an initial bounds roughly around location
     final lat = loc.lat, lng = loc.lng;
-    final bounds = (south: lat - 0.03, west: lng - 0.03, north: lat + 0.03, east: lng + 0.03);
-    final initial = CameraState(lat: lat, lng: lng, zoom: MapConfig.minZoomForData + 1, bounds: bounds);
+    final bounds = (
+      south: lat - 0.03,
+      west: lng - 0.03,
+      north: lat + 0.03,
+      east: lng + 0.03
+    );
+    final initial = CameraState(
+        lat: lat, lng: lng, zoom: MapConfig.minZoomForData + 1, bounds: bounds);
     ref.read(cameraStateProvider.notifier).state = initial;
     // fall through; we’ll fetch on next recompute
     return [];
@@ -76,13 +87,15 @@ final hotelsInViewProvider = FutureProvider.autoDispose<List<Hotel>>((ref) async
   // If user typed a query -> search
   if (query.trim().isNotEmpty) {
     final search = ref.read(searchHotelsProvider);
-    final list = await search(query: query.trim(), lat: camera.lat, lng: camera.lng);
+    final list =
+        await search(query: query.trim(), lat: camera.lat, lng: camera.lng);
     return list;
   }
 
   // Otherwise fetch by bounds
   final usecase = ref.read(getHotelsInBoundsProvider);
   final b = camera.bounds;
-  final list = await usecase(south: b.south, west: b.west, north: b.north, east: b.east);
+  final list =
+      await usecase(south: b.south, west: b.west, north: b.north, east: b.east);
   return list;
 });

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/config/app_config.dart';
+import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
+import 'package:soko_mtandao/widgets/app_section_header.dart';
 
 class ManagerSettingsScreen extends ConsumerWidget {
   const ManagerSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const brandBlue = Color.fromARGB(255, 6, 101, 153);
+    const brandBlue = AppColors.brand;
     final authService = AuthService();
 
     return Scaffold(
@@ -28,11 +31,12 @@ class ManagerSettingsScreen extends ConsumerWidget {
               child: Icon(Icons.business_center, color: Colors.white, size: 40),
             ),
             const SizedBox(height: 10),
-            const Text("Property Manager", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text("Property Manager",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 30),
 
             // Settings Group: Security
-            _buildSectionHeader("Security & Access"),
+            const AppSectionHeader(title: "Security & Access"),
             _buildSettingItem(
               icon: Icons.vpn_key_outlined,
               title: "Change Password",
@@ -40,7 +44,7 @@ class ManagerSettingsScreen extends ConsumerWidget {
             ),
 
             // Settings Group: Data
-            _buildSectionHeader("Data Management"),
+            const AppSectionHeader(title: "Data Management"),
             _buildSettingItem(
               icon: Icons.description_outlined,
               title: "Privacy Policy",
@@ -51,7 +55,7 @@ class ManagerSettingsScreen extends ConsumerWidget {
                   MaterialPageRoute(
                     builder: (context) => const AppWebViewScreen(
                       title: "Privacy Policy",
-                      url: 'https://sites.google.com/view/sokomtandaocompany-privacy',
+                      url: AppConfig.privacyPolicyUrl,
                     ),
                   ),
                 );
@@ -61,11 +65,12 @@ class ManagerSettingsScreen extends ConsumerWidget {
               icon: Icons.delete_outline,
               title: "Delete Manager Account",
               titleColor: Colors.red,
-              onTap: () => context.pushNamed('deleteAccount', pathParameters: {'isManager': 'true'}),
+              onTap: () => context.pushNamed('deleteAccount',
+                  pathParameters: {'isManager': 'true'}),
             ),
 
             const SizedBox(height: 40),
-            
+
             // Logout Button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -92,19 +97,15 @@ class ManagerSettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: Colors.grey[100],
-      child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-    );
-  }
-
-  Widget _buildSettingItem({required IconData icon, required String title, required VoidCallback onTap, Color? titleColor}) {
+  Widget _buildSettingItem(
+      {required IconData icon,
+      required String title,
+      required VoidCallback onTap,
+      Color? titleColor}) {
     return ListTile(
-      leading: Icon(icon, color: titleColor ?? const Color.fromARGB(255, 6, 101, 153)),
-      title: Text(title, style: TextStyle(color: titleColor, fontWeight: FontWeight.w500)),
+      leading: Icon(icon, color: titleColor ?? AppColors.brand),
+      title: Text(title,
+          style: TextStyle(color: titleColor, fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.chevron_right, size: 20),
       onTap: onTap,
     );

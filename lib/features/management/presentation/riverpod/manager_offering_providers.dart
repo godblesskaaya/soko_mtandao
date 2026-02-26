@@ -58,15 +58,20 @@ final getOfferingsForHotelProvider = Provider<GetOfferingsForHotel>((ref) {
   return GetOfferingsForHotel(repo);
 });
 
-final offeringsPageProvider = FutureProvider.family<List<ManagerOffering>, ManagerOfferingListQuery>((ref, query) {
+final offeringsPageProvider =
+    FutureProvider.family<List<ManagerOffering>, ManagerOfferingListQuery>(
+        (ref, query) {
   return ref
       .watch(getOfferingsForHotelProvider)
       .call(OfferingListParams(hotelId: query.hotelId, filters: query.filters))
-      .then((result) => result.fold((failure) => throw failure, (offerings) => offerings));
+      .then((result) =>
+          result.fold((failure) => throw failure, (offerings) => offerings));
 });
 
-final offeringsProvider = FutureProvider.family<List<ManagerOffering>, String>((ref, hotelId) {
-  return ref.watch(offeringsPageProvider(ManagerOfferingListQuery(hotelId: hotelId)).future);
+final offeringsProvider =
+    FutureProvider.family<List<ManagerOffering>, String>((ref, hotelId) {
+  return ref.watch(
+      offeringsPageProvider(ManagerOfferingListQuery(hotelId: hotelId)).future);
 });
 
 final getOfferingDetailsUseCaseProvider = Provider<GetOfferingsById>((ref) {
@@ -74,13 +79,14 @@ final getOfferingDetailsUseCaseProvider = Provider<GetOfferingsById>((ref) {
   return GetOfferingsById(repo);
 });
 
-final offeringDetailsProvider = FutureProvider.family<ManagerOffering, String>((ref, offeringId) {
-  return ref.watch(getOfferingDetailsUseCaseProvider).call(offeringId).then((result) => 
-    result.fold(
-      (failure) => throw failure,
-      (offering) => offering,
-    ),
-    );
+final offeringDetailsProvider =
+    FutureProvider.family<ManagerOffering, String>((ref, offeringId) {
+  return ref.watch(getOfferingDetailsUseCaseProvider).call(offeringId).then(
+        (result) => result.fold(
+          (failure) => throw failure,
+          (offering) => offering,
+        ),
+      );
 });
 
 final addOfferingUseCaseProvider = Provider<AddOffering>((ref) {
@@ -88,15 +94,17 @@ final addOfferingUseCaseProvider = Provider<AddOffering>((ref) {
   return AddOffering(repo);
 });
 
-final addOfferingProvider = StateNotifierProvider<AddOfferingNotifier, AsyncValue<Either<Failure, ManagerOffering>?>>((ref) {
+final addOfferingProvider = StateNotifierProvider<AddOfferingNotifier,
+    AsyncValue<Either<Failure, ManagerOffering>?>>((ref) {
   final usecase = ref.read(addOfferingUseCaseProvider);
   return AddOfferingNotifier(usecase);
 });
 
-class AddOfferingNotifier extends StateNotifier<AsyncValue<Either<Failure, ManagerOffering>?>> {
+class AddOfferingNotifier
+    extends StateNotifier<AsyncValue<Either<Failure, ManagerOffering>?>> {
   final AddOffering _useCase;
 
-  AddOfferingNotifier(this._useCase) : super( const AsyncData(null));
+  AddOfferingNotifier(this._useCase) : super(const AsyncData(null));
 
   Future<void> addOffering(ManagerOffering offering) async {
     state = const AsyncLoading();

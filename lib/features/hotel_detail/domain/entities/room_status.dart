@@ -4,7 +4,7 @@ class RoomStatus {
   final String roomId;
   final RoomStatusType status;
   final DateTime? startDate; // optional
-  final DateTime? endDate;   // optional
+  final DateTime? endDate; // optional
   final List<DateTime>? dates; // optional
   final String? note;
 

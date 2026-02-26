@@ -18,7 +18,7 @@ class ManagerOfferingModel extends ManagerOffering {
           maxGuests: maxGuests,
           isActive: isActive,
         );
-    
+
   factory ManagerOfferingModel.fromJson(Map<String, dynamic> json) {
     return ManagerOfferingModel(
       id: json['id'],
@@ -31,7 +31,7 @@ class ManagerOfferingModel extends ManagerOffering {
     );
   }
 
-  factory ManagerOfferingModel.fromEntity(ManagerOffering offering){
+  factory ManagerOfferingModel.fromEntity(ManagerOffering offering) {
     return ManagerOfferingModel(
       id: offering.id,
       hotelId: offering.hotelId,

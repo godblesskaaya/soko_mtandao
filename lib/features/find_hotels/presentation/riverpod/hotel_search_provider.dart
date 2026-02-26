@@ -16,4 +16,3 @@ final hotelSearchUseCaseProvider = Provider((ref) {
 final hotelSearchProvider =
     StateNotifierProvider<HotelSearchNotifier, HotelSearchState>(
         (ref) => HotelSearchNotifier(ref.read(hotelSearchUseCaseProvider)));
-

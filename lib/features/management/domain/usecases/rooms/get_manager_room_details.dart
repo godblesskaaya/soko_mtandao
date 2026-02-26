@@ -7,7 +7,7 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_room.da
 import 'package:soko_mtandao/features/management/domain/entities/manager_room_details.dart';
 import 'package:soko_mtandao/features/management/domain/repositories/manager_repository.dart';
 
-class ManagerRoomDetails{
+class ManagerRoomDetails {
   final ManagerRepository repository;
 
   ManagerRoomDetails(this.repository);
@@ -23,11 +23,11 @@ class ManagerRoomDetails{
         offering = await repository.getOfferingById(room!.offeringId);
         bookings = await repository.getBookingsForRoom(roomId: roomId);
       }
-      return Right(ManagerRoomDetailsData(room: room!, offering: offering, bookings: bookings));
+      return Right(ManagerRoomDetailsData(
+          room: room!, offering: offering, bookings: bookings));
     } catch (e, stackTrace) {
       ErrorReporter.report(e, stackTrace, source: 'ManagerRoomDetails.call');
       return Left(ServerFailure("Failed to fetch room details"));
     }
   }
-
 }

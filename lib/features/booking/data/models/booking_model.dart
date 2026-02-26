@@ -17,6 +17,19 @@ class BookingModel extends Booking {
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parseServerDate(dynamic value) {
+      if (value == null) return null;
+      final raw = value.toString().trim();
+      if (raw.isEmpty) return null;
+
+      // PostgreSQL timestamps without timezone are returned without offset.
+      // Treat them as UTC to avoid local-time drift in expiry calculations.
+      final hasOffset =
+          raw.endsWith('Z') || RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(raw);
+      final normalized = hasOffset ? raw : '${raw}Z';
+      return DateTime.tryParse(normalized)?.toLocal();
+    }
+
     BookingStatusEnum _toBookingStatus(String? s) {
       switch (s) {
         case 'pending':
@@ -55,12 +68,8 @@ class BookingModel extends Booking {
       ticketNumber: json['ticket_number'],
       totalPrice: (json['total_price'] as num?)?.toDouble(),
       bookingCart: BookingCartModel.fromJson(json['cart']),
-      createdAt: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString())
-          : null,
-      expiresAt: json['expires_at'] != null
-          ? DateTime.tryParse(json['expires_at'].toString())
-          : null,
+      createdAt: parseServerDate(json['created_at']),
+      expiresAt: parseServerDate(json['expires_at']),
     );
   }
 

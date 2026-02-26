@@ -18,5 +18,4 @@ class ManagerBookingItem {
     this.offeringId,
     this.createdAt,
   });
-
 }

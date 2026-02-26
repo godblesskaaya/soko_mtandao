@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
@@ -25,9 +26,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _isLoading = true);
     try {
       await ref.read(authNotifierProvider).signIn(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
+          );
       if (mounted) context.goNamed('splash');
     } catch (e) {
       ErrorReporter.report(e, StackTrace.current, source: 'ui.login');
@@ -50,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const brandBlue = Color.fromARGB(255, 6, 101, 153);
+    const brandBlue = AppColors.brand;
 
     return Scaffold(
       backgroundColor: brandBlue,
@@ -60,7 +61,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [brandBlue, Color.fromARGB(255, 4, 70, 105)],
+            colors: [brandBlue, AppColors.brandDark],
           ),
         ),
         child: SafeArea(
@@ -73,7 +74,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Brand Logo/Icon
-                    const Icon(Icons.hotel_rounded, size: 80, color: Colors.white),
+                    const Icon(Icons.hotel_rounded,
+                        size: 80, color: Colors.white),
                     const SizedBox(height: 10),
                     const Text(
                       "Welcome Back",
@@ -92,7 +94,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     // Login Card
                     Card(
                       elevation: 8,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
@@ -112,7 +115,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () => context.push(RouteNames.forgotPassword),
+                                onPressed: () =>
+                                    context.push(RouteNames.forgotPassword),
                                 child: const Text("Forgot Password?"),
                               ),
                             ),
@@ -130,10 +134,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                 ),
                                 child: _isLoading
-                                    ? const CircularProgressIndicator(color: Colors.white)
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white)
                                     : const Text(
                                         'LOGIN',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold),
                                       ),
                               ),
                             ),
@@ -152,12 +158,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(color: Colors.white, fontSize: 15),
                       ),
                     ),
-                    
+
                     // Added for Play Store Data Deletion compliance
                     TextButton(
-                      onPressed: () => context.pushNamed('deleteAccount', pathParameters: {'isManager': 'false'}),
+                      onPressed: () => context.pushNamed('deleteAccount',
+                          pathParameters: {'isManager': 'false'}),
                       child: const Text(
-                        "Manage Data or Delete Account",
+                        "Manage local data on this device",
                         style: TextStyle(
                           color: Colors.white54,
                           fontSize: 12,

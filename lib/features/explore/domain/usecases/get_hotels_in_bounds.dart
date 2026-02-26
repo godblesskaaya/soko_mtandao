@@ -11,6 +11,7 @@ class GetHotelsInBounds {
     required double north,
     required double east,
   }) {
-    return repository.getHotelsInBounds(south: south, west: west, north: north, east: east);
+    return repository.getHotelsInBounds(
+        south: south, west: west, north: north, east: east);
   }
 }

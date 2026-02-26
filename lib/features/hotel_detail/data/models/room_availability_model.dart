@@ -11,8 +11,12 @@ class RoomAvailabilityModel extends RoomAvailability {
   factory RoomAvailabilityModel.fromJson(Map<String, dynamic> json) {
     return RoomAvailabilityModel(
       room: RoomModel.fromJson(json['room']),
-      availabilityByDate: (json['availabilityByDate'] as Map<String, dynamic>).map(
-        (key, value) => MapEntry(DateTime.parse(key), RoomStatusType.values.firstWhere((e) => e.toString() == 'RoomStatusType.$value')),
+      availabilityByDate:
+          (json['availabilityByDate'] as Map<String, dynamic>).map(
+        (key, value) => MapEntry(
+            DateTime.parse(key),
+            RoomStatusType.values
+                .firstWhere((e) => e.toString() == 'RoomStatusType.$value')),
       ),
     );
   }
@@ -25,7 +29,8 @@ class RoomAvailabilityModel extends RoomAvailability {
   }
 
   Map<String, dynamic> toJson() => {
-    'room': (room as RoomModel).toJson(),
-    'availabilityByDate': availabilityByDate.map((key, value) => MapEntry(key.toIso8601String(), value.toString().split('.').last)),
-  };
+        'room': (room as RoomModel).toJson(),
+        'availabilityByDate': availabilityByDate.map((key, value) =>
+            MapEntry(key.toIso8601String(), value.toString().split('.').last)),
+      };
 }

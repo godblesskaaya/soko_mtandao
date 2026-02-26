@@ -7,14 +7,17 @@ import 'package:soko_mtandao/core/usecases/usecase.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availability.dart';
 import 'package:soko_mtandao/features/management/domain/repositories/manager_repository.dart';
 
-class GetRoomAvailability implements UseCase<RoomAvailability, AvailabilityParams> {
+class GetRoomAvailability
+    implements UseCase<RoomAvailability, AvailabilityParams> {
   final ManagerRepository repository;
   GetRoomAvailability(this.repository);
 
   @override
-  Future<Either<Failure, RoomAvailability>> call(AvailabilityParams params) async {
+  Future<Either<Failure, RoomAvailability>> call(
+      AvailabilityParams params) async {
     try {
-      RoomAvailability availability = await repository.getRoomAvailability(params.roomId, params.startDate, params.endDate);
+      RoomAvailability availability = await repository.getRoomAvailability(
+          params.roomId, params.startDate, params.endDate);
       return Right(availability);
     } catch (e, stackTrace) {
       ErrorReporter.report(e, stackTrace, source: 'GetRoomAvailability.call');
@@ -28,5 +31,6 @@ class AvailabilityParams {
   final DateTime startDate;
   final DateTime endDate;
 
-  AvailabilityParams({required this.roomId, required this.startDate, required this.endDate});
+  AvailabilityParams(
+      {required this.roomId, required this.startDate, required this.endDate});
 }

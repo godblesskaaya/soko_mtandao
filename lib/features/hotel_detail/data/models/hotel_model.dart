@@ -34,8 +34,9 @@ class HotelModel extends Hotel {
       description: json['description'] ?? '',
       address: json['address'] ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      images: json['images'] is String ? List<String>.from(jsonDecode(json['images'])) :
-        (json['images'] as List?)?.map((e) => e as String).toList() ?? [],
+      images: json['images'] is String
+          ? List<String>.from(jsonDecode(json['images']))
+          : (json['images'] as List?)?.map((e) => e as String).toList() ?? [],
       amenities: [],
       // amenities: (json['amenities'] as List?)
       //     ?.map((a) => Amenity(id: a['id'], name: a['name'], icon: a['icon']))
@@ -52,11 +53,13 @@ class HotelModel extends Hotel {
       'address': address,
       'rating': rating,
       'images': images,
-      'amenities': amenities.map((a) => {
-        'id': a.id,
-        'name': a.name,
-        'icon': a.icon,
-      }).toList(),
+      'amenities': amenities
+          .map((a) => {
+                'id': a.id,
+                'name': a.name,
+                'icon': a.icon,
+              })
+          .toList(),
     };
   }
 }

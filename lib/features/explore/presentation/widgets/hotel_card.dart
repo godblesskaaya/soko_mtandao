@@ -17,7 +17,7 @@ class HotelCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AspectRatio(
-              aspectRatio: 16/9,
+              aspectRatio: 16 / 9,
               child: hotel.imageUrl != null
                   ? Image.network(hotel.imageUrl!, fit: BoxFit.cover)
                   : Container(color: Colors.grey.shade300),
@@ -27,7 +27,9 @@ class HotelCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(hotel.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  Text(hotel.name,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
                   if (hotel.description != null) ...[
                     const SizedBox(height: 6),
                     Text(

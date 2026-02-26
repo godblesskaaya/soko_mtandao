@@ -12,10 +12,12 @@ class ManagerHotelListScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ManagerHotelListScreen> createState() => _ManagerHotelListScreenState();
+  ConsumerState<ManagerHotelListScreen> createState() =>
+      _ManagerHotelListScreenState();
 }
 
-class _ManagerHotelListScreenState extends ConsumerState<ManagerHotelListScreen> {
+class _ManagerHotelListScreenState
+    extends ConsumerState<ManagerHotelListScreen> {
   static const int _pageSize = 20;
   int _page = 1;
   String _sortBy = 'name';
@@ -63,7 +65,9 @@ class _ManagerHotelListScreenState extends ConsumerState<ManagerHotelListScreen>
         onRefresh: () async {
           ref.invalidate(managerHotelsPageProvider(_query));
           try {
-            await ref.read(managerHotelsPageProvider(_query).future).timeout(const Duration(seconds: 8));
+            await ref
+                .read(managerHotelsPageProvider(_query).future)
+                .timeout(const Duration(seconds: 8));
           } catch (_) {}
         },
         child: hotelsAsync.when(
@@ -83,7 +87,9 @@ class _ManagerHotelListScreenState extends ConsumerState<ManagerHotelListScreen>
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
                   const SizedBox(height: 200),
-                  Center(child: Text(_page > 1 ? "No more hotels." : "No hotels found.")),
+                  Center(
+                      child: Text(
+                          _page > 1 ? "No more hotels." : "No hotels found.")),
                   const SizedBox(height: 12),
                   if (_page > 1)
                     Center(
@@ -126,19 +132,22 @@ class _ManagerHotelListScreenState extends ConsumerState<ManagerHotelListScreen>
                   margin: const EdgeInsets.all(8),
                   child: ListTile(
                     leading: h.images.isNotEmpty
-                        ? Image.network(h.images.first, width: 60, fit: BoxFit.cover)
+                        ? Image.network(h.images.first,
+                            width: 60, fit: BoxFit.cover)
                         : const Icon(Icons.hotel, size: 40),
                     title: Text(h.name),
                     subtitle: Text(h.address),
                     trailing: IconButton(
                       icon: const Icon(Icons.edit),
                       onPressed: () async {
-                        await context.pushNamed("hotelEdit", pathParameters: {"hotelId": h.id});
+                        await context.pushNamed("editHotel",
+                            pathParameters: {"hotelId": h.id});
                         ref.invalidate(managerHotelsPageProvider(_query));
                       },
                     ),
                     onTap: () async {
-                      await context.pushNamed("hotelPage", pathParameters: {"hotelId": h.id});
+                      await context.pushNamed("hotelPage",
+                          pathParameters: {"hotelId": h.id});
                       ref.invalidate(managerHotelsPageProvider(_query));
                     },
                   ),
@@ -181,7 +190,8 @@ class _PaginationControls extends StatelessWidget {
         children: [
           OutlinedButton(onPressed: onPrev, child: const Text("Previous")),
           Text("Page $page"),
-          OutlinedButton(onPressed: hasNext ? onNext : null, child: const Text("Next")),
+          OutlinedButton(
+              onPressed: hasNext ? onNext : null, child: const Text("Next")),
         ],
       ),
     );

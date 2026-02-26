@@ -32,22 +32,28 @@ class _Details extends StatelessWidget {
     return ListView(
       children: [
         if (hotel.imageUrl != null)
-          Image.network(hotel.imageUrl!, height: 220, width: double.infinity, fit: BoxFit.cover),
+          Image.network(hotel.imageUrl!,
+              height: 220, width: double.infinity, fit: BoxFit.cover),
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(hotel.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(hotel.name,
+                  style: const TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               if (hotel.description != null)
                 Text(hotel.description!, style: const TextStyle(fontSize: 16)),
               const SizedBox(height: 16),
-              Text('Location: ${hotel.location.lat.toStringAsFixed(4)}, ${hotel.location.lng.toStringAsFixed(4)}'),
+              Text(
+                  'Location: ${hotel.location.lat.toStringAsFixed(4)}, ${hotel.location.lng.toStringAsFixed(4)}'),
               const SizedBox(height: 24),
-              const Text('Offerings (coming next)', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('Offerings (coming next)',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              const Text('We will list room types here with availability and prices.'),
+              const Text(
+                  'We will list room types here with availability and prices.'),
             ],
           ),
         ),

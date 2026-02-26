@@ -11,9 +11,11 @@ class AddOffering implements UseCase<ManagerOffering, ManagerOffering> {
   AddOffering(this.repository);
 
   @override
-  Future<Either<Failure, ManagerOffering>> call(ManagerOffering offering) async {
+  Future<Either<Failure, ManagerOffering>> call(
+      ManagerOffering offering) async {
     try {
-      ManagerOffering createdOffering = await repository.createOffering(offering);
+      ManagerOffering createdOffering =
+          await repository.createOffering(offering);
       return Right(createdOffering);
     } catch (e, stackTrace) {
       ErrorReporter.report(e, stackTrace, source: 'AddOffering.call');

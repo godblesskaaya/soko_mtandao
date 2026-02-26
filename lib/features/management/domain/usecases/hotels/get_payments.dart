@@ -10,7 +10,8 @@ class GetPayments implements UseCase<List<ManagerPayment>, PaymentListParams> {
   GetPayments(this.repository);
 
   @override
-  Future<Either<Failure, List<ManagerPayment>>> call(PaymentListParams params) async {
+  Future<Either<Failure, List<ManagerPayment>>> call(
+      PaymentListParams params) async {
     try {
       List<ManagerPayment> managerPayments = await repository.getPayments(
         params.hotelId,
@@ -33,4 +34,3 @@ class PaymentListParams {
     this.filters,
   });
 }
-

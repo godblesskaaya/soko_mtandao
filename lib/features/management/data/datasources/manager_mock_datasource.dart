@@ -256,12 +256,12 @@
 //       number: managerRoom.roomNumber,
 //     );
 //     // return mock availability data as a map of date strings to status
-//     return Future.value(RoomAvailability(room: room, 
+//     return Future.value(RoomAvailability(room: room,
 //     availabilityByDate: {
 //       DateTime(2023, 10, 1): RoomStatusType.vacant,
 //       DateTime(2023, 10, 2): RoomStatusType.booked,
 //       DateTime(2023, 10, 3): RoomStatusType.pending,
-//     }, 
+//     },
 //     availability: {}));
 //   }
 

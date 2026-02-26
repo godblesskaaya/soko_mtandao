@@ -56,20 +56,13 @@ class _BookingExpiryCountdownState extends State<BookingExpiryCountdown> {
     final seconds =
         _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
     final hours = _remaining.inHours.toString().padLeft(2, '0');
-    final isExpired = _remaining == Duration.zero;
-
-    if (isExpired) {
-      return Text(
-        'Hold expired. Booking may be removed shortly.',
-        style: (widget.style ?? Theme.of(context).textTheme.bodyMedium)
-            ?.copyWith(color: Colors.red),
-      );
-    }
+    final isNearExpiry = _remaining <= const Duration(minutes: 1);
 
     return Text(
       'Time left to complete payment: $hours:$minutes:$seconds',
       style: (widget.style ?? Theme.of(context).textTheme.bodyMedium)?.copyWith(
-          color: Colors.orange.shade800, fontWeight: FontWeight.w600),
+          color: isNearExpiry ? Colors.red : Colors.orange.shade800,
+          fontWeight: FontWeight.w600),
     );
   }
 }

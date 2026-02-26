@@ -39,6 +39,8 @@ class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
       minPrice: state.minPrice,
       maxPrice: state.maxPrice,
       guests: state.guests,
+      startDate: state.checkIn,
+      endDate: state.checkOut,
       sortOption: state.sortOption,
       page: state.page,
       limit: _pageSize,
@@ -92,6 +94,10 @@ class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
     state = state.copyWith(guests: int.tryParse(value));
   }
 
+  void updateDateRange(DateTime? checkIn, DateTime? checkOut) {
+    state = state.copyWith(checkIn: checkIn, checkOut: checkOut);
+  }
+
   void updateSort(String value) {
     state = state.copyWith(sortOption: value);
     runSearch(reset: true);
@@ -105,16 +111,17 @@ class HotelSearchNotifier extends StateNotifier<HotelSearchState> {
     state = state.copyWith(
       region: "",
       city: "",
-      minPrice: null,
-      maxPrice: null,
-      guests: null,
+      clearMinPrice: true,
+      clearMaxPrice: true,
+      clearGuests: true,
+      clearCheckIn: true,
+      clearCheckOut: true,
       sortOption: "relevance",
       page: 1,
     );
 
     runSearch(reset: true); // optional if you want immediate refresh
   }
-
 
   void loadMore() {
     if (!state.isLoading && state.hasMore) {

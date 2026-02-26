@@ -5,11 +5,10 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_room.da
 import 'package:soko_mtandao/features/management/domain/usecases/rooms/delete_room.dart';
 import 'package:soko_mtandao/features/management/domain/usecases/rooms/update_room.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
-typedef RoomMutationState
-    = AsyncValue<Either<Failure, ManagerRoom?>>;
 
-class RoomMutationNotifier
-    extends StateNotifier<RoomMutationState> {
+typedef RoomMutationState = AsyncValue<Either<Failure, ManagerRoom?>>;
+
+class RoomMutationNotifier extends StateNotifier<RoomMutationState> {
   final UpdateRoom _update;
   final DeleteRoom _delete;
 
@@ -36,15 +35,13 @@ class RoomMutationNotifier
   }
 }
 
-final RoomMutationProvider = StateNotifierProvider<
-    RoomMutationNotifier,
-    RoomMutationState>((ref) {
+final RoomMutationProvider =
+    StateNotifierProvider<RoomMutationNotifier, RoomMutationState>((ref) {
   return RoomMutationNotifier(
     update: ref.watch(updateRoomUseCaseProvider),
     delete: ref.watch(deleteRoomUseCaseProvider),
   );
 });
-
 
 final updateRoomUseCaseProvider = Provider<UpdateRoom>((ref) {
   final repo = ref.watch(managerRepositoryProvider);

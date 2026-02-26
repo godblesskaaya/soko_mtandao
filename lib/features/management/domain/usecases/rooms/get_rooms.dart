@@ -13,7 +13,8 @@ class GetRooms implements UseCase<List<ManagerRoom>, RoomParams> {
   @override
   Future<Either<Failure, List<ManagerRoom>>> call(RoomParams params) async {
     try {
-      List<ManagerRoom> rooms = await repository.getRooms(params.hotelId!, params.filters);
+      List<ManagerRoom> rooms =
+          await repository.getRooms(params.hotelId!, params.filters);
       return Right(rooms);
     } catch (e, stackTrace) {
       ErrorReporter.report(e, stackTrace, source: 'GetRooms.call');

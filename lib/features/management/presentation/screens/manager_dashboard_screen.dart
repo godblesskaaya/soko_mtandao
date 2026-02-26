@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
 import 'package:soko_mtandao/widgets/entity_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManagerDashboardScreen extends ConsumerStatefulWidget {
   const ManagerDashboardScreen({super.key});
@@ -23,6 +26,10 @@ class _ManagerDashboardScreenState
 
   Future<void> _refresh() async {
     ref.invalidate(managerProfileProvider);
+    final selectedHotelId = ref.read(selectedManagerHotelIdProvider);
+    if (selectedHotelId != null && selectedHotelId.isNotEmpty) {
+      ref.invalidate(hotelDetailProvider(selectedHotelId));
+    }
     try {
       await ref
           .read(managerProfileProvider.future)
@@ -33,11 +40,43 @@ class _ManagerDashboardScreenState
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(managerProfileProvider);
+    final selectedHotelId = ref.watch(selectedManagerHotelIdProvider);
+    final activeHotelAsync = selectedHotelId == null || selectedHotelId.isEmpty
+        ? null
+        : ref.watch(hotelDetailProvider(selectedHotelId));
+    final activeHotelLabel = activeHotelAsync == null
+        ? 'Not selected'
+        : activeHotelAsync.maybeWhen(
+            data: (hotel) => hotel.name,
+            loading: () => 'Loading active hotel...',
+            orElse: () => 'Active hotel unavailable',
+          );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Hotel Manager Dashboard"),
         actions: [
+          IconButton(
+            tooltip: 'Switch active hotel',
+            icon: const Icon(Icons.domain_outlined),
+            onPressed: () async {
+              final selectedHotel = await showEntityPicker<ManagerHotel>(
+                context: context,
+                title: 'Set Active Hotel',
+                fetchItems: _fetchHotelsFromRepo,
+                display: (h) => h.name,
+              );
+              if (selectedHotel == null) return;
+              ref.read(selectedManagerHotelIdProvider.notifier).state =
+                  selectedHotel.id;
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text('Active hotel: ${selectedHotel.name}')),
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () => context.pushNamed("notifications"),
@@ -67,34 +106,67 @@ class _ManagerDashboardScreenState
                 ),
               ),
               data: (managerProfile) => Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    child:
-                        managerProfile.userMetadata?['avatarUrl'] == null
-                            ? const Icon(Icons.person)
-                            : null,
-                  ),
-                  title: Text(
-                    managerProfile.userMetadata?['fullName'] ?? "Manager",
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
                     children: [
-                      Text(managerProfile.email ?? ""),
-                      Text("Phone: ${managerProfile.phone ?? "-"}"),
-                      TextButton(
-                        onPressed: () =>
-                            context.pushNamed("editManagerProfile"),
-                        child: const Text("Edit Profile"),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          child: Text(
+                            _resolveDisplayName(managerProfile)
+                                .substring(0, 1)
+                                .toUpperCase(),
+                          ),
+                        ),
+                        title: Text(_resolveDisplayName(managerProfile)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(managerProfile.email ?? ""),
+                            Text(
+                              "Phone: ${managerProfile.phone ?? managerProfile.userMetadata?['phone'] ?? "-"}",
+                            ),
+                            Text(
+                              "Role: ${_resolveManagerRole(managerProfile.userMetadata)}",
+                            ),
+                          ],
+                        ),
                       ),
-                      TextButton(
-                        onPressed: () async {
-                          await authService.signOut();
-                          if (mounted) {
-                            context.goNamed("guestHome");
-                          }
-                        },
-                        child: const Text("Logout"),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text('Active hotel: $activeHotelLabel'),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () =>
+                                  context.pushNamed("editManagerProfile"),
+                              child: const Text("Edit Profile"),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () async {
+                                await authService.signOut();
+                                if (!context.mounted) return;
+                                context.goNamed("guestHome");
+                              },
+                              child: const Text("Logout"),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -121,8 +193,7 @@ class _ManagerDashboardScreenState
                   context,
                   "hotelList",
                   pathParameters: {
-                    "managerUserId":
-                        authService.currentUser?.id ?? ""
+                    "managerUserId": authService.currentUser?.id ?? ""
                   },
                 ),
                 _buildActionButton(
@@ -161,9 +232,7 @@ class _ManagerDashboardScreenState
     final managerUserId = authService.currentUser?.id;
     if (managerUserId == null || managerUserId.isEmpty) return [];
 
-    return await ref.read(
-      managerHotelsProvider(managerUserId).future,
-    );
+    return ref.read(managerHotelsProvider(managerUserId).future);
   }
 
   Widget _buildActionButton(
@@ -175,6 +244,9 @@ class _ManagerDashboardScreenState
   }) {
     return GestureDetector(
       onTap: () async {
+        ref.read(analyticsServiceProvider).track(
+            'manager_dashboard_action_click',
+            params: {'route': routeName});
         final needsParam = {
           'rooms',
           'myHotel',
@@ -184,8 +256,17 @@ class _ManagerDashboardScreenState
         }.contains(routeName);
 
         if (needsParam) {
-          final selectedHotel =
-              await showEntityPicker<ManagerHotel>(
+          ManagerHotel? selectedHotel;
+          final selectedHotelId = ref.read(selectedManagerHotelIdProvider);
+          if (selectedHotelId != null && selectedHotelId.isNotEmpty) {
+            final hotels = await _fetchHotelsFromRepo();
+            if (!context.mounted) return;
+            final existing = hotels.where((h) => h.id == selectedHotelId);
+            if (existing.isNotEmpty) selectedHotel = existing.first;
+          }
+
+          if (!context.mounted) return;
+          selectedHotel ??= await showEntityPicker<ManagerHotel>(
             context: context,
             title: 'Select a hotel',
             fetchItems: _fetchHotelsFromRepo,
@@ -193,7 +274,10 @@ class _ManagerDashboardScreenState
           );
 
           if (selectedHotel == null) return;
+          ref.read(selectedManagerHotelIdProvider.notifier).state =
+              selectedHotel.id;
 
+          if (!context.mounted) return;
           context.pushNamed(
             routeName,
             pathParameters: {
@@ -213,7 +297,7 @@ class _ManagerDashboardScreenState
         width: 100,
         height: 100,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -226,5 +310,30 @@ class _ManagerDashboardScreenState
         ),
       ),
     );
+  }
+
+  String _resolveDisplayName(User managerProfile) {
+    final metadata = managerProfile.userMetadata;
+    final fullName = (metadata?['fullName'] ?? '').toString().trim();
+    if (fullName.isNotEmpty) return fullName;
+    final firstName = (metadata?['firstName'] ?? '').toString().trim();
+    final lastName = (metadata?['lastName'] ?? '').toString().trim();
+    final combined = '$firstName $lastName'.trim();
+    return combined.isEmpty ? 'Manager' : combined;
+  }
+
+  String _resolveManagerRole(Map<String, dynamic>? metadata) {
+    final title = (metadata?['managerTitle'] ?? '').toString().trim();
+    if (title.isNotEmpty) return title;
+    final role = (metadata?['role'] ?? '').toString().trim();
+    if (role.isNotEmpty) {
+      return role
+          .split('_')
+          .map((part) => part.isEmpty
+              ? part
+              : '${part[0].toUpperCase()}${part.substring(1)}')
+          .join(' ');
+    }
+    return 'Hotel Manager';
   }
 }

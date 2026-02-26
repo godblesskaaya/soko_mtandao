@@ -15,6 +15,8 @@ class HotelSearchState {
   final double? minPrice;
   final double? maxPrice;
   final int? guests;
+  final DateTime? checkIn;
+  final DateTime? checkOut;
   final String sortOption;
 
   const HotelSearchState({
@@ -29,6 +31,8 @@ class HotelSearchState {
     this.minPrice,
     this.maxPrice,
     this.guests,
+    this.checkIn,
+    this.checkOut,
     this.sortOption = "relevance",
   });
 
@@ -45,6 +49,13 @@ class HotelSearchState {
     double? minPrice,
     double? maxPrice,
     int? guests,
+    bool clearMinPrice = false,
+    bool clearMaxPrice = false,
+    bool clearGuests = false,
+    DateTime? checkIn,
+    DateTime? checkOut,
+    bool clearCheckIn = false,
+    bool clearCheckOut = false,
     String? sortOption,
   }) {
     return HotelSearchState(
@@ -56,9 +67,11 @@ class HotelSearchState {
       query: query ?? this.query,
       region: region ?? this.region,
       city: city ?? this.city,
-      minPrice: minPrice ?? this.minPrice,
-      maxPrice: maxPrice ?? this.maxPrice,
-      guests: guests ?? this.guests,
+      minPrice: clearMinPrice ? null : (minPrice ?? this.minPrice),
+      maxPrice: clearMaxPrice ? null : (maxPrice ?? this.maxPrice),
+      guests: clearGuests ? null : (guests ?? this.guests),
+      checkIn: clearCheckIn ? null : (checkIn ?? this.checkIn),
+      checkOut: clearCheckOut ? null : (checkOut ?? this.checkOut),
       sortOption: sortOption ?? this.sortOption,
     );
   }

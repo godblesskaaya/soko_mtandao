@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
@@ -16,12 +17,11 @@ class DeleteAccountScreen extends ConsumerStatefulWidget {
       _DeleteAccountScreenState();
 }
 
-class _DeleteAccountScreenState
-    extends ConsumerState<DeleteAccountScreen> {
+class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Delete Account & Data")),
+      appBar: AppBar(title: const Text("Data Controls")),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -40,7 +40,7 @@ class _DeleteAccountScreenState
             Text(
               widget.isManager
                   ? "Deleting your account will permanently remove your hotel listings, management access, and personal profile from our database."
-                  : "This will remove your booking history and contact details from this device. We keep transaction records for legal purposes as required by tax law.",
+                  : "This action clears booking history and personal data stored on this device only. To request permanent account deletion, contact ${AppConfig.supportEmail}.",
             ),
             const Spacer(),
             SizedBox(
@@ -54,7 +54,7 @@ class _DeleteAccountScreenState
                 child: Text(
                   widget.isManager
                       ? "Permanently Delete My Account"
-                      : "Clear My Data",
+                      : "Clear Local Device Data",
                 ),
               ),
             ),
@@ -101,7 +101,7 @@ class _DeleteAccountScreenState
       const SnackBar(content: Text("Local history and data cleared.")),
     );
 
-    context.go('/home');
+    context.goNamed('guestHome');
   }
 
   Future<void> _deleteManagerAccount(BuildContext context) async {
@@ -111,8 +111,7 @@ class _DeleteAccountScreenState
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) =>
-            const Center(child: CircularProgressIndicator()),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       await supabase.functions.invoke(
@@ -133,12 +132,14 @@ class _DeleteAccountScreenState
       context.goNamed('guestHome');
     } on FunctionException catch (e) {
       if (context.mounted) Navigator.pop(context);
-      ErrorReporter.report(e, StackTrace.current, source: 'ui.delete_account.function');
+      ErrorReporter.report(e, StackTrace.current,
+          source: 'ui.delete_account.function');
       _showErrorSnackBar(context, userMessageForError(e));
     } catch (e, stackTrace) {
       if (context.mounted) Navigator.pop(context);
       ErrorReporter.report(e, stackTrace, source: 'ui.delete_account');
-      _showErrorSnackBar(context, "An unexpected error occurred. Please try again.");
+      _showErrorSnackBar(
+          context, "An unexpected error occurred. Please try again.");
     }
   }
 

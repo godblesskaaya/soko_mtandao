@@ -46,10 +46,7 @@ final userLocationProvider = StateProvider<({double lat, double lng})>((ref) {
     );
   }
   // Fallback if location is not AsyncData
-  return (
-    lat: -6.7924,
-    lng: 39.2083
-  );
+  return (lat: -6.7924, lng: 39.2083);
 });
 
 final hotelsProvider = FutureProvider<List<Hotel>>((ref) async {
@@ -58,7 +55,8 @@ final hotelsProvider = FutureProvider<List<Hotel>>((ref) async {
   return usecase(lat: loc.lat, lng: loc.lng, radiusKm: 10);
 });
 
-final hotelDetailProvider = FutureProvider.family<Hotel, String>((ref, id) async {
+final hotelDetailProvider =
+    FutureProvider.family<Hotel, String>((ref, id) async {
   final usecase = ref.watch(getHotelByIdProvider);
   return usecase(id);
 });

@@ -28,12 +28,13 @@ class BookingReviewScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (flow.error != null) {
-      return Scaffold(body: Center(child: Text(userMessageForError(flow.error!))));
+      return Scaffold(
+          body: Center(child: Text(userMessageForError(flow.error!))));
     }
     final booking = flow.booking!;
     final cart = booking.bookingCart;
     final user = booking.user;
-      
+
     return Scaffold(
       appBar: AppBar(title: const Text('Review Booking')),
       body: Padding(
@@ -42,14 +43,14 @@ class BookingReviewScreen extends ConsumerWidget {
           children: [
             BookingUserInfo(user: user),
             BookingCartSummary(cart: cart),
-        const SizedBox(height: 16),
-        ...cart.bookings.map((booking) => BookingHotelSection(booking: booking)),
-        const SizedBox(height: 24),
-        ProceedToPaymentButton(bookingId: booking.id),
+            const SizedBox(height: 16),
+            ...cart.bookings
+                .map((booking) => BookingHotelSection(booking: booking)),
+            const SizedBox(height: 24),
+            ProceedToPaymentButton(bookingId: booking.id),
           ],
         ),
       ),
     );
   }
 }
-

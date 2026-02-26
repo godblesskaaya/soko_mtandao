@@ -28,4 +28,3 @@ Failure failureFromError(Object error) {
 
   return ServerFailure('An unexpected error occurred.');
 }
-

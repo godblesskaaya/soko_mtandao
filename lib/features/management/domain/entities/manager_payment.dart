@@ -3,7 +3,7 @@ class ManagerPayment {
   final double amount;
   final String status;
   final DateTime date;
-  
+
   // Room/Stay Info
   final String roomNumber;
   final int nights;

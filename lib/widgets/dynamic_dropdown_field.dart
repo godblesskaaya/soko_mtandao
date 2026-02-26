@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Generic async dropdown field (ID-based)
 class AsyncDropdownField<T, ID> extends ConsumerWidget {
   /// Provider returning AsyncValue<List<T>> (can be .family)
-  final ProviderListenable<AsyncValue<List<T>>> Function(WidgetRef) providerBuilder;
+  final ProviderListenable<AsyncValue<List<T>>> Function(WidgetRef)
+      providerBuilder;
 
   /// Function to extract display text
   final String Function(T) getLabel;

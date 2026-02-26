@@ -69,8 +69,8 @@ final hotelAmenitiesProvider =
 /// -------------------------
 /// OFFERINGS (depends on hotel)
 /// -------------------------
-final offeringProvider = FutureProvider.family<List<Offering>, String>(
-    (ref, hotelId) async {
+final offeringProvider =
+    FutureProvider.family<List<Offering>, String>((ref, hotelId) async {
   final usecase = ref.read(getHotelOfferingsUseCaseProvider);
   return await usecase(hotelId);
 });
@@ -79,8 +79,9 @@ final offeringProvider = FutureProvider.family<List<Offering>, String>(
 /// OFFERING AMENITIES
 /// -------------------------
 final offeringAmenitiesProvider =
-    FutureProvider.family<List<Amenity>, ({String hotelId, String offeringId})>((ref, params) async {
-      final offeringId = params.offeringId;
+    FutureProvider.family<List<Amenity>, ({String hotelId, String offeringId})>(
+        (ref, params) async {
+  final offeringId = params.offeringId;
   final usecase = ref.read(getHotelOfferingsUseCaseProvider);
   return await usecase(params.hotelId).then((offerings) {
     final offering = offerings.firstWhere((o) => o.id == offeringId);
@@ -91,17 +92,18 @@ final offeringAmenitiesProvider =
 /// -------------------------
 /// ROOM AVAILABILITY (on-demand)
 /// -------------------------
-final roomAvailabilityProvider =
-    FutureProvider.family<List<Room>, ({
-   String hotelId,
-   String offeringId,
-   DateTime startdate,
-   DateTime enddate,
-})>((ref, params) async {
-      final hotelId = params.hotelId;
-      final offeringId = params.offeringId;
-      final usecase = ref.read(getRoomAvailabilityUseCaseProvider);
-      return await usecase(hotelId, offeringId, params.startdate, params.enddate);
+final roomAvailabilityProvider = FutureProvider.family<
+    List<Room>,
+    ({
+      String hotelId,
+      String offeringId,
+      DateTime startdate,
+      DateTime enddate,
+    })>((ref, params) async {
+  final hotelId = params.hotelId;
+  final offeringId = params.offeringId;
+  final usecase = ref.read(getRoomAvailabilityUseCaseProvider);
+  return await usecase(hotelId, offeringId, params.startdate, params.enddate);
 });
 
 /// -------------------------
@@ -112,12 +114,13 @@ final selectedRoomProvider = StateProvider<Room?>((ref) => null);
 /// -------------------------
 /// BOOKING CART (multi-room)
 /// -------------------------
-final bookingCartProvider = StateNotifierProvider<BookingCartNotifier, BookingCartState>(
+final bookingCartProvider =
+    StateNotifierProvider<BookingCartNotifier, BookingCartState>(
   (ref) => BookingCartNotifier(),
 );
 
 class BookingCartState {
-  final BookingCart cart;  // List of all bookings (already grouped by hotel)
+  final BookingCart cart; // List of all bookings (already grouped by hotel)
 
   const BookingCartState({required this.cart});
 

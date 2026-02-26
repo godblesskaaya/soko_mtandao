@@ -10,14 +10,16 @@ Future<T?> showEntityPicker<T>({
   if (items.isEmpty) return null;
   return showModalBottomSheet<T>(
     context: context,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+    shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text(title,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: 420),

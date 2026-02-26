@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soko_mtandao/core/utils/currency.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
 
 class BookingRoomItem extends StatelessWidget {
@@ -17,7 +18,7 @@ class BookingRoomItem extends StatelessWidget {
       leading: const Icon(Icons.meeting_room),
       title: Text(title),
       subtitle: Text('Room $roomLabel'),
-      trailing: Text('\$${(price * nights).toStringAsFixed(2)}'),
+      trailing: Text(formatTzs(price * nights)),
     );
   }
 }

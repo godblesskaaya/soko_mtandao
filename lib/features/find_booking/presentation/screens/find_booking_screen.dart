@@ -82,7 +82,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                     controller: _controller,
                     decoration: InputDecoration(
                       labelText: "Search by Booking ID",
-                      hintText: "e.g., BK-12345",
+                      hintText: "e.g., 8f2a8a9d-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.search),
                       // Show clear button if there is text or an active search
@@ -209,12 +209,14 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                       backgroundColor: Colors.blueAccent,
                       child: Icon(Icons.bookmark, color: Colors.white),
                     ),
-                    title: Text("Booking #${booking.ticketNumber}"),
+                    title: Text("Booking ID: ${booking.id}"),
                     // convert date to readable format
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if ((booking.ticketNumber ?? '').isNotEmpty)
+                          Text("Ticket: ${booking.ticketNumber}"),
                         Text(
                             "Place: ${booking.bookingCart.bookings.first.hotel.name}"),
                         Text(

@@ -18,10 +18,8 @@ class BookingKey {
       other.endDate == endDate;
 
   @override
-  int get hashCode =>
-      Object.hash(hotelId, startDate, endDate);
+  int get hashCode => Object.hash(hotelId, startDate, endDate);
 }
-
 
 DateTime _dateOnly(DateTime dt) {
   return DateTime(dt.year, dt.month, dt.day);

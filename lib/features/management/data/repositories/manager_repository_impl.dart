@@ -4,6 +4,8 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_amenity
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_wallet_summary.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/repositories/manager_repository.dart';
 import '../datasources/manager_datasource.dart';
@@ -17,60 +19,80 @@ class ManagerRepositoryImpl implements ManagerRepository {
   ManagerRepositoryImpl(this.dataSource);
 
   @override
-  Future<List<ManagerHotel>> getManagedHotels(String managerUserId, {Map<String, dynamic>? filters}) =>
+  Future<List<ManagerHotel>> getManagedHotels(String managerUserId,
+          {Map<String, dynamic>? filters}) =>
       dataSource.fetchManagedHotels(managerUserId, filters: filters);
 
   @override
-  Future<ManagerHotel> createHotel(ManagerHotel hotel) => dataSource.createHotel(hotel);
+  Future<ManagerHotel> createHotel(ManagerHotel hotel) =>
+      dataSource.createHotel(hotel);
 
   @override
-  Future<ManagerHotel> updateHotel(ManagerHotel hotel) => dataSource.updateHotel(hotel);
+  Future<ManagerHotel> updateHotel(ManagerHotel hotel) =>
+      dataSource.updateHotel(hotel);
 
   @override
-  Future<void> deactivateHotel(String hotelId) => dataSource.deactivateHotel(hotelId);
+  Future<void> deactivateHotel(String hotelId) =>
+      dataSource.deactivateHotel(hotelId);
 
   @override
-  Future<List<ManagerOffering>> getOfferings(String hotelId, {Map<String, dynamic>? filters}) =>
+  Future<List<ManagerOffering>> getOfferings(String hotelId,
+          {Map<String, dynamic>? filters}) =>
       dataSource.fetchOfferings(hotelId, filters: filters);
 
   @override
-  Future<ManagerOffering> createOffering(ManagerOffering offering) => dataSource.createOffering(offering);
+  Future<ManagerOffering> createOffering(ManagerOffering offering) =>
+      dataSource.createOffering(offering);
 
   @override
-  Future<ManagerOffering> updateOffering(ManagerOffering offering) => dataSource.updateOffering(offering);
+  Future<ManagerOffering> updateOffering(ManagerOffering offering) =>
+      dataSource.updateOffering(offering);
 
   @override
-  Future<void> deleteOffering(String offeringId) => dataSource.deleteOffering(offeringId);
+  Future<void> deleteOffering(String offeringId) =>
+      dataSource.deleteOffering(offeringId);
 
   @override
-  Future<List<ManagerRoom>> getRooms(String hotelId, Map<String, dynamic>? filters) => dataSource.fetchRooms(hotelId, filters: filters);
+  Future<List<ManagerRoom>> getRooms(
+          String hotelId, Map<String, dynamic>? filters) =>
+      dataSource.fetchRooms(hotelId, filters: filters);
 
   @override
-  Future<ManagerRoom> createRoom(ManagerRoom room) => dataSource.createRoom(room);
+  Future<ManagerRoom> createRoom(ManagerRoom room) =>
+      dataSource.createRoom(room);
 
   @override
-  Future<ManagerRoom> updateRoom(ManagerRoom room) => dataSource.updateRoom(room);
+  Future<ManagerRoom> updateRoom(ManagerRoom room) =>
+      dataSource.updateRoom(room);
 
   @override
-  Future<void> updateRoomStatus(RoomStatus status) => dataSource.updateRoomStatus(status);
+  Future<void> updateRoomStatus(RoomStatus status) =>
+      dataSource.updateRoomStatus(status);
 
   @override
-  Future<List<ManagerBookingItem>> getBookings({required String hotelId, Map<String, dynamic>? filters}) => dataSource.fetchBookings(hotelId, filters: filters);
+  Future<List<ManagerBookingItem>> getBookings(
+          {required String hotelId, Map<String, dynamic>? filters}) =>
+      dataSource.fetchBookings(hotelId, filters: filters);
 
   @override
-  Future<ManagerBooking> getBookingDetail(String bookingId) => dataSource.fetchBookingDetail(bookingId);
+  Future<ManagerBooking> getBookingDetail(String bookingId) =>
+      dataSource.fetchBookingDetail(bookingId);
 
   @override
-  Future<void> cancelBooking(String bookingId) => dataSource.cancelBooking(bookingId);
+  Future<void> cancelBooking(String bookingId) =>
+      dataSource.cancelBooking(bookingId);
 
   @override
-  Future<List<StaffMember>> getStaff(String hotelId) => dataSource.fetchStaff(hotelId);
+  Future<List<StaffMember>> getStaff(String hotelId) =>
+      dataSource.fetchStaff(hotelId);
 
   @override
-  Future<void> inviteStaff(String hotelId, String email, String role) => dataSource.inviteStaff(hotelId, email, role);
+  Future<void> inviteStaff(String hotelId, String email, String role) =>
+      dataSource.inviteStaff(hotelId, email, role);
 
   @override
-  Future<void> changeStaffRole(String staffId, String role) => dataSource.changeStaffRole(staffId, role);
+  Future<void> changeStaffRole(String staffId, String role) =>
+      dataSource.changeStaffRole(staffId, role);
 
   @override
   Future<void> deleteRoom(String roomId) async {
@@ -78,7 +100,8 @@ class ManagerRepositoryImpl implements ManagerRepository {
   }
 
   @override
-  Future<RoomAvailability> getRoomAvailability(String roomId, DateTime startDate, DateTime endDate) {
+  Future<RoomAvailability> getRoomAvailability(
+      String roomId, DateTime startDate, DateTime endDate) {
     return dataSource.getRoomAvailability(roomId, startDate, endDate);
   }
 
@@ -93,7 +116,8 @@ class ManagerRepositoryImpl implements ManagerRepository {
   }
 
   @override
-  Future<List<ManagerBookingItem>> getBookingItems({required String hotelId, required Map<String, dynamic> filters}) {
+  Future<List<ManagerBookingItem>> getBookingItems(
+      {required String hotelId, required Map<String, dynamic> filters}) {
     return dataSource.fetchBookingItems(hotelId, filters: filters);
   }
 
@@ -106,12 +130,13 @@ class ManagerRepositoryImpl implements ManagerRepository {
   Future<ManagerBooking> updateBooking(ManagerBooking booking) {
     return dataSource.updateBooking(booking);
   }
-  
+
   @override
-  Future<List<ManagerBookingItem>> getBookingsForRoom({required String roomId}) {
+  Future<List<ManagerBookingItem>> getBookingsForRoom(
+      {required String roomId}) {
     return dataSource.fetchBookingsForRoom(roomId);
   }
-  
+
   @override
   Future<ManagerOffering> getOfferingById(String offeringId) {
     return dataSource.fetchOfferingById(offeringId);
@@ -123,7 +148,43 @@ class ManagerRepositoryImpl implements ManagerRepository {
   }
 
   @override
-  Future<List<ManagerPayment>> getPayments(String hotelId, {Map<String, dynamic>? filters}) {
+  Future<List<ManagerPayment>> getPayments(String hotelId,
+      {Map<String, dynamic>? filters}) {
     return dataSource.fetchPayments(hotelId, filters: filters);
+  }
+
+  @override
+  Future<ManagerWalletSummary> getWalletSummary(String hotelId) {
+    return dataSource.fetchWalletSummary(hotelId);
+  }
+
+  @override
+  Future<String?> requestPayout(
+    String hotelId, {
+    double minimumThreshold = 0,
+    String provider = 'azampay_disburse',
+  }) {
+    return dataSource.requestPayout(
+      hotelId,
+      minimumThreshold: minimumThreshold,
+      provider: provider,
+    );
+  }
+
+  @override
+  Future<User> updateManagerProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+    String? title,
+    String? bio,
+  }) {
+    return dataSource.updateManagerProfile(
+      firstName: firstName,
+      lastName: lastName,
+      phone: phone,
+      title: title,
+      bio: bio,
+    );
   }
 }

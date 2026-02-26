@@ -4,6 +4,8 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_amenity
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_wallet_summary.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../entities/manager_hotel.dart';
 import '../entities/manager_offering.dart';
@@ -12,33 +14,51 @@ import '../entities/staff_member.dart';
 
 abstract class ManagerRepository {
   // Hotels
-  Future<List<ManagerHotel>> getManagedHotels(String managerUserId, {Map<String, dynamic>? filters});
+  Future<List<ManagerHotel>> getManagedHotels(String managerUserId,
+      {Map<String, dynamic>? filters});
   Future<ManagerHotel> getHotelDetail(String hotelId);
   Future<ManagerHotel> createHotel(ManagerHotel hotel);
   Future<ManagerHotel> updateHotel(ManagerHotel hotel);
   Future<void> deactivateHotel(String hotelId);
   Future<List<ManagerAmenity>> getAmenities();
-  Future<List<ManagerPayment>> getPayments(String hotelId, {Map<String, dynamic>? filters});
+  Future<List<ManagerPayment>> getPayments(String hotelId,
+      {Map<String, dynamic>? filters});
+  Future<ManagerWalletSummary> getWalletSummary(String hotelId);
+  Future<String?> requestPayout(
+    String hotelId, {
+    double minimumThreshold = 0,
+    String provider = 'azampay_disburse',
+  });
+  Future<User> updateManagerProfile({
+    required String firstName,
+    required String lastName,
+    required String phone,
+    String? title,
+    String? bio,
+  });
 
   // Offerings
-  Future<List<ManagerOffering>> getOfferings(String hotelId, {Map<String, dynamic>? filters});
+  Future<List<ManagerOffering>> getOfferings(String hotelId,
+      {Map<String, dynamic>? filters});
   Future<ManagerOffering> createOffering(ManagerOffering offering);
   Future<ManagerOffering> updateOffering(ManagerOffering offering);
   Future<void> deleteOffering(String offeringId);
 
   // Rooms
-  Future<List<ManagerRoom>> getRooms(String hotelId, Map<String, dynamic>? filters);
+  Future<List<ManagerRoom>> getRooms(
+      String hotelId, Map<String, dynamic>? filters);
   Future<ManagerRoom> createRoom(ManagerRoom room);
   Future<ManagerRoom> updateRoom(ManagerRoom room);
   Future<void> updateRoomStatus(RoomStatus status);
   Future<void> deleteRoom(String roomId);
   Future<ManagerRoom> getRoomById(String roomId);
-  Future<RoomAvailability> getRoomAvailability(String roomId, DateTime startDate, DateTime endDate);
+  Future<RoomAvailability> getRoomAvailability(
+      String roomId, DateTime startDate, DateTime endDate);
   Future<List<ManagerRoom>> getRoomsByOffering(String offeringId);
-  
 
   // Bookings
-  Future<List<ManagerBookingItem>> getBookings({required String hotelId, Map<String, dynamic>? filters});
+  Future<List<ManagerBookingItem>> getBookings(
+      {required String hotelId, Map<String, dynamic>? filters});
   Future<ManagerBooking> getBookingDetail(String bookingId);
   Future<ManagerBooking> updateBooking(ManagerBooking booking);
   Future<void> cancelBooking(String bookingId);
@@ -48,7 +68,8 @@ abstract class ManagerRepository {
   Future<void> inviteStaff(String hotelId, String email, String role);
   Future<void> changeStaffRole(String staffId, String role);
 
-  Future<List<ManagerBookingItem>> getBookingItems({required String hotelId, required Map<String, dynamic> filters});
+  Future<List<ManagerBookingItem>> getBookingItems(
+      {required String hotelId, required Map<String, dynamic> filters});
 
   Future<List<ManagerBookingItem>> getBookingsForRoom({required String roomId});
 

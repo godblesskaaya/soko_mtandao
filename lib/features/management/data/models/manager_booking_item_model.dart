@@ -38,9 +38,8 @@ class ManagerBookingItemModel extends ManagerBookingItem {
       startDate: json['start_date'] != null
           ? DateTime.parse(json['start_date'])
           : null,
-      endDate: json['end_date'] != null
-          ? DateTime.parse(json['end_date'])
-          : null,
+      endDate:
+          json['end_date'] != null ? DateTime.parse(json['end_date']) : null,
       hotelId: json['hotel_id'],
       offeringId: json['offering_id'],
       createdAt: json['created_at'] != null

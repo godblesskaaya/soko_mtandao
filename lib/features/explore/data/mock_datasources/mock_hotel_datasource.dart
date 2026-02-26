@@ -19,34 +19,47 @@ class MockHotelDataSource implements HotelDataSource {
     // Hotel(id: 'h8', name: 'Savannah Sunrise Lodge', description: 'Perfect for safari starters', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.4158, lng: 36.7821), totalRooms: '', availableRooms: ''),
     // Hotel(id: 'h9', name: 'The Coffee Estate Inn', description: 'Among Arusha’s coffee farms', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.3991, lng: 36.7504), totalRooms: '', availableRooms: ''),
     // Hotel(id: 'h10', name: 'Meru Forest Camp', description: 'Eco stay near forest reserve', imageUrl: 'https://placehold.co/800x400', location: HotelLocation(lat: -3.3865, lng: 36.7733), totalRooms: '', availableRooms: ''),
-     
   ];
 
   @override
-  Future<List<Hotel>> fetchNearbyHotels({required double lat, required double lng, double radiusKm = 5}) async {
+  Future<List<Hotel>> fetchNearbyHotels(
+      {required double lat, required double lng, double radiusKm = 5}) async {
     await _simulate();
-    return _all.where((h) => _distanceKm(lat, lng, h.location.lat, h.location.lng) <= radiusKm).toList();
+    return _all
+        .where((h) =>
+            _distanceKm(lat, lng, h.location.lat, h.location.lng) <= radiusKm)
+        .toList();
   }
 
   @override
-  Future<List<Hotel>> fetchHotelsInBounds({required double south, required double west, required double north, required double east}) async {
+  Future<List<Hotel>> fetchHotelsInBounds(
+      {required double south,
+      required double west,
+      required double north,
+      required double east}) async {
     await _simulate();
-    return _all.where((h) =>
-      h.location.lat >= south && h.location.lat <= north &&
-      h.location.lng >= west  && h.location.lng <= east
-    ).toList();
+    return _all
+        .where((h) =>
+            h.location.lat >= south &&
+            h.location.lat <= north &&
+            h.location.lng >= west &&
+            h.location.lng <= east)
+        .toList();
   }
 
   @override
-  Future<List<Hotel>> searchHotels({required String query, required double lat, required double lng}) async {
+  Future<List<Hotel>> searchHotels(
+      {required String query, required double lat, required double lng}) async {
     await _simulate();
     final q = query.toLowerCase();
-    final filtered = _all.where((h) =>
-      h.name.toLowerCase().contains(q) ||
-      (h.description?.toLowerCase().contains(q) ?? false)
-    ).toList();
-    filtered.sort((a, b) => _distanceKm(lat, lng, a.location.lat, a.location.lng)
-        .compareTo(_distanceKm(lat, lng, b.location.lat, b.location.lng)));
+    final filtered = _all
+        .where((h) =>
+            h.name.toLowerCase().contains(q) ||
+            (h.description?.toLowerCase().contains(q) ?? false))
+        .toList();
+    filtered.sort((a, b) =>
+        _distanceKm(lat, lng, a.location.lat, a.location.lng)
+            .compareTo(_distanceKm(lat, lng, b.location.lat, b.location.lng)));
     return filtered;
   }
 
@@ -58,9 +71,15 @@ class MockHotelDataSource implements HotelDataSource {
 
   Future<void> _simulate() async {
     switch (mockState) {
-      case MockState.loading: await Future.delayed(const Duration(seconds: 2)); break;
-      case MockState.error:   await Future.delayed(const Duration(milliseconds: 500)); throw Exception('Mock error');
-      case MockState.success: await Future.delayed(const Duration(milliseconds: 250)); break;
+      case MockState.loading:
+        await Future.delayed(const Duration(seconds: 2));
+        break;
+      case MockState.error:
+        await Future.delayed(const Duration(milliseconds: 500));
+        throw Exception('Mock error');
+      case MockState.success:
+        await Future.delayed(const Duration(milliseconds: 250));
+        break;
     }
   }
 
@@ -68,9 +87,14 @@ class MockHotelDataSource implements HotelDataSource {
     const R = 6371.0;
     final dLat = _deg2rad(lat2 - lat1);
     final dLon = _deg2rad(lon2 - lon1);
-    final a = sin(dLat/2)*sin(dLat/2) + cos(_deg2rad(lat1))*cos(_deg2rad(lat2))*sin(dLon/2)*sin(dLon/2);
-    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_deg2rad(lat1)) *
+            cos(_deg2rad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return R * c;
   }
+
   double _deg2rad(double d) => d * (3.141592653589793 / 180.0);
 }

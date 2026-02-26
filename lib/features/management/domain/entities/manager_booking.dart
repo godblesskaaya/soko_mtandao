@@ -28,5 +28,4 @@ class ManagerBooking {
     this.ticketNumber,
     this.createdAt,
   });
-
 }

@@ -10,7 +10,8 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_amenity
 import 'package:soko_mtandao/features/management/presentation/riverpod/add_hotel_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/edit_hotel_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_amenity_provider.dart';
-import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart' hide addHotelProvider;
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart'
+    hide addHotelProvider;
 import 'package:soko_mtandao/features/management/presentation/widgets/location_picker.dart';
 import 'package:soko_mtandao/widgets/dynamic_multiselect_field.dart';
 
@@ -113,7 +114,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
       try {
         if (widget.hotelId == null) {
           final notifier = ref.read(addHotelProvider.notifier);
-        
+
           await notifier.addHotel(
             name: _nameController.text,
             address: _addressController.text,
@@ -129,11 +130,13 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
             city: _cityController.text,
             phoneNumber: _phoneController.text,
             email: _emailController.text,
-            website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
+            website: _websiteController.text.isNotEmpty
+                ? _websiteController.text
+                : null,
           );
         } else {
           final notifier = ref.read(editHotelProvider.notifier);
-        
+
           await notifier.updateHotel(
             hotelId: widget.hotelId!,
             name: _nameController.text,
@@ -150,22 +153,27 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
             city: _cityController.text,
             phoneNumber: _phoneController.text,
             email: _emailController.text,
-            website: _websiteController.text.isNotEmpty ? _websiteController.text : null,
+            website: _websiteController.text.isNotEmpty
+                ? _websiteController.text
+                : null,
           );
         }
-        
-        if(widget.hotelId != null) {
+
+        if (widget.hotelId != null) {
           ref.invalidate(hotelDetailProvider(widget.hotelId!));
         }
-        
+
         ref.invalidate(managerHotelsProvider);
-        
+
         if (mounted) {
           // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(widget.hotelId != null ? 'Hotel updated successfully' : 'Hotel added successfully')),
-            );
-        
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(widget.hotelId != null
+                    ? 'Hotel updated successfully'
+                    : 'Hotel added successfully')),
+          );
+
           Navigator.pop(context, true); // return success
         }
       } catch (e) {
@@ -185,26 +193,19 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   Widget build(BuildContext context) {
     final amenitiesAsync = ref.watch(managerAmenitiesProvider);
 
-/// ------- EDIT MODE -------
+    /// ------- EDIT MODE -------
     if (widget.hotelId != null) {
       final hotelAsync = ref.watch(
         hotelDetailProvider(widget.hotelId!),
       );
 
-      hotelAsync.when(
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
-        error: (err, _) {
-          return Scaffold(
-            appBar: AppBar(title: const Text("Edit Hotel")),
-            body: Center(child: Text(userMessageForError(err))),
-          );
-        },
+      return hotelAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text(userMessageForError(err))),
         data: (hotel) {
           if (!_initialized) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-             setState(() => _initializeFromHotel(hotel));
+              setState(() => _initializeFromHotel(hotel));
             });
           }
           return _buildForm(context, amenitiesAsync);
@@ -214,6 +215,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
     // ------- ADD MODE -------
     return _buildForm(context, amenitiesAsync);
   }
+
   Widget _buildForm(BuildContext context, AsyncValue amenitiesAsync) {
     final editState = ref.watch(editHotelProvider);
     final addState = ref.watch(addHotelProvider);
@@ -254,8 +256,9 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                               border: OutlineInputBorder(),
                             ),
                             readOnly: true,
-                            validator: (val) =>
-                                (val == null || val.isEmpty) ? "Required" : null,
+                            validator: (val) => (val == null || val.isEmpty)
+                                ? "Required"
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -267,8 +270,9 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                               border: OutlineInputBorder(),
                             ),
                             readOnly: true,
-                            validator: (val) =>
-                                (val == null || val.isEmpty) ? "Required" : null,
+                            validator: (val) => (val == null || val.isEmpty)
+                                ? "Required"
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -303,32 +307,30 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                   _buildTextField("Country", _countryController),
                   _buildTextField("City", _cityController),
                   _buildTextField("Phone Number", _phoneController,
-                      keyboard: TextInputType.phone,
-                      validator: (val) {
-                        if (val != null && val.isNotEmpty) {
-                          final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
-                          if (!phoneRegex.hasMatch(val)) {
-                            return 'Please enter a valid phone number';
-                          }
-                        }
-                        return null;
-                      }),
+                      keyboard: TextInputType.phone, validator: (val) {
+                    if (val != null && val.isNotEmpty) {
+                      final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                      if (!phoneRegex.hasMatch(val)) {
+                        return 'Please enter a valid phone number';
+                      }
+                    }
+                    return null;
+                  }),
                   _buildTextField("Email", _emailController,
-                      keyboard: TextInputType.emailAddress,
+                      keyboard: TextInputType.emailAddress, validator: (val) {
+                    if (val != null && val.isNotEmpty) {
+                      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                      if (!emailRegex.hasMatch(val)) {
+                        return 'Please enter a valid email address';
+                      }
+                    }
+                    return null;
+                  }),
+                  _buildTextField("Website", _websiteController,
                       validator: (val) {
-                        if (val != null && val.isNotEmpty) {
-                          final emailRegex = RegExp(
-                              r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                          if (!emailRegex.hasMatch(val)) {
-                            return 'Please enter a valid email address';
-                          }
-                        }
-                        return null;
-                      }),
-                  _buildTextField("Website", _websiteController, validator: (val) {
                     if (val != null && val.isNotEmpty) {
                       final uri = Uri.tryParse(val);
-                      if (uri == null || !uri.hasAbsolutePath) {
+                      if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
                         return 'Please enter a valid URL';
                       }
                     }
@@ -342,29 +344,29 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                     label: "Amenities",
                     // 1. The provider that fetches the list
                     provider: managerAmenitiesProvider,
-                    
+
                     // 2. How to display the item and identifying it
                     getLabel: (amenity) => amenity.name,
                     getId: (amenity) => amenity.amenityId,
-                    
+
                     // 3. Current selected IDs (mapped from your object list)
-                    values: selectedAmenities
-                        .map((a) => a.amenityId)
-                        .toList(),
-                        
+                    values: selectedAmenities.map((a) => a.amenityId).toList(),
+
                     // 4. Update state when selection changes
                     onChanged: (selectedIds) {
                       // Read the current list from the provider to find the full objects
-                      final allAmenities = ref.read(managerAmenitiesProvider).valueOrNull ?? [];
+                      final allAmenities =
+                          ref.read(managerAmenitiesProvider).valueOrNull ?? [];
 
                       setState(() {
                         // Filter the full list to keep only the selected ones
                         selectedAmenities = allAmenities
-                            .where((amenity) => selectedIds.contains(amenity.amenityId))
+                            .where((amenity) =>
+                                selectedIds.contains(amenity.amenityId))
                             .toList();
                       });
                     },
-                    
+
                     // Optional: Add validation if needed
                     validator: (ids) {
                       if (ids == null || ids.isEmpty) {
@@ -431,7 +433,8 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
 
                   ElevatedButton(
                     onPressed: editState.isLoading ? null : _submit,
-                    child: Text(widget.hotelId == null ? "Save Hotel" : "Update Hotel"),
+                    child: Text(
+                        widget.hotelId == null ? "Save Hotel" : "Update Hotel"),
                   ),
                 ],
               ),
@@ -452,8 +455,8 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
         controller: controller,
         maxLines: maxLines,
         keyboardType: keyboard,
-        validator: (val) =>
-            (val == null || val.isEmpty) ? "Required" : null,
+        validator: validator ??
+            (val) => (val == null || val.isEmpty) ? "Required" : null,
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),

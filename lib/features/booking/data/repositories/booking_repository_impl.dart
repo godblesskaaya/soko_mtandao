@@ -12,18 +12,26 @@ class BookingRepositoryImpl implements BookingRepository {
   BookingRepositoryImpl(this.ds);
 
   @override
-  Future<Booking> initiateBooking({required BookingCart cart, required UserInfo user, required String sessionId}) {
-    return ds.initiateBooking(user: UserModel.fromEntity(user), cart: BookingCartModel.fromEntity(cart), sessionId: sessionId);
+  Future<Booking> initiateBooking(
+      {required BookingCart cart,
+      required UserInfo user,
+      required String sessionId}) {
+    return ds.initiateBooking(
+        user: UserModel.fromEntity(user),
+        cart: BookingCartModel.fromEntity(cart),
+        sessionId: sessionId);
   }
 
   @override
   Future<Booking> getBooking(String bookingId) => ds.getBooking(bookingId);
 
   @override
-  Future<Booking> getBookingStatus(String bookingId) => ds.getBookingStatus(bookingId);
+  Future<Booking> getBookingStatus(String bookingId) =>
+      ds.getBookingStatus(bookingId);
 
   @override
-  Stream<Booking> monitorBookingPayment(String bookingId) => ds.monitorBookingPayment(bookingId);
+  Stream<Booking> monitorBookingPayment(String bookingId) =>
+      ds.monitorBookingPayment(bookingId);
 
   @override
   Future<void> cancelBooking(String bookingId) => ds.cancelBooking(bookingId);

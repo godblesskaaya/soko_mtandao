@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
 import 'package:soko_mtandao/router/nav_config.dart';
 import 'package:soko_mtandao/widgets/dynamic_bottom_nav.dart';
 import 'package:soko_mtandao/widgets/entity_picker.dart';
@@ -13,14 +13,16 @@ import 'package:soko_mtandao/widgets/entity_picker.dart';
 /// AdminLayout: layout for admin pages (hotel admin & system admin)
 class AdminLayout extends ConsumerWidget {
   final Widget child;
-  
+
   final int selectedIndex;
-  const AdminLayout({super.key, required this.child, required this.selectedIndex});
+  const AdminLayout(
+      {super.key, required this.child, required this.selectedIndex});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref){
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(authNotifierProvider).role;
     final items = navItems.where((i) {
-      return i.visibleTo.contains(UserRole.hotelAdmin);
+      return i.visibleTo.contains(role);
     }).toList();
 
     return Scaffold(
@@ -52,19 +54,24 @@ class AdminLayout extends ConsumerWidget {
     final AuthService authService = AuthService();
     final managerUserId = authService.currentUser?.id;
     if (managerUserId == null || managerUserId.isEmpty) return [];
-  // Use ref to access repo/provider
-  final hotelsAsync = ref.watch(managerHotelsProvider(managerUserId));
+    return ref.read(managerHotelsProvider(managerUserId).future);
+  }
 
-  return hotelsAsync.when(
-    data: (hotels) => hotels,
-    loading: () => [],
-    error: (err, _) => [],
-  );
-}
-  void _onItemTapped(BuildContext context, int , String routeName, WidgetRef ref) async {
-  final needsParam = {'rooms', 'myHotel', 'hotelBookings', 'offerings'}.contains(routeName);
+  void _onItemTapped(
+      BuildContext context, int _, String routeName, WidgetRef ref) async {
+    final needsParam =
+        {'rooms', 'myHotel', 'hotelBookings', 'offerings'}.contains(routeName);
+    if (!needsParam) {
+      context.goNamed(routeName);
+      return;
+    }
 
-  if (needsParam) {
+    final selectedHotelId = ref.read(selectedManagerHotelIdProvider);
+    if (selectedHotelId != null && selectedHotelId.isNotEmpty) {
+      _navigateToHotelRoute(context, routeName, selectedHotelId);
+      return;
+    }
+
     final selectedHotel = await showEntityPicker<ManagerHotel>(
       context: context,
       title: 'Choose a Hotel',
@@ -74,19 +81,23 @@ class AdminLayout extends ConsumerWidget {
 
     if (selectedHotel == null) return;
 
-    // Navigate with hotelId param (adjust for your route names)
-    if (routeName == 'rooms') {
-      context.goNamed('rooms', pathParameters: {'hotelId': selectedHotel.id});
-    } else if (routeName == 'offerings') {
-      context.goNamed('offerings', pathParameters: {'hotelId': selectedHotel.id});
-    } else if (routeName == 'hotelBookings') {
-      context.goNamed('hotelBookings', pathParameters: {'hotelId': selectedHotel.id});
-    } else if (routeName == 'myHotel') {
-      context.goNamed('hotelPage', pathParameters: {'hotelId': selectedHotel.id});
-    }
-    // add other cases as needed
-  } else {
-    context.goNamed(routeName);
+    ref.read(selectedManagerHotelIdProvider.notifier).state = selectedHotel.id;
+    _navigateToHotelRoute(context, routeName, selectedHotel.id);
   }
-}
+
+  void _navigateToHotelRoute(
+    BuildContext context,
+    String routeName,
+    String hotelId,
+  ) {
+    if (routeName == 'rooms') {
+      context.goNamed('rooms', pathParameters: {'hotelId': hotelId});
+    } else if (routeName == 'offerings') {
+      context.goNamed('offerings', pathParameters: {'hotelId': hotelId});
+    } else if (routeName == 'hotelBookings') {
+      context.goNamed('hotelBookings', pathParameters: {'hotelId': hotelId});
+    } else if (routeName == 'myHotel') {
+      context.goNamed('hotelPage', pathParameters: {'hotelId': hotelId});
+    }
+  }
 }

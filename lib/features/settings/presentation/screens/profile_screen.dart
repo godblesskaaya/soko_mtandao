@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/config/app_config.dart';
+import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
+import 'package:soko_mtandao/widgets/app_section_header.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  static const _brandBlue = Color.fromARGB(255, 6, 101, 153);
+  static const _brandBlue = AppColors.brand;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -66,10 +69,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Security',
-            style: TextStyle(fontWeight: FontWeight.w700, color: Colors.grey),
-          ),
+          const AppSectionHeader(title: 'Security'),
           ListTile(
             leading: const Icon(Icons.vpn_key_outlined),
             title: const Text('Reset Password'),
@@ -77,10 +77,7 @@ class ProfileScreen extends ConsumerWidget {
             onTap: () => context.pushNamed('forgotPassword'),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Data',
-            style: TextStyle(fontWeight: FontWeight.w700, color: Colors.grey),
-          ),
+          const AppSectionHeader(title: 'Data Controls'),
           ListTile(
             leading: const Icon(Icons.description_outlined),
             title: const Text('Privacy Policy'),
@@ -91,7 +88,7 @@ class ProfileScreen extends ConsumerWidget {
                 MaterialPageRoute(
                   builder: (context) => const AppWebViewScreen(
                     title: "Privacy Policy",
-                    url: 'https://sites.google.com/view/sokomtandaocompany-privacy',
+                    url: AppConfig.privacyPolicyUrl,
                   ),
                 ),
               );
@@ -99,7 +96,8 @@ class ProfileScreen extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.delete_outline, color: Colors.red),
-            title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+            title: const Text('Data Controls',
+                style: TextStyle(color: Colors.red)),
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => context.pushNamed(
               'deleteAccount',

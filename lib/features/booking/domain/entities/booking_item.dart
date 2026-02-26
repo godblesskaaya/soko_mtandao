@@ -16,18 +16,18 @@ class BookingItem {
   });
 
   Map<String, dynamic> toJson() => {
-    'offering_id': offeringId,
-    'room_id': roomId,
-    'offering_title': offeringTitle,
-    'room_number': roomNumber,
-    'price_per_night': pricePerNight,
-  };
+        'offering_id': offeringId,
+        'room_id': roomId,
+        'offering_title': offeringTitle,
+        'room_number': roomNumber,
+        'price_per_night': pricePerNight,
+      };
 
   factory BookingItem.fromJson(Map<String, dynamic> json) => BookingItem(
-    offeringId: json['offering_id'],
-    roomId: json['room_id'],
-    offeringTitle: json['offering_title'],
-    roomNumber: json['room_number'],
-    pricePerNight: (json['price_per_night'] as num?)?.toDouble(),
-  );
+        offeringId: json['offering_id'],
+        roomId: json['room_id'],
+        offeringTitle: json['offering_title'],
+        roomNumber: json['room_number'],
+        pricePerNight: (json['price_per_night'] as num?)?.toDouble(),
+      );
 }

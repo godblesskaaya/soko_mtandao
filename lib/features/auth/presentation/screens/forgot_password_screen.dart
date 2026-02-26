@@ -36,7 +36,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       // Optional: navigate back to splash to trigger redirect
       Navigator.of(context).pop();
-
     } catch (e) {
       _showMessage('Unable to send reset email. Please try again.');
     } finally {

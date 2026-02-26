@@ -6,12 +6,14 @@ import 'package:soko_mtandao/core/usecases/usecase.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/domain/repositories/manager_repository.dart';
 
-class GetHotelsForManager implements UseCase<List<ManagerHotel>, HotelListParams> {
+class GetHotelsForManager
+    implements UseCase<List<ManagerHotel>, HotelListParams> {
   final ManagerRepository repository;
   GetHotelsForManager(this.repository);
 
   @override
-  Future<Either<Failure, List<ManagerHotel>>> call(HotelListParams params) async {
+  Future<Either<Failure, List<ManagerHotel>>> call(
+      HotelListParams params) async {
     try {
       List<ManagerHotel> hotels = await repository.getManagedHotels(
         params.managerUserId,

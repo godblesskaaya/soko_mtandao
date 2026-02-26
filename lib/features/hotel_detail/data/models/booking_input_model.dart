@@ -38,7 +38,9 @@ class BookingInputModel extends BookingInput {
       'hotel': HotelModel.fromEntity(hotel).toJson(),
       'start_date': startDate.toIso8601String(),
       'end_date': endDate.toIso8601String(),
-      'items': items.map((item) => BookingItemInputModel.fromEntity(item).toJson()).toList(),
+      'items': items
+          .map((item) => BookingItemInputModel.fromEntity(item).toJson())
+          .toList(),
     };
   }
 }

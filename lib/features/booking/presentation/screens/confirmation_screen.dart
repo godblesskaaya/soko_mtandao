@@ -47,59 +47,58 @@ class _BookingConfirmationScreenState
 
     return Scaffold(
       appBar: AppBar(title: const Text('Booking Confirmed')),
-      body: Builder(
-        builder: (context){
-          if (flow.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (flow.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                  const SizedBox(height: 16),
-                  Text(userMessageForError(flow.error!)),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.read(bookingFlowProvider.notifier).load(widget.bookingId);
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (flow.booking == null) {
-            return const Center(child: Text('Booking details not found.'));
-          }
-          return Padding(
-            padding: const EdgeInsets.all(16),
+      body: Builder(builder: (context) {
+        if (flow.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (flow.error != null) {
+          return Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.check_circle, size: 48, color: Colors.green),
-                const SizedBox(height: 12),
-                Text('Thank you, ${flow.booking!.user.name}.',
-                    style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 8),
-
-                BookingDetailsWidget(booking: flow.booking!, showPriceSummary: true),
-
-                const Spacer(),
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text(userMessageForError(flow.error!)),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
-                    context.push(RouteNames.guestHome);
+                    ref
+                        .read(bookingFlowProvider.notifier)
+                        .load(widget.bookingId);
                   },
-                  child: const Text('Back to Home'),
+                  child: const Text('Retry'),
                 ),
               ],
             ),
           );
         }
-      ),
+
+        if (flow.booking == null) {
+          return const Center(child: Text('Booking details not found.'));
+        }
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.check_circle, size: 48, color: Colors.green),
+              const SizedBox(height: 12),
+              Text('Thank you, ${flow.booking!.user.name}.',
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              BookingDetailsWidget(
+                  booking: flow.booking!, showPriceSummary: true),
+              const Spacer(),
+              ElevatedButton(
+                onPressed: () {
+                  context.go(RouteNames.guestHome);
+                },
+                child: const Text('Back to Home'),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }

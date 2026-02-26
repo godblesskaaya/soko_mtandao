@@ -10,7 +10,8 @@ class ProceedToPaymentButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: () {
-        context.pushNamed('payment', pathParameters: {'id': bookingId}); // or include cart ID if needed
+        context.pushNamed('payment',
+            pathParameters: {'id': bookingId}); // or include cart ID if needed
       },
       child: const Text('Proceed to Payment'),
     );

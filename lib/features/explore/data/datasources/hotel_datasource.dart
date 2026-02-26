@@ -43,7 +43,10 @@ class SupabaseHotelDataSource implements HotelDataSource {
         .limit(300);
 
     final all = _mapRows(res);
-    return all.where((h) => _distanceKm(lat, lng, h.location.lat, h.location.lng) <= radiusKm).toList();
+    return all
+        .where((h) =>
+            _distanceKm(lat, lng, h.location.lat, h.location.lng) <= radiusKm)
+        .toList();
   }
 
   @override
@@ -53,13 +56,12 @@ class SupabaseHotelDataSource implements HotelDataSource {
     required double north,
     required double east,
   }) async {
-    final res = await _client
-        .rpc('get_hotels_in_bounding_box', params: {
-          'north': north,
-          'south': south,
-          'east': east,
-          'west': west,
-        });
+    final res = await _client.rpc('get_hotels_in_bounding_box', params: {
+      'north': north,
+      'south': south,
+      'east': east,
+      'west': west,
+    });
 
     return _mapRows(res);
   }
@@ -90,7 +92,8 @@ class SupabaseHotelDataSource implements HotelDataSource {
 
   @override
   Future<Hotel> fetchHotelById(String id) async {
-    final row = await _client.from('hotels').select().eq('id', id).maybeSingle();
+    final row =
+        await _client.from('hotels').select().eq('id', id).maybeSingle();
     if (row == null) throw Exception('Hotel not found');
     return _rowToHotel(row);
   }
@@ -114,8 +117,12 @@ class SupabaseHotelDataSource implements HotelDataSource {
     const R = 6371.0;
     final dLat = _deg2rad(lat2 - lat1);
     final dLon = _deg2rad(lon2 - lon1);
-    final a = sin(dLat/2)*sin(dLat/2) + cos(_deg2rad(lat1))*cos(_deg2rad(lat2))*sin(dLon/2)*sin(dLon/2);
-    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_deg2rad(lat1)) *
+            cos(_deg2rad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return R * c;
   }
 

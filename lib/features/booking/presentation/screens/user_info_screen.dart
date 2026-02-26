@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/user_info.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_providers.dart';
 import 'package:soko_mtandao/router/route_names.dart';
@@ -32,6 +33,7 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
   Widget build(BuildContext context) {
     final cart = ref.watch(bookingCartProvider);
     final flow = ref.watch(bookingFlowProvider);
+    final analytics = ref.read(analyticsServiceProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Your Details')),
@@ -46,7 +48,8 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                     TextFormField(
                       controller: nameCtrl,
                       decoration: const InputDecoration(labelText: 'Full name'),
-                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Required' : null,
                     ),
                     TextFormField(
                       controller: emailCtrl,
@@ -65,16 +68,21 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                       validator: (v) {
                         if (v == null || v.isEmpty) return 'Required';
                         final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
-                        if (!phoneRegex.hasMatch(v)) return 'Invalid phone number';
+                        if (!phoneRegex.hasMatch(v))
+                          return 'Invalid phone number';
                         return null;
-                        },
+                      },
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: flow.isLoading
                           ? null
                           : () async {
-                              if (!_formKey.currentState!.validate()) return;
+                              if (!_formKey.currentState!.validate()) {
+                                analytics.track(
+                                    'booking_user_info_validation_error');
+                                return;
+                              }
 
                               final id = await ref
                                   .read(bookingFlowProvider.notifier)
@@ -86,12 +94,15 @@ class _UserInfoScreenState extends ConsumerState<UserInfoScreen> {
                                     ),
                                   );
                               if (id != null && mounted) {
+                                analytics.track('initiate_booking',
+                                    params: {'booking_id': id});
                                 // Optionally clear cart after successful initiation
                                 // ref.read(bookingCartProvider.notifier).clearCart();
                                 context.push('${RouteNames.bookingReview}/$id');
                               } else {
                                 // get the error from the notifier and display it
-                                final error = ref.read(bookingFlowProvider).error;
+                                final error =
+                                    ref.read(bookingFlowProvider).error;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(

@@ -20,4 +20,3 @@ class GetAmenities implements UseCase<List<ManagerAmenity>, NoParams> {
     }
   }
 }
-

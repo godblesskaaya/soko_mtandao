@@ -7,12 +7,14 @@ import 'package:soko_mtandao/core/usecases/usecase.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:soko_mtandao/features/management/domain/repositories/manager_repository.dart';
 
-class GetBookingItems implements UseCase<List<ManagerBookingItem>, BookingQueryParams> {
+class GetBookingItems
+    implements UseCase<List<ManagerBookingItem>, BookingQueryParams> {
   final ManagerRepository repository;
   GetBookingItems(this.repository);
 
   @override
-  Future<Either<Failure, List<ManagerBookingItem>>> call(BookingQueryParams params) async {
+  Future<Either<Failure, List<ManagerBookingItem>>> call(
+      BookingQueryParams params) async {
     try {
       List<ManagerBookingItem> bookings = await repository.getBookingItems(
         hotelId: params.hotelId,
@@ -50,7 +52,8 @@ class BookingQueryParams {
         'offset': offset,
         'sort_by': sortBy,
         'sort_asc': sortAscending,
-        if (status != null && status!.trim().isNotEmpty) 'status': status!.trim(),
+        if (status != null && status!.trim().isNotEmpty)
+          'status': status!.trim(),
       };
 
   BookingQueryParams copyWith({

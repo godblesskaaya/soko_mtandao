@@ -1,6 +1,6 @@
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room.dart';
 
-class RoomModel extends Room{
+class RoomModel extends Room {
   RoomModel({
     required super.id,
     required super.number,
@@ -34,7 +34,7 @@ class RoomModel extends Room{
       'offering_id': offeringId,
     };
   }
-  
+
   static getRoomStatusFromString(json) {
     switch (json) {
       case 'available':

@@ -7,7 +7,8 @@ class GetRoomAvailability {
 
   GetRoomAvailability(this.repository);
 
-  Future<List<Room>> call(String hotelId, String offeringId, DateTime start, DateTime end) {
+  Future<List<Room>> call(
+      String hotelId, String offeringId, DateTime start, DateTime end) {
     return repository.getRoomAvailability(hotelId, offeringId, start, end);
   }
 }

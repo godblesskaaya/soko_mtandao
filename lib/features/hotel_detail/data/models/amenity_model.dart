@@ -24,8 +24,8 @@ class AmenityModel extends Amenity {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'icon': icon,
-  };
+        'id': id,
+        'name': name,
+        'icon': icon,
+      };
 }

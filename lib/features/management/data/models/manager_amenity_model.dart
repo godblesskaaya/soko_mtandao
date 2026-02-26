@@ -25,11 +25,11 @@ class ManagerAmenityModel extends ManagerAmenity {
           availabilityStatus: availabilityStatus,
           iconUrl: iconUrl,
           isActive: isActive,
-      );
+        );
 
   factory ManagerAmenityModel.fromJson(Map<String, dynamic> json) {
     return ManagerAmenityModel(
-      amenityId: json['amenity_id'], 
+      amenityId: json['amenity_id'],
       name: json['name'],
       category: json['category'],
       shortDescription: json['short_description'],
@@ -38,5 +38,4 @@ class ManagerAmenityModel extends ManagerAmenity {
       isActive: json['is_active'] ?? true,
     );
   }
-
 }

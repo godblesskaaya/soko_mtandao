@@ -9,8 +9,8 @@ final getAmenitiesUsecaseProvider = Provider<GetAmenities>((ref) {
   return GetAmenities(repo);
 });
 
-final managerAmenitiesProvider = FutureProvider<
-    List<ManagerAmenity>>((ref) async{
+final managerAmenitiesProvider =
+    FutureProvider<List<ManagerAmenity>>((ref) async {
   final getAmenities = ref.watch(getAmenitiesUsecaseProvider);
   final result = await getAmenities.call(NoParams());
   return result.fold((failure) => throw failure, (data) => data);

@@ -101,14 +101,14 @@ class _RoomOccupancyCalendarScreenState
                   ...bookings
                       .where((b) =>
                           b.startDate != null &&
-                          b.startDate!
-                              .isBefore(_selectedDay!.add(const Duration(days: 1))) &&
+                          b.startDate!.isBefore(
+                              _selectedDay!.add(const Duration(days: 1))) &&
                           b.endDate != null &&
                           b.endDate!.isAfter(_selectedDay!))
                       .map((b) => Consumer(
                             builder: (context, ref, _) {
-                              final bookingDetailAsync =
-                                  ref.watch(bookingDetailProvider(b.bookingId ?? ''));
+                              final bookingDetailAsync = ref.watch(
+                                  bookingDetailProvider(b.bookingId ?? ''));
 
                               return bookingDetailAsync.when(
                                 loading: () => const ListTile(
@@ -127,16 +127,20 @@ class _RoomOccupancyCalendarScreenState
                                   };
 
                                   return Card(
-                                    margin: const EdgeInsets.symmetric(vertical: 8),
+                                    margin:
+                                        const EdgeInsets.symmetric(vertical: 8),
                                     child: ListTile(
                                       contentPadding: const EdgeInsets.all(12),
                                       subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const SizedBox(height: 8),
-                                          Text("Room: ${b.roomId} (${b.offeringId})"),
+                                          Text(
+                                              "Room: ${b.roomId} (${b.offeringId})"),
                                           const SizedBox(height: 8),
-                                          Text("Booked by: ${userData['name']}"),
+                                          Text(
+                                              "Booked by: ${userData['name']}"),
                                           Text("Email: ${userData['email']}"),
                                           Text("Phone: ${userData['phone']}"),
                                           const SizedBox(height: 8),

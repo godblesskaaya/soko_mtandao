@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/config/app_config.dart';
+import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
@@ -22,11 +24,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final passwordController = TextEditingController();
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
-  
+
   // 1. Filtered roles to exclude Admin
-  final roles = UserRole.values.where((role) => role != UserRole.systemAdmin).toList();
+  final roles =
+      UserRole.values.where((role) => role != UserRole.systemAdmin).toList();
   UserRole selectedRole = UserRole.customer;
-  
+
   bool _acceptedPolicy = false;
   bool _isLoading = false;
   final authService = AuthService();
@@ -34,14 +37,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   // Helper function to launch your Google Sites URL
   Future<void> _launchPrivacyUrl() async {
     Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const AppWebViewScreen(
-        title: "Privacy Policy",
-        url: 'https://sites.google.com/view/sokomtanda/privacy-policy',
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AppWebViewScreen(
+          title: "Privacy Policy",
+          url: AppConfig.privacyPolicyUrl,
+        ),
       ),
-    ),
-  );
+    );
   }
 
   void signup() async {
@@ -92,7 +95,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const brandBlue = Color.fromARGB(255, 6, 101, 153);
+    const brandBlue = AppColors.brand;
 
     return Scaffold(
       backgroundColor: brandBlue, // 2. Applied requested background color
@@ -105,49 +108,63 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.hotel_rounded, size: 70, color: Colors.white),
+                  const Icon(Icons.hotel_rounded,
+                      size: 70, color: Colors.white),
                   const SizedBox(height: 10),
-                  const Text("Soko Mtandao", 
-                    style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                  const Text("Soko Mtandao",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 30),
-                  
+
                   Card(
                     elevation: 10,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
-                          _buildField(firstNameController, "First Name", Icons.person_outline),
+                          _buildField(firstNameController, "First Name",
+                              Icons.person_outline),
                           const SizedBox(height: 15),
-                          _buildField(lastNameController, "Last Name", Icons.person_outline),
+                          _buildField(lastNameController, "Last Name",
+                              Icons.person_outline),
                           const SizedBox(height: 15),
-                          _buildField(emailController, "Email", Icons.email_outlined),
+                          _buildField(
+                              emailController, "Email", Icons.email_outlined),
                           const SizedBox(height: 15),
-                          _buildField(passwordController, "Password", Icons.lock_outline, obscure: true),
+                          _buildField(passwordController, "Password",
+                              Icons.lock_outline,
+                              obscure: true),
                           const SizedBox(height: 15),
-                          
+
                           // 3. Refactored Dropdown
                           DropdownButtonFormField<UserRole>(
                             value: selectedRole,
-                            items: roles.map((role) => DropdownMenuItem(
-                              value: role, 
-                              child: Text(role.name[0].toUpperCase() + role.name.substring(1)))
-                            ).toList(),
-                            onChanged: (val) => setState(() => selectedRole = val!),
+                            items: roles
+                                .map((role) => DropdownMenuItem(
+                                    value: role,
+                                    child: Text(role.name[0].toUpperCase() +
+                                        role.name.substring(1))))
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => selectedRole = val!),
                             decoration: const InputDecoration(
                               labelText: "Registering as",
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.badge_outlined),
                             ),
                           ),
-                          
+
                           const SizedBox(height: 10),
-                          
+
                           // 4. Privacy Policy Checkbox
                           CheckboxListTile(
                             value: _acceptedPolicy,
-                            onChanged: (val) => setState(() => _acceptedPolicy = val!),
+                            onChanged: (val) =>
+                                setState(() => _acceptedPolicy = val!),
                             contentPadding: EdgeInsets.zero,
                             title: Text.rich(
                               TextSpan(
@@ -156,16 +173,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 children: [
                                   TextSpan(
                                     text: "Privacy Policy",
-                                    style: const TextStyle(color: brandBlue, fontWeight: FontWeight.bold),
-                                    recognizer: TapGestureRecognizer()..onTap = _launchPrivacyUrl,
+                                    style: const TextStyle(
+                                        color: brandBlue,
+                                        fontWeight: FontWeight.bold),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = _launchPrivacyUrl,
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          
+
                           const SizedBox(height: 10),
-                          
+
                           SizedBox(
                             width: double.infinity,
                             height: 50,
@@ -174,33 +194,41 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: brandBlue,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: _isLoading 
-                                ? const CircularProgressIndicator(color: Colors.white) 
-                                : const Text("SIGN UP", style: TextStyle(fontWeight: FontWeight.bold)),
+                              child: _isLoading
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.white)
+                                  : const Text("SIGN UP",
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold)),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
                   TextButton(
                     onPressed: () => context.push(RouteNames.login),
-                    child: const Text("Already have an account? Login", 
-                      style: TextStyle(color: Colors.white, fontSize: 15)),
+                    child: const Text("Already have an account? Login",
+                        style: TextStyle(color: Colors.white, fontSize: 15)),
                   ),
-                  
+
                   // 5. Account Deletion Link (Required for Play Store)
                   TextButton(
                     onPressed: () {
                       // Navigate to your account deletion screen
-                      context.pushNamed('deleteAccount', pathParameters: {'isManager': 'false'});
+                      context.pushNamed('deleteAccount',
+                          pathParameters: {'isManager': 'false'});
                     },
-                    child: const Text("Need to delete an existing account?", 
-                      style: TextStyle(color: Colors.white60, fontSize: 13, decoration: TextDecoration.underline)),
+                    child: const Text("Manage local data on this device",
+                        style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
+                            decoration: TextDecoration.underline)),
                   ),
                 ],
               ),
@@ -211,7 +239,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 
-  Widget _buildField(TextEditingController ctrl, String label, IconData icon, {bool obscure = false}) {
+  Widget _buildField(TextEditingController ctrl, String label, IconData icon,
+      {bool obscure = false}) {
     return TextFormField(
       controller: ctrl,
       obscureText: obscure,

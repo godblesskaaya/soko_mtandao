@@ -6,11 +6,9 @@ import 'package:soko_mtandao/features/management/domain/usecases/offerings/delet
 import 'package:soko_mtandao/features/management/domain/usecases/offerings/update_offering.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
 
-typedef OfferingMutationState
-    = AsyncValue<Either<Failure, ManagerOffering?>>;
+typedef OfferingMutationState = AsyncValue<Either<Failure, ManagerOffering?>>;
 
-class OfferingMutationNotifier
-    extends StateNotifier<OfferingMutationState> {
+class OfferingMutationNotifier extends StateNotifier<OfferingMutationState> {
   final UpdateOffering _update;
   final DeleteOffering _delete;
 
@@ -37,15 +35,14 @@ class OfferingMutationNotifier
   }
 }
 
-final offeringMutationProvider = StateNotifierProvider<
-    OfferingMutationNotifier,
-    OfferingMutationState>((ref) {
+final offeringMutationProvider =
+    StateNotifierProvider<OfferingMutationNotifier, OfferingMutationState>(
+        (ref) {
   return OfferingMutationNotifier(
     update: ref.watch(updateOfferingUseCaseProvider),
     delete: ref.watch(deleteOfferingUseCaseProvider),
   );
 });
-
 
 final updateOfferingUseCaseProvider = Provider<UpdateOffering>((ref) {
   final repo = ref.watch(managerRepositoryProvider);
@@ -56,4 +53,3 @@ final deleteOfferingUseCaseProvider = Provider<DeleteOffering>((ref) {
   final repo = ref.watch(managerRepositoryProvider);
   return DeleteOffering(repo);
 });
-

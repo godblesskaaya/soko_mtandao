@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/widgets/dynamic_bottom_nav.dart';
 import '../router/nav_config.dart';
@@ -10,7 +9,8 @@ import '../router/nav_config.dart';
 class AppLayout extends ConsumerWidget {
   final Widget child;
   final int selectedIndex;
-  const AppLayout({super.key, required this.child, required this.selectedIndex});
+  const AppLayout(
+      {super.key, required this.child, required this.selectedIndex});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,8 +27,8 @@ class AppLayout extends ConsumerWidget {
         selectedIndex: selectedIndex,
         onTap: (idx) {
           final routeName = items[idx].routeName;
-          // Navigate using named route
-          context.pushNamed(routeName);
+          // Tab switch should replace stack, not keep stacking pages.
+          context.goNamed(routeName);
         },
       ),
     );

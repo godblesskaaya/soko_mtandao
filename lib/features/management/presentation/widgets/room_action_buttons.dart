@@ -67,13 +67,18 @@ class _RoomActionsState extends ConsumerState<RoomActions> {
     final newStatus = RoomStatus(
       roomId: widget.roomId,
       status: selectedStatus!,
-      startDate: dateMode == DateSelectionMode.single ? singleDate : dateRange?.start,
+      startDate:
+          dateMode == DateSelectionMode.single ? singleDate : dateRange?.start,
       endDate: dateMode == DateSelectionMode.range ? dateRange?.end : null,
       dates: dateMode == DateSelectionMode.multiple ? multipleDates : null,
-      note: noteController.text.trim().isEmpty ? null : noteController.text.trim(),
+      note: noteController.text.trim().isEmpty
+          ? null
+          : noteController.text.trim(),
     );
 
-    await ref.read(managerRoomActionsProvider.notifier).updateRoomStatus(newStatus);
+    await ref
+        .read(managerRoomActionsProvider.notifier)
+        .updateRoomStatus(newStatus);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -169,7 +174,8 @@ class _RoomActionsState extends ConsumerState<RoomActions> {
                         .map(
                           (d) => Chip(
                             label: Text(d.toLocal().toString().split(' ')[0]),
-                            onDeleted: () => setState(() => multipleDates.remove(d)),
+                            onDeleted: () =>
+                                setState(() => multipleDates.remove(d)),
                           ),
                         )
                         .toList(),

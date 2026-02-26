@@ -25,7 +25,7 @@ class BookingInput {
   }) : id = id ?? const Uuid().v4() {
     _validateDates();
   }
-  
+
   // Validate that endDate is after startDate and cant be the same
   void _validateDates() {
     if (!endDate.isAfter(startDate)) {
@@ -33,7 +33,6 @@ class BookingInput {
     }
   }
 
-  
   BookingInput addItem(BookingItemInput item) {
     if (items.any((i) => i.room.id == item.room.id)) {
       throw StateError('Room already added to booking');
@@ -67,6 +66,7 @@ class BookingInput {
 
   double get totalPrice {
     final nights = endDate.difference(startDate).inDays;
-    return items.fold(0, (sum, item) => sum + (item.offering.pricePerNight * nights));
+    return items.fold(
+        0, (sum, item) => sum + (item.offering.pricePerNight * nights));
   }
 }

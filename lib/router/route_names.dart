@@ -28,13 +28,15 @@ class RouteNames {
   // Auth layout
   static const authLayout = '/auth';
 
-  static const bookings = '/bookings'; // bookings screen for customers and staff
-  static const profile = '/profile'; // profile screen for customers, staff, hotel admin,
+  static const bookings =
+      '/bookings'; // bookings screen for customers and staff
+  static const profile =
+      '/profile'; // profile screen for customers, staff, hotel admin,
 
-    // Booking flow
+  // Booking flow
   static const bookingInitiate = '/booking/initiate';
-  static const bookingReview = '/booking-review';              // + /:bookingId
-  static const payment = '/payment';                           // + /:bookingId
+  static const bookingReview = '/booking-review'; // + /:bookingId
+  static const payment = '/payment'; // + /:bookingId
   static const bookingConfirmation = '/booking-confirmation';
 
   static const hotelList = '/hotel-list';
@@ -53,5 +55,7 @@ class RouteNames {
   static const deleteAccount = '/delete-account/:isManager';
 
   static const settings = '/settings';
-
+  static const managerNotifications = '/manager/notifications';
+  static const editManagerProfile = '/manager/profile/edit';
+  static const managerBookingDetail = '/manager/bookings/:bookingId';
 }

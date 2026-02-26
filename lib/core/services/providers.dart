@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:soko_mtandao/core/services/analytics_service.dart';
 import 'auth_service.dart';
 import 'user_service.dart';
 import 'auth_notifier.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 final userServiceProvider = Provider<UserService>((ref) => UserService());
+final analyticsServiceProvider =
+    Provider<AnalyticsService>((ref) => AnalyticsService());
 
 final authNotifierProvider = Provider<AuthNotifier>((ref) {
   final auth = ref.read(authServiceProvider);
@@ -25,8 +28,10 @@ final locationProvider = FutureProvider<Position>((ref) async {
   if (permission == LocationPermission.denied) {
     throw Exception('Location permissions are denied');
   } else if (permission == LocationPermission.deniedForever) {
-    throw Exception('Location permissions are permanently denied, we cannot request permissions.');
+    throw Exception(
+        'Location permissions are permanently denied, we cannot request permissions.');
   }
 
-  return await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+  return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high);
 });

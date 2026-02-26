@@ -9,17 +9,16 @@ class BookingCart {
 
   bool get isEmpty => bookings.isEmpty;
 
-  int get totalItems =>
-      bookings.fold(0, (sum, b) => sum + b.items.length);
+  int get totalItems => bookings.fold(0, (sum, b) => sum + b.items.length);
 
-  double get totalPrice =>
-      bookings.fold(0, (sum, b) => sum + b.totalPrice);
+  double get totalPrice => bookings.fold(0, (sum, b) => sum + b.totalPrice);
 
   BookingCart addItem({
     required BookingInput booking,
     required BookingItemInput item,
   }) {
-    final index = bookings.indexWhere((b) => b.bookingKey == booking.bookingKey);
+    final index =
+        bookings.indexWhere((b) => b.bookingKey == booking.bookingKey);
 
     if (index == -1) {
       try {
@@ -55,4 +54,3 @@ class BookingCart {
 
   BookingCart clear() => const BookingCart();
 }
-

@@ -4,7 +4,7 @@ import 'package:soko_mtandao/features/find_booking/entities/booking_search_resul
 import 'package:soko_mtandao/features/find_booking/usecases/find_booking_usecase.dart';
 
 final findBookingProvider =
-  FutureProvider.family<BookingSearchResult, String>((ref, bookingId) async {
+    FutureProvider.family<BookingSearchResult, String>((ref, bookingId) async {
   final usecase = FindBookingUseCase(ref.watch(bookingRepositoryProvider));
   return await usecase(bookingId);
 });

@@ -1,7 +1,7 @@
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/amenity.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/offering.dart';
 
-class OfferingModel extends Offering{
+class OfferingModel extends Offering {
   OfferingModel({
     required super.id,
     required super.title,
@@ -32,8 +32,10 @@ class OfferingModel extends Offering{
       pricePerNight: (json['price'] as num?)?.toDouble() ?? 0.0,
       maxGuests: json['max_guests'] ?? 0,
       amenities: (json['amenities'] as List?)
-          ?.map((a) => Amenity(id: a['id'], name: a['name'], icon: a['icon']))
-          .toList() ?? [],
+              ?.map(
+                  (a) => Amenity(id: a['id'], name: a['name'], icon: a['icon']))
+              .toList() ??
+          [],
       images: (json['images'] as List?)?.map((e) => e as String).toList() ?? [],
     );
   }
@@ -45,11 +47,13 @@ class OfferingModel extends Offering{
       'description': description,
       'price': pricePerNight,
       'max_guests': maxGuests,
-      'amenities': amenities.map((a) => {
-        'id': a.id,
-        'name': a.name,
-        'icon': a.icon,
-      }).toList(),
+      'amenities': amenities
+          .map((a) => {
+                'id': a.id,
+                'name': a.name,
+                'icon': a.icon,
+              })
+          .toList(),
       'images': images,
     };
   }

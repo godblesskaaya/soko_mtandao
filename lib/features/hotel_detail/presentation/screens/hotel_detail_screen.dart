@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/booking_cart_modal.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/header_carousel.dart';
@@ -9,7 +10,15 @@ import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/offering
 
 class HotelDetailScreen extends ConsumerStatefulWidget {
   final String hotelId;
-  const HotelDetailScreen({super.key, required this.hotelId});
+  final DateTime? initialCheckIn;
+  final DateTime? initialCheckOut;
+
+  const HotelDetailScreen({
+    super.key,
+    required this.hotelId,
+    this.initialCheckIn,
+    this.initialCheckOut,
+  });
 
   @override
   ConsumerState<HotelDetailScreen> createState() => _HotelDetailScreenState();
@@ -17,6 +26,22 @@ class HotelDetailScreen extends ConsumerStatefulWidget {
 
 class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
   DateTimeRange? _selectedRange;
+
+  @override
+  void initState() {
+    super.initState();
+    final checkIn = widget.initialCheckIn;
+    final checkOut = widget.initialCheckOut;
+    if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+      _selectedRange = DateTimeRange(start: checkIn, end: checkOut);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(analyticsServiceProvider).track(
+        'hotel_detail_view',
+        params: {'hotel_id': widget.hotelId},
+      );
+    });
+  }
 
   void _pickDateRange() async {
     final now = DateTime.now();
@@ -30,7 +55,6 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
         _selectedRange = picked;
       });
     }
-
   }
 
   @override
@@ -66,8 +90,9 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
                           error: (err, _) => Text(userMessageForError(err)),
                           data: (a) => Wrap(
                             spacing: 8,
-                            children:
-                                a.map((am) => Chip(label: Text(am.name))).toList(),
+                            children: a
+                                .map((am) => Chip(label: Text(am.name)))
+                                .toList(),
                           ),
                         );
                       }),
@@ -97,9 +122,13 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
                                 return offeringsAsync.when(
                                   loading: () =>
                                       const CircularProgressIndicator(),
-                                  error: (err, _) => Text(userMessageForError(err)),
-                                  data: (offerings) =>
-                                      OfferingsList(offerings: offerings, hotelId: hotel.id, startDate: _selectedRange!.start, endDate: _selectedRange!.end),
+                                  error: (err, _) =>
+                                      Text(userMessageForError(err)),
+                                  data: (offerings) => OfferingsList(
+                                      offerings: offerings,
+                                      hotelId: hotel.id,
+                                      startDate: _selectedRange!.start,
+                                      endDate: _selectedRange!.end),
                                 );
                               },
                             ),
@@ -113,29 +142,31 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
           );
         },
       ),
+      floatingActionButton: Consumer(
+        builder: (context, ref, _) {
+          final cart = ref.watch(bookingCartProvider);
+          if (cart.isEmpty) return SizedBox.shrink();
 
-    floatingActionButton: Consumer(
-      builder: (context, ref, _) {
-        final cart = ref.watch(bookingCartProvider);
-        if (cart.isEmpty) return SizedBox.shrink();
-
-        return FloatingActionButton.extended(
-          onPressed: () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              builder: (_) => const BookingCartModal(),
-            );
-          },
-          label: Text("Cart (${cart.totalItems})"),
-          icon: Icon(Icons.shopping_cart),
-        );
-      },
-    ),
-
+          return FloatingActionButton.extended(
+            onPressed: () {
+              ref.read(analyticsServiceProvider).track(
+                'cart_open',
+                params: {'hotel_id': widget.hotelId},
+              );
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (_) => const BookingCartModal(),
+              );
+            },
+            label: Text("Cart (${cart.totalItems})"),
+            icon: Icon(Icons.shopping_cart),
+          );
+        },
+      ),
     );
   }
 }

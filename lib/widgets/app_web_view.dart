@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class AppWebViewScreen extends StatefulWidget {
@@ -45,7 +46,8 @@ class _AppWebViewScreenState extends State<AppWebViewScreen> {
         children: [
           WebViewWidget(controller: controller),
           if (_isLoading)
-            const Center(child: CircularProgressIndicator(color: Color.fromARGB(255, 6, 101, 153))),
+            const Center(
+                child: CircularProgressIndicator(color: AppColors.brand)),
         ],
       ),
     );

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_offering_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
+import 'package:soko_mtandao/features/management/presentation/widgets/active_hotel_context_bar.dart';
 
 class OfferingListScreen extends ConsumerStatefulWidget {
   final String hotelId;
@@ -19,6 +21,15 @@ class _OfferingListScreenState extends ConsumerState<OfferingListScreen> {
   bool _sortAsc = true;
   bool? _isAvailable;
 
+  void _syncActiveHotelSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selectedHotelId = ref.read(selectedManagerHotelIdProvider);
+      if (selectedHotelId == widget.hotelId) return;
+      ref.read(selectedManagerHotelIdProvider.notifier).state = widget.hotelId;
+    });
+  }
+
   ManagerOfferingListQuery get _query => ManagerOfferingListQuery(
         hotelId: widget.hotelId,
         page: _page,
@@ -27,6 +38,20 @@ class _OfferingListScreenState extends ConsumerState<OfferingListScreen> {
         sortAscending: _sortAsc,
         isAvailable: _isAvailable,
       );
+
+  @override
+  void initState() {
+    super.initState();
+    _syncActiveHotelSelection();
+  }
+
+  @override
+  void didUpdateWidget(covariant OfferingListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.hotelId != widget.hotelId) {
+      _syncActiveHotelSelection();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +70,8 @@ class _OfferingListScreenState extends ConsumerState<OfferingListScreen> {
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'title', child: Text('Sort: Title')),
               PopupMenuItem(value: 'price', child: Text('Sort: Price')),
-              PopupMenuItem(value: 'max_guests', child: Text('Sort: Max Guests')),
+              PopupMenuItem(
+                  value: 'max_guests', child: Text('Sort: Max Guests')),
             ],
           ),
           IconButton(
@@ -64,93 +90,122 @@ class _OfferingListScreenState extends ConsumerState<OfferingListScreen> {
             }),
             itemBuilder: (_) => const [
               PopupMenuItem<bool?>(value: null, child: Text('Filter: All')),
-              PopupMenuItem<bool?>(value: true, child: Text('Filter: Available')),
-              PopupMenuItem<bool?>(value: false, child: Text('Filter: Unavailable')),
+              PopupMenuItem<bool?>(
+                  value: true, child: Text('Filter: Available')),
+              PopupMenuItem<bool?>(
+                  value: false, child: Text('Filter: Unavailable')),
             ],
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(offeringsPageProvider(_query));
-          try {
-            await ref.read(offeringsPageProvider(_query).future).timeout(const Duration(seconds: 8));
-          } catch (_) {}
-        },
-        child: offeringsAsync.when(
-          loading: () => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: const [SizedBox(height: 200), Center(child: CircularProgressIndicator())],
+      body: Column(
+        children: [
+          ActiveHotelContextBar(
+            activeHotelId: widget.hotelId,
+            routeName: 'offerings',
+            subtitle: 'You are managing offerings for this hotel.',
           ),
-          error: (err, _) => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            children: [
-              const SizedBox(height: 200),
-              Center(child: Text(userMessageForError(err))),
-              const SizedBox(height: 16),
-              Center(
-                child: TextButton(
-                  onPressed: () => ref.invalidate(offeringsPageProvider(_query)),
-                  child: const Text("Retry"),
-                ),
-              ),
-            ],
-          ),
-          data: (offerings) {
-            if (offerings.isEmpty) {
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  const SizedBox(height: 200),
-                  Center(child: Text(_page > 1 ? "No more offerings." : "No offerings yet.")),
-                ],
-              );
-            }
-
-            final hasNext = offerings.length == _pageSize;
-            return ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: offerings.length + 1,
-              itemBuilder: (_, i) {
-                if (i == offerings.length) {
-                  return _PaginationControls(
-                    page: _page,
-                    hasNext: hasNext,
-                    onPrev: _page > 1 ? () => setState(() => _page -= 1) : null,
-                    onNext: hasNext ? () => setState(() => _page += 1) : null,
-                  );
-                }
-
-                final off = offerings[i];
-                return Card(
-                  margin: const EdgeInsets.all(8),
-                  child: ListTile(
-                    title: Text(off.title),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(off.description),
-                        Text("TZS ${off.basePrice}/night"),
-                      ],
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: off.id == null
-                          ? null
-                          : () => context.pushNamed(
-                                "editOffering",
-                                pathParameters: {"offeringId": off.id!, "hotelId": widget.hotelId},
-                              ),
-                    ),
-                  ),
-                );
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(offeringsPageProvider(_query));
+                try {
+                  await ref
+                      .read(offeringsPageProvider(_query).future)
+                      .timeout(const Duration(seconds: 8));
+                } catch (_) {}
               },
-            );
-          },
-        ),
+              child: offeringsAsync.when(
+                loading: () => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    SizedBox(height: 200),
+                    Center(child: CircularProgressIndicator())
+                  ],
+                ),
+                error: (err, _) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 200),
+                    Center(child: Text(userMessageForError(err))),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: TextButton(
+                        onPressed: () =>
+                            ref.invalidate(offeringsPageProvider(_query)),
+                        child: const Text("Retry"),
+                      ),
+                    ),
+                  ],
+                ),
+                data: (offerings) {
+                  if (offerings.isEmpty) {
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 200),
+                        Center(
+                            child: Text(_page > 1
+                                ? "No more offerings."
+                                : "No offerings yet.")),
+                      ],
+                    );
+                  }
+
+                  final hasNext = offerings.length == _pageSize;
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: offerings.length + 1,
+                    itemBuilder: (_, i) {
+                      if (i == offerings.length) {
+                        return _PaginationControls(
+                          page: _page,
+                          hasNext: hasNext,
+                          onPrev: _page > 1
+                              ? () => setState(() => _page -= 1)
+                              : null,
+                          onNext:
+                              hasNext ? () => setState(() => _page += 1) : null,
+                        );
+                      }
+
+                      final off = offerings[i];
+                      return Card(
+                        margin: const EdgeInsets.all(8),
+                        child: ListTile(
+                          title: Text(off.title),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(off.description),
+                              Text("TZS ${off.basePrice}/night"),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: off.id == null
+                                ? null
+                                : () => context.pushNamed(
+                                      "editOffering",
+                                      pathParameters: {
+                                        "offeringId": off.id!,
+                                        "hotelId": widget.hotelId
+                                      },
+                                    ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.pushNamed("addOfferings", pathParameters: {"hotelId": widget.hotelId}),
+        onPressed: () => context.pushNamed("addOfferings",
+            pathParameters: {"hotelId": widget.hotelId}),
         child: const Icon(Icons.add),
       ),
     );
@@ -179,7 +234,8 @@ class _PaginationControls extends StatelessWidget {
         children: [
           OutlinedButton(onPressed: onPrev, child: const Text("Previous")),
           Text("Page $page"),
-          OutlinedButton(onPressed: hasNext ? onNext : null, child: const Text("Next")),
+          OutlinedButton(
+              onPressed: hasNext ? onNext : null, child: const Text("Next")),
         ],
       ),
     );

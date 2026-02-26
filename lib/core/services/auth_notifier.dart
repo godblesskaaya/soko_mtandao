@@ -44,8 +44,10 @@ class AuthNotifier extends ChangeNotifier {
     _updateFromSession();
 
     // Listen to Supabase auth changes
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    _authSub =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final event = data.event;
+
       /// Detect password recovery
       if (event == AuthChangeEvent.passwordRecovery) {
         _isInPasswordRecovery = true;
@@ -130,7 +132,10 @@ class AuthNotifier extends ChangeNotifier {
     // after sign-in Supabase will trigger onAuthStateChange which updates state
   }
 
-  Future<void> signUp({required String email, required String password, Map<String, dynamic>? data}) async {
+  Future<void> signUp(
+      {required String email,
+      required String password,
+      Map<String, dynamic>? data}) async {
     await _authService.signUp(email: email, password: password, data: data);
   }
 

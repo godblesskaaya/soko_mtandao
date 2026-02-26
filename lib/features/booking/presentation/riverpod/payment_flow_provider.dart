@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/failure_mapper.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/features/booking/data/services/payment_services.dart';
-import 'package:dio/dio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum CheckoutState { idle, loading, error }
@@ -40,9 +39,8 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
 }
 
 final paymentServiceProvider = Provider<PaymentService>((ref) {
-  final dio = Dio();
   final client = Supabase.instance.client;
-  return PaymentService(dio: dio, client: client);
+  return PaymentService(client: client);
 });
 
 final paymentFlowProvider =

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soko_mtandao/core/utils/currency.dart';
 import '../../domain/entities/hotel_entity.dart';
 
 class HotelCard extends StatelessWidget {
@@ -24,7 +25,8 @@ class HotelCard extends StatelessWidget {
               : null,
         ),
         title: Text(hotel.name),
-        subtitle: Text("${hotel.city}, ${hotel.region}\nTZS ${hotel.cheapestPrice} / night"),
+        subtitle: Text(
+            "${hotel.city}, ${hotel.region}\n${formatTzs(hotel.cheapestPrice)} / night"),
         trailing: Text("${hotel.availableRooms} rooms"),
       ),
     );

@@ -23,7 +23,8 @@ class HotelRepositoryImpl implements HotelRepository {
   }
 
   @override
-  Future<List<Room>> getRoomAvailability(String hotelId, String offeringId, DateTime start, DateTime end) {
+  Future<List<Room>> getRoomAvailability(
+      String hotelId, String offeringId, DateTime start, DateTime end) {
     return dataSource.fetchRoomAvailability(hotelId, offeringId, start, end);
   }
 }

@@ -11,9 +11,11 @@ class UpdateOffering implements UseCase<ManagerOffering, ManagerOffering> {
   UpdateOffering(this.repository);
 
   @override
-  Future<Either<Failure, ManagerOffering>> call(ManagerOffering offering) async {
+  Future<Either<Failure, ManagerOffering>> call(
+      ManagerOffering offering) async {
     try {
-      ManagerOffering updatedOffering = await repository.updateOffering(offering);
+      ManagerOffering updatedOffering =
+          await repository.updateOffering(offering);
       return Right(updatedOffering);
     } catch (e, stackTrace) {
       ErrorReporter.report(e, stackTrace, source: 'UpdateOffering.call');

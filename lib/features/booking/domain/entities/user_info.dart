@@ -4,5 +4,4 @@ class UserInfo {
   final String phone;
 
   UserInfo({required this.name, required this.email, required this.phone});
-
 }
