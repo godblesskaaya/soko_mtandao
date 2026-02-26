@@ -46,3 +46,17 @@ app.*.map.json
 
 # npx-cache related
 .npx-cache/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+env/*.json
+!env/*.example.json
+supabase/functions/.env
+supabase/functions/.env.*
+!supabase/functions/.env.example
+
+# Generated source dumps
+output.txt
+lib/output.txt

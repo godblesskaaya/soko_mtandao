@@ -1,9 +1,27 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
+
+const config = {
+  supabaseUrl: requireEnv("SUPABASE_URL"),
+  supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  azamPayAppName: requireEnv("AZAMPAY_APP_NAME"),
+  azamPayClientId: requireEnv("AZAMPAY_CLIENT_ID"),
+  azamPayClientSecret: requireEnv("AZAMPAY_CLIENT_SECRET"),
+  azamPayAuthUrl: optionalEnv(
+    "AZAMPAY_AUTH_URL",
+    "https://authenticator-sandbox.azampay.co.tz/AppRegistration/GenerateToken",
+  ) as string,
+  azamPayApiBaseUrl: optionalEnv(
+    "AZAMPAY_API_BASE_URL",
+    "https://sandbox.azampay.co.tz",
+  ) as string,
+  azamPayApiKey: optionalEnv("AZAMPAY_API_KEY"),
+};
 
 const supabase = createClient(
-  Deno.env.get("SUPABASE_URL"),
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+  config.supabaseUrl,
+  config.supabaseServiceRoleKey,
 );
 
 type NativeMethod = "mno" | "bank";
@@ -26,22 +44,22 @@ async function getAzamPayToken() {
     return tokenData.token;
   }
 
-  const res = await fetch(
-    "https://authenticator-sandbox.azampay.co.tz/AppRegistration/GenerateToken",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        appName: Deno.env.get("AZAMPAY_APP_NAME"),
-        clientId: Deno.env.get("AZAMPAY_CLIENT_ID"),
-        clientSecret: Deno.env.get("AZAMPAY_CLIENT_SECRET"),
-      }),
-    },
-  );
+  const res = await fetch(config.azamPayAuthUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      appName: config.azamPayAppName,
+      clientId: config.azamPayClientId,
+      clientSecret: config.azamPayClientSecret,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Failed to obtain AzamPay token (${res.status})`);
 
   const json = await res.json();
   const token = json?.data?.accessToken;
   const expiresIn = json?.data?.expiresIn || 3600;
+  if (!token) throw new Error("AzamPay token missing from auth response");
 
   await supabase.from("azampay_tokens").insert({
     token,
@@ -95,7 +113,7 @@ serve(async (req) => {
     const token = await getAzamPayToken();
     const externalId = `booking_${booking.id}_${Date.now()}`;
 
-    const apiBase = Deno.env.get("AZAMPAY_API_BASE_URL") || "https://sandbox.azampay.co.tz";
+    const apiBase = config.azamPayApiBaseUrl;
     const endpoint =
       method === "mno" ? `${apiBase}/azampay/mno/checkout` : `${apiBase}/azampay/bank/checkout`;
 
@@ -158,7 +176,7 @@ serve(async (req) => {
       "Content-Type": "application/json",
       Accept: "application/json",
     };
-    const apiKey = Deno.env.get("AZAMPAY_API_KEY");
+    const apiKey = config.azamPayApiKey;
     if (apiKey) headers["X-API-Key"] = apiKey;
 
     const gatewayResp = await fetch(endpoint, {

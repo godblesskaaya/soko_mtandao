@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -13,6 +14,27 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+fun loadDartDefines(): Map<String, String> {
+    val dartDefines = project.findProperty("dart-defines") as String? ?: return emptyMap()
+    return dartDefines
+        .split(",")
+        .mapNotNull { encodedDefine ->
+            val decoded = String(Base64.getDecoder().decode(encodedDefine))
+            val index = decoded.indexOf('=')
+            if (index <= 0) return@mapNotNull null
+            val key = decoded.substring(0, index)
+            val value = decoded.substring(index + 1)
+            key to value
+        }
+        .toMap()
+}
+
+val dartDefines = loadDartDefines()
+val mapboxAccessToken = (project.findProperty("MAPBOX_ACCESS_TOKEN") as String?)
+    ?: dartDefines["MAPBOX_ACCESS_TOKEN"]
+    ?: System.getenv("MAPBOX_ACCESS_TOKEN")
+    ?: ""
 
 android {
     namespace = "com.soko_mtandao.soko_mtandao"
@@ -44,6 +66,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["MAPBOX_ACCESS_TOKEN"] = mapboxAccessToken
     }
 
     buildTypes {

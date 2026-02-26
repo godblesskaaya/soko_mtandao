@@ -1,3 +1,5 @@
+import 'env_config.dart';
+
 // Toggle mock vs real data at runtime
 enum MockState { loading, success, error }
 
@@ -13,11 +15,10 @@ class AppConfig {
 
   static var accountName = 'Soko Mtandao Company Ltd';
 
-  static var appBaseUrl = 'soko_mtandao://';
-  static var supabaseFunctionsBaseUrl =
-      'https://wqmarlzyzukreiwibwjs.supabase.co/functions/v1';
+  static String get appBaseUrl => EnvConfig.appBaseUrl;
+  static String get supabaseFunctionsBaseUrl =>
+      '${EnvConfig.supabaseUrl}/functions/v1';
 
-  static const privacyPolicyUrl =
-      'https://sites.google.com/view/sokomtandaocompany-privacy';
-  static const supportEmail = 'support@sokomtandao.co.tz';
+  static String get privacyPolicyUrl => EnvConfig.privacyPolicyUrl;
+  static String get supportEmail => EnvConfig.supportEmail;
 }

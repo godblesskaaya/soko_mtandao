@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const supabase = createClient(
-  Deno.env.get("SUPABASE_URL"),
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+  requireEnv("SUPABASE_URL"),
+  requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
 );
 
 export async function logPayment(paymentExternalId: string, level: string, message: string, payload = {}) {
@@ -353,7 +354,7 @@ serve(async (req) => {
       await logPayment(correlationId, "error", "booking update error", { bookingUpdateError });
     }
 
-    const holdHoursRaw = Number(Deno.env.get("SETTLEMENT_HOLD_HOURS") || "24");
+    const holdHoursRaw = Number(optionalEnv("SETTLEMENT_HOLD_HOURS", "24"));
     const holdHours = Number.isFinite(holdHoursRaw) ? Math.max(0, holdHoursRaw) : 24;
     const { data: settledCount, error: allocateError } = await supabase.rpc(
       "allocate_settlements_for_payment",
