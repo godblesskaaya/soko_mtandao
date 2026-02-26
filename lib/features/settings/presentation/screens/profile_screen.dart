@@ -86,7 +86,7 @@ class ProfileScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const AppWebViewScreen(
+                  builder: (context) => AppWebViewScreen(
                     title: "Privacy Policy",
                     url: AppConfig.privacyPolicyUrl,
                   ),
