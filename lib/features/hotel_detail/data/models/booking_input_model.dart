@@ -1,5 +1,6 @@
 // models/booking_input_model.dart
 import 'package:soko_mtandao/features/hotel_detail/data/models/hotel_model.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_input.dart';
 import 'package:soko_mtandao/features/hotel_detail/data/models/booking_item_input_model.dart';
 
@@ -36,8 +37,8 @@ class BookingInputModel extends BookingInput {
   Map<String, dynamic> toJson() {
     return {
       'hotel': HotelModel.fromEntity(hotel).toJson(),
-      'start_date': startDate.toIso8601String(),
-      'end_date': endDate.toIso8601String(),
+      'start_date': formatYmd(startDate),
+      'end_date': formatYmd(endDate),
       'items': items
           .map((item) => BookingItemInputModel.fromEntity(item).toJson())
           .toList(),

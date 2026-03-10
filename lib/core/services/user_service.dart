@@ -9,18 +9,9 @@ class UserService {
   /// Fetch role for the given userId
   Future<UserRole> fetchUserRole(String userId) async {
     if (userId.isEmpty) return UserRole.guest;
-
-    final res = await _supabase
-        .from(
-            'user_roles_view') // You can create a view or join logic in backend
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (res == null) return UserRole.guest;
-
-    final rolestr = res['role'];
-    return roleFromString(rolestr);
+    final role = await _supabase.rpc('get_current_user_role');
+    if (role == null) return UserRole.guest;
+    return roleFromString(role.toString());
   }
 
   /// Fetch whether staff is associated with a hotel
@@ -28,9 +19,9 @@ class UserService {
     if (userId.isEmpty) return false;
 
     final res = await _supabase
-        .from('users')
+        .from('staff')
         .select('hotel_id')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .maybeSingle();
 
     if (res == null) return false;

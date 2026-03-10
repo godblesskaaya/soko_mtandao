@@ -8,10 +8,12 @@ class AmenityModel extends Amenity {
   });
 
   factory AmenityModel.fromJson(Map<String, dynamic> json) {
+    final id = json['id'] ?? json['amenity_id'];
+    final icon = json['icon'] ?? json['icon_url'] ?? '';
     return AmenityModel(
-      id: json['id'],
-      name: json['name'],
-      icon: json['icon'],
+      id: (id ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      icon: icon.toString(),
     );
   }
 

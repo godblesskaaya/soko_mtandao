@@ -32,6 +32,42 @@ function parsePositiveNumber(value: unknown): number | null {
   return n;
 }
 
+function normalizeTicket(value: unknown): string {
+  return (value?.toString() || "").trim().toUpperCase();
+}
+
+async function resolveRequester(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return null;
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+async function canAccessBooking(userId: string, hotelId: string | null, bookingUserId: string | null) {
+  if (bookingUserId && bookingUserId === userId) return true;
+
+  if (hotelId) {
+    const { data: hotel } = await supabase
+      .from("hotels")
+      .select("manager_user_id")
+      .eq("id", hotelId)
+      .maybeSingle();
+    if (hotel?.manager_user_id === userId) return true;
+  }
+
+  const { data: roleRow } = await supabase
+    .from("user_roles_view")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const role = (roleRow?.role || "").toString().toLowerCase();
+  return role === "systemadmin" || role === "system_admin";
+}
+
 async function getAzamPayToken() {
   const { data: tokenData } = await supabase
     .from("azampay_tokens")
@@ -73,7 +109,9 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const bookingId = body.booking_id?.toString();
+    const ticketNumber = body.ticket_number?.toString();
     const method = (body.method?.toString().toLowerCase() || "mno") as NativeMethod;
+    const requester = await resolveRequester(req);
 
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "Missing booking_id" }), { status: 400 });
@@ -86,7 +124,7 @@ serve(async (req) => {
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id,total_price,customer_name,customer_phone,payment_status,status,currency")
+      .select("id,hotel_id,user_id,ticket_number,total_price,customer_name,customer_phone,payment_status,status,currency")
       .eq("id", bookingId)
       .maybeSingle();
 
@@ -95,6 +133,38 @@ serve(async (req) => {
     }
     if (booking.payment_status === "completed" || booking.status === "confirmed") {
       return new Response(JSON.stringify({ error: "Booking is already paid" }), { status: 409 });
+    }
+
+    const ticketMatches =
+      normalizeTicket(ticketNumber) !== "" &&
+      normalizeTicket(ticketNumber) === normalizeTicket(booking.ticket_number);
+
+    if (requester) {
+      const { data: isFrozen } = await supabase.rpc("is_account_frozen", {
+        p_user_id: requester.id,
+      });
+      if (isFrozen === true) {
+        return new Response(JSON.stringify({ error: "Account is suspended." }), {
+          status: 403,
+        });
+      }
+
+      const allowed = await canAccessBooking(
+        requester.id,
+        booking.hotel_id?.toString() ?? null,
+        booking.user_id?.toString() ?? null,
+      );
+      if (!allowed && !ticketMatches) {
+        return new Response(JSON.stringify({ error: "Unauthorized booking access" }), {
+          status: 403,
+        });
+      }
+    } else {
+      if (!ticketMatches) {
+        return new Response(JSON.stringify({ error: "Invalid ticket number" }), {
+          status: 403,
+        });
+      }
     }
 
     const bookingTotal = parsePositiveNumber(booking.total_price);

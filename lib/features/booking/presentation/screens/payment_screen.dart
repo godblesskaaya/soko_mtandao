@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/booking/data/services/payment_services.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_payment_provider.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/payment_flow_provider.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -101,9 +103,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     _paymentLaunched = false;
-    await ref
-        .read(paymentFlowProvider.notifier)
-        .startCheckout(widget.bookingId);
+    await ref.read(paymentFlowProvider.notifier).startCheckout(
+          widget.bookingId,
+          ticketNumber: booking.ticketNumber,
+        );
   }
 
   Future<void> _startNativeCheckout(
@@ -130,6 +133,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final service = ref.read(paymentServiceProvider);
       final result = await service.createNativeCheckout(
         bookingId: booking.id,
+        ticketNumber: booking.ticketNumber,
         method: method,
         amount: amount,
         mnoAccountNumber: _mnoAccountCtrl.text.trim(),
@@ -322,6 +326,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             booking.status == BookingStatusEnum.confirmed;
         if (isDone && !_didNavigateToConfirmation && context.mounted) {
           _didNavigateToConfirmation = true;
+          ref.read(bookingCartProvider.notifier).clearCart();
           ref
               .read(analyticsServiceProvider)
               .track('payment_success', params: {'booking_id': booking.id});
@@ -340,6 +345,15 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         data: (booking) {
           final isPaid = booking.paymentStatus == PaymentStatusEnum.completed &&
               booking.status == BookingStatusEnum.confirmed;
+          final totalAmount = booking.totalPrice ?? 0;
+          final roomCount = booking.bookingCart.totalItems;
+          final roomNights = booking.bookingCart.bookings.fold<int>(
+            0,
+            (sum, item) =>
+                sum +
+                item.items.length *
+                    stayNightsInclusive(item.startDate, item.endDate),
+          );
 
           if (!_prefilledFields) {
             _prefilledFields = true;
@@ -357,9 +371,34 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text(
-                      'Amount: ${booking.totalPrice?.toStringAsFixed(2) ?? '--'} TZS',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Amount to Pay',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${totalAmount.toStringAsFixed(2)} TZS',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 6),
+                            Text('Rooms: $roomCount'),
+                            Text('Room-nights: $roomNights'),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (!isPaid && booking.expiresAt != null)

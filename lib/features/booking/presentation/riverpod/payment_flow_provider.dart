@@ -24,10 +24,13 @@ class PaymentFlowNotifier extends StateNotifier<PaymentFlowState> {
   PaymentFlowNotifier(this.service)
       : super(PaymentFlowState(state: CheckoutState.idle));
 
-  Future<void> startCheckout(String bookingId) async {
+  Future<void> startCheckout(String bookingId, {String? ticketNumber}) async {
     state = PaymentFlowState(state: CheckoutState.loading);
     try {
-      final url = await service.createHostedCheckout(bookingId: bookingId);
+      final url = await service.createHostedCheckout(
+        bookingId: bookingId,
+        ticketNumber: ticketNumber,
+      );
       state = PaymentFlowState(state: CheckoutState.idle, checkoutUrl: url);
     } catch (e) {
       state = PaymentFlowState(

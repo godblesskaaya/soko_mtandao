@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_offering.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/edit_offering_provider.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_amenity_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_offering_providers.dart';
+import 'package:soko_mtandao/widgets/dynamic_multiselect_field.dart';
 
 class OfferingScreen extends ConsumerStatefulWidget {
   final String hotelId;
@@ -22,6 +25,8 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   final _maxGuestsController = TextEditingController();
+  final _imageUrlsController = TextEditingController();
+  List<String> _selectedAmenityIds = [];
 
   bool _initialized = false;
 
@@ -31,6 +36,7 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
     _descriptionController.dispose();
     _priceController.dispose();
     _maxGuestsController.dispose();
+    _imageUrlsController.dispose();
     super.dispose();
   }
 
@@ -41,6 +47,8 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
     _descriptionController.text = offering.description;
     _priceController.text = offering.basePrice.toString();
     _maxGuestsController.text = offering.maxGuests.toString();
+    _selectedAmenityIds = offering.amenityIds;
+    _imageUrlsController.text = offering.imageUrls.join('\n');
 
     _initialized = true;
   }
@@ -48,12 +56,18 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final offering = ManagerOffering(
-      id: widget.offeringId ?? '',
+      id: widget.offeringId,
       hotelId: widget.hotelId,
       title: _titleController.text,
       description: _descriptionController.text,
       basePrice: double.tryParse(_priceController.text) ?? 0.0,
       maxGuests: int.tryParse(_maxGuestsController.text) ?? 1,
+      amenityIds: _selectedAmenityIds,
+      imageUrls: _imageUrlsController.text
+          .split(RegExp(r'[\n,]'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(),
     );
 
     if (widget.isEditing) {
@@ -197,6 +211,27 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
                 controller: _maxGuestsController,
                 decoration: const InputDecoration(labelText: 'Max Guests'),
                 keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              AsyncMultiSelectField<ManagerAmenity, String>(
+                label: "Amenities",
+                provider: managerAmenitiesProvider,
+                getLabel: (amenity) => amenity.name,
+                getId: (amenity) => amenity.amenityId,
+                values: _selectedAmenityIds,
+                onChanged: (selectedIds) {
+                  setState(() => _selectedAmenityIds = selectedIds);
+                },
+                validator: (_) => null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _imageUrlsController,
+                decoration: const InputDecoration(
+                  labelText: 'Image URLs',
+                  helperText: 'One URL per line (or comma-separated)',
+                ),
+                maxLines: 4,
               ),
               const SizedBox(height: 24),
               ElevatedButton(

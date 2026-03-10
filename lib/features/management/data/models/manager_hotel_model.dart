@@ -42,6 +42,20 @@ class ManagerHotelModel extends ManagerHotel {
         );
 
   factory ManagerHotelModel.fromJson(Map<String, dynamic> json) {
+    final amenityRows = (json['amenities'] as List?) ?? const [];
+    final rawImages = json['images'];
+    List<String> parsedImages;
+    if (rawImages is String) {
+      try {
+        parsedImages = List<String>.from(jsonDecode(rawImages));
+      } catch (_) {
+        parsedImages = rawImages.trim().isEmpty ? [] : [rawImages];
+      }
+    } else {
+      parsedImages =
+          (rawImages as List?)?.map((image) => image.toString()).toList() ?? [];
+    }
+
     return ManagerHotelModel(
       id: json['id'].toString(),
       name: json['name'],
@@ -56,18 +70,13 @@ class ManagerHotelModel extends ManagerHotel {
       lng: json['lng'],
       address: json['address'],
       totalRooms: json['total_rooms'],
-      images: json['images'] is String
-          ? List<String>.from(jsonDecode(json['images']))
-          : (json['images'] as List<dynamic>?)
-                  ?.map((image) => image.toString())
-                  .toList() ??
-              [],
+      images: parsedImages,
       description: json['description'] ?? '',
-      amenities: [],
-      // (json['amenities'] as List<dynamic>?)
-      //         ?.map((amenity) => AmenityModel.fromJson(amenity))
-      //         .toList() ??
-      //     [],
+      amenities: amenityRows
+          .whereType<Map>()
+          .map((row) => AmenityModel.fromJson(
+              Map<String, dynamic>.from(row as Map<dynamic, dynamic>)))
+          .toList(),
     );
   }
 

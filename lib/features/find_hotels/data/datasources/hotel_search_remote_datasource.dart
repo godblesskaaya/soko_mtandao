@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import '../../domain/entities/hotel_entity.dart';
 import '../../domain/entities/hotel_search_params.dart';
 
@@ -19,8 +20,9 @@ class HotelSearchRemoteDataSource {
         'min_price': params.minPrice,
         'max_price': params.maxPrice,
         'guests': params.guests,
-        'start_date': params.startDate?.toIso8601String(),
-        'end_date': params.endDate?.toIso8601String(),
+        'start_date':
+            params.startDate == null ? null : formatYmd(params.startDate!),
+        'end_date': params.endDate == null ? null : formatYmd(params.endDate!),
         'sort_option': params.normalizedSortOption,
         'limit_count': params.effectiveLimit,
         'offset_count': params.effectiveOffset,

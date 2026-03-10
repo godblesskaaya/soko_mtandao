@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:soko_mtandao/core/utils/currency.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
@@ -43,16 +44,13 @@ class BookingDetailsWidget extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
 
-            Text("Booking ID: ${booking.id}"),
+            if ((booking.ticketNumber ?? '').isNotEmpty)
+              Text("Ticket Number: ${booking.ticketNumber}"),
             // iterate through bookings in the cart and display all bookings and their details
             for (var b in booking.bookingCart.bookings) ...[
               Text("Hotel: ${b.hotel.name}"),
-              // display start and end date in yyyy-mm-dd format
-              Text(
-                  "Check-in: ${b.startDate.toIso8601String().substring(0, 10)}"),
-              Text(
-                  "Check-out: ${b.endDate.toIso8601String().substring(0, 10)}"),
-
+              Text("First night: ${formatYmd(b.startDate)}"),
+              Text("Last night: ${formatYmd(b.endDate)}"),
               Text("Rooms Selected:",
                   style: Theme.of(context).textTheme.titleMedium),
               ...b.items.map((item) => ListTile(

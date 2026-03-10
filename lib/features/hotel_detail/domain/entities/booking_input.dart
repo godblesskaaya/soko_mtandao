@@ -1,6 +1,7 @@
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_key.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/hotel.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/booking_item_input.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:uuid/uuid.dart';
 
 class BookingInput {
@@ -26,10 +27,10 @@ class BookingInput {
     _validateDates();
   }
 
-  // Validate that endDate is after startDate and cant be the same
+  // Inclusive date contract: endDate is the last night, so it can equal startDate.
   void _validateDates() {
-    if (!endDate.isAfter(startDate)) {
-      throw ArgumentError('endDate must be after startDate');
+    if (dateOnly(endDate).isBefore(dateOnly(startDate))) {
+      throw ArgumentError('endDate cannot be before startDate');
     }
   }
 
@@ -65,7 +66,7 @@ class BookingInput {
   int get totalItems => items.length;
 
   double get totalPrice {
-    final nights = endDate.difference(startDate).inDays;
+    final nights = stayNightsInclusive(startDate, endDate);
     return items.fold(
         0, (sum, item) => sum + (item.offering.pricePerNight * nights));
   }

@@ -32,6 +32,34 @@ class ManagerRemoteDataSource implements ManagerDataSource {
     );
   }
 
+  Map<String, dynamic>? _extractAmenityMap(dynamic row) {
+    if (row is! Map) return null;
+    final raw = row['amenities'];
+    if (raw is! Map) return null;
+    return Map<String, dynamic>.from(raw as Map);
+  }
+
+  Future<void> _syncOfferingAmenities(
+      String offeringId, List<String> amenityIds) async {
+    await _supabase
+        .from('offering_amenities')
+        .delete()
+        .eq('offering_id', offeringId);
+
+    final uniqueIds =
+        amenityIds.toSet().where((id) => id.trim().isNotEmpty).toList();
+    if (uniqueIds.isEmpty) return;
+
+    await _supabase.from('offering_amenities').insert(
+          uniqueIds
+              .map((amenityId) => {
+                    'offering_id': offeringId,
+                    'amenity_id': amenityId,
+                  })
+              .toList(growable: false),
+        );
+  }
+
   @override
   Future<List<ManagerHotelModel>> fetchManagedHotels(String managerUserId,
       {Map<String, dynamic>? filters}) async {
@@ -72,9 +100,9 @@ class ManagerRemoteDataSource implements ManagerDataSource {
           "name": hotel.name,
           "address": hotel.address,
           "description": hotel.description,
-          "images": hotel.images, // ✅ remote URLs, not local paths
+          "images": hotel.images, // remote URLs, not local paths
           "location": 'SRID=4326;POINT(${hotel.lng} ${hotel.lat})',
-          "rating": hotel.rating,
+          "rating": 0.0,
           "total_rooms": hotel.totalRooms,
           "region": hotel.region,
           "country": hotel.country,
@@ -117,7 +145,12 @@ class ManagerRemoteDataSource implements ManagerDataSource {
         .insert(ManagerOfferingModel.fromEntity(offering).toJson())
         .select()
         .single();
-
+    final offeringId = (response['id'] ?? '').toString();
+    if (offeringId.isNotEmpty) {
+      await _syncOfferingAmenities(offeringId, offering.amenityIds);
+      final hydrated = await fetchOfferingById(offeringId);
+      return ManagerOfferingModel.fromEntity(hydrated);
+    }
     return ManagerOfferingModel.fromJson(response);
   }
 
@@ -195,7 +228,34 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
     final response = await query;
     final rows = _castRows(response);
-    return rows.map(ManagerOfferingModel.fromJson).toList(growable: false);
+    if (rows.isEmpty) return const <ManagerOfferingModel>[];
+
+    final offeringIds = rows
+        .map((row) => (row['id'] ?? '').toString())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+
+    final amenityIdMap = <String, List<String>>{};
+    if (offeringIds.isNotEmpty) {
+      final amenityRows = await _supabase
+          .from('offering_amenities')
+          .select('offering_id, amenity_id')
+          .inFilter('offering_id', offeringIds);
+      for (final row in _castRows(amenityRows)) {
+        final offeringId = (row['offering_id'] ?? '').toString();
+        final amenityId = (row['amenity_id'] ?? '').toString();
+        if (offeringId.isEmpty || amenityId.isEmpty) continue;
+        final bucket = amenityIdMap.putIfAbsent(offeringId, () => <String>[]);
+        bucket.add(amenityId);
+      }
+    }
+
+    return rows.map((row) {
+      final id = (row['id'] ?? '').toString();
+      final enriched = Map<String, dynamic>.from(row)
+        ..['amenity_ids'] = amenityIdMap[id] ?? const <String>[];
+      return ManagerOfferingModel.fromJson(enriched);
+    }).toList(growable: false);
   }
 
   @override
@@ -205,8 +265,17 @@ class ManagerRemoteDataSource implements ManagerDataSource {
         .select()
         .eq('id', offeringId)
         .single();
-
-    return ManagerOfferingModel.fromJson(response);
+    final amenityRows = await _supabase
+        .from('offering_amenities')
+        .select('amenity_id')
+        .eq('offering_id', offeringId);
+    final amenityIds = _castRows(amenityRows)
+        .map((row) => (row['amenity_id'] ?? '').toString())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    final enriched = Map<String, dynamic>.from(response as Map)
+      ..['amenity_ids'] = amenityIds;
+    return ManagerOfferingModel.fromJson(enriched);
   }
 
   @override
@@ -281,13 +350,21 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<ManagerOfferingModel> updateOffering(ManagerOffering offering) {
+    final offeringId = (offering.id ?? '').trim();
+    if (offeringId.isEmpty) {
+      throw ArgumentError('offering.id is required when updating an offering');
+    }
     final res = _supabase
         .from('offerings')
         .update(ManagerOfferingModel.fromEntity(offering).toJson())
-        .eq('id', offering.id as Object)
+        .eq('id', offeringId)
         .select()
         .single();
-    return res.then((value) => ManagerOfferingModel.fromJson(value));
+    return res.then((value) async {
+      await _syncOfferingAmenities(offeringId, offering.amenityIds);
+      final hydrated = await fetchOfferingById(offeringId);
+      return ManagerOfferingModel.fromEntity(hydrated);
+    });
   }
 
   @override
@@ -360,12 +437,20 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<ManagerHotel> fetchHotelDetail(String hotelId) async {
-    return await _supabase
-        .from('hotels')
-        .select()
-        .eq('id', hotelId)
-        .single()
-        .then((value) => ManagerHotelModel.fromJson(value));
+    final hotelRow =
+        await _supabase.from('hotels').select().eq('id', hotelId).single();
+    final amenityRows = await _supabase
+        .from('hotel_amenities')
+        .select('amenities:amenity_id(amenity_id,name,icon_url)')
+        .eq('hotel_id', hotelId);
+    final amenities = _castRows(amenityRows)
+        .map(_extractAmenityMap)
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+
+    final enriched = Map<String, dynamic>.from(hotelRow as Map)
+      ..['amenities'] = amenities;
+    return ManagerHotelModel.fromJson(enriched);
   }
 
   @override

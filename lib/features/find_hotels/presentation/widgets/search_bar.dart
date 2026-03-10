@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/riverpod/hotel_search_provider.dart';
 
 class SearchBarWidget extends ConsumerStatefulWidget {
+  const SearchBarWidget({super.key});
+
   @override
   ConsumerState<SearchBarWidget> createState() => _SearchBarWidgetState();
 }
@@ -17,7 +19,7 @@ class _SearchBarWidgetState extends ConsumerState<SearchBarWidget> {
       padding: const EdgeInsets.all(12),
       child: TextField(
         decoration: InputDecoration(
-          hintText: "Search by name, address, city…",
+          hintText: 'Search by name, address, city...',
           prefixIcon: const Icon(Icons.search),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),

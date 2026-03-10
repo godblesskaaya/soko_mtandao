@@ -24,6 +24,53 @@ const supabase = createClient(
   config.supabaseServiceRoleKey,
 );
 
+async function resolveRequester(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) return null;
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+async function canDispatchForHotel(userId: string, hotelId: string) {
+  const { data: hotel } = await supabase
+    .from("hotels")
+    .select("manager_user_id")
+    .eq("id", hotelId)
+    .maybeSingle();
+  if (hotel?.manager_user_id === userId) return true;
+
+  const { data: roleRow } = await supabase
+    .from("user_roles_view")
+    .select("role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const role = (roleRow?.role || "").toString().toLowerCase();
+  return role === "systemadmin" || role === "system_admin";
+}
+
+async function logAudit(
+  eventType: string,
+  actorUserId: string,
+  payoutBatchId: string,
+  payload: Record<string, unknown>,
+) {
+  try {
+    await supabase.rpc("log_audit_event", {
+      p_event_type: eventType,
+      p_entity_type: "payout_batch",
+      p_entity_id: payoutBatchId,
+      p_payload: payload,
+      p_actor_user_id: actorUserId,
+    });
+  } catch (_) {
+    // Best effort only.
+  }
+}
+
 async function getAzamPayToken() {
   const { data: tokenData } = await supabase
     .from("azampay_tokens")
@@ -63,6 +110,20 @@ async function getAzamPayToken() {
 
 serve(async (req) => {
   try {
+    const requester = await resolveRequester(req);
+    if (!requester) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+
+    const { data: isFrozen } = await supabase.rpc("is_account_frozen", {
+      p_user_id: requester.id,
+    });
+    if (isFrozen === true) {
+      return new Response(JSON.stringify({ error: "Account is suspended." }), {
+        status: 403,
+      });
+    }
+
     const body = await req.json();
     const payoutBatchId = body.payout_batch_id?.toString();
     if (!payoutBatchId) {
@@ -78,6 +139,12 @@ serve(async (req) => {
     if (batchError || !batch) {
       return new Response(JSON.stringify({ error: "Payout batch not found" }), { status: 404 });
     }
+
+    const allowed = await canDispatchForHotel(requester.id, batch.hotel_id.toString());
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    }
+
     if (batch.status === "completed") {
       return new Response(JSON.stringify({ success: true, message: "Batch already completed" }), {
         status: 200,
@@ -156,6 +223,11 @@ serve(async (req) => {
       }
 
       if (!disburseResp.ok) {
+        await logAudit("payout_dispatch", requester.id, batch.id, {
+          outcome: "failed",
+          provider: batch.provider,
+          provider_status: disburseResp.status,
+        });
         await supabase.rpc("fail_payout_batch", {
           p_batch_id: batch.id,
           p_reason: `Provider failed: ${JSON.stringify(parsed).slice(0, 250)}`,
@@ -186,6 +258,13 @@ serve(async (req) => {
     await supabase.rpc("complete_payout_batch", {
       p_batch_id: batch.id,
       p_provider_batch_ref: providerBatchRef,
+    });
+
+    await logAudit("payout_dispatch", requester.id, batch.id, {
+      outcome: "completed",
+      provider: batch.provider,
+      provider_batch_ref: providerBatchRef,
+      total_amount: batch.total_amount,
     });
 
     return new Response(

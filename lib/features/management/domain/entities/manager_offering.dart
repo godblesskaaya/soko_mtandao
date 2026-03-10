@@ -6,6 +6,8 @@ class ManagerOffering {
   final double basePrice;
   final int maxGuests;
   final bool isActive;
+  final List<String> amenityIds;
+  final List<String> imageUrls;
 
   ManagerOffering({
     required this.id,
@@ -15,5 +17,7 @@ class ManagerOffering {
     required this.basePrice,
     required this.maxGuests,
     this.isActive = true,
+    this.amenityIds = const [],
+    this.imageUrls = const [],
   });
 }

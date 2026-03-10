@@ -179,6 +179,8 @@ class _OfferingListScreenState extends ConsumerState<OfferingListScreen> {
                             children: [
                               Text(off.description),
                               Text("TZS ${off.basePrice}/night"),
+                              Text(
+                                  "Max guests: ${off.maxGuests}  |  Amenities: ${off.amenityIds.length}  |  Images: ${off.imageUrls.length}"),
                             ],
                           ),
                           trailing: IconButton(

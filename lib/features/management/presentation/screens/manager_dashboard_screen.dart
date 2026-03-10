@@ -23,6 +23,17 @@ class ManagerDashboardScreen extends ConsumerStatefulWidget {
 class _ManagerDashboardScreenState
     extends ConsumerState<ManagerDashboardScreen> {
   final AuthService authService = AuthService();
+  bool _isKycLoading = true;
+  String _kycStatus = 'pending';
+  String? _kycUpdatedAt;
+
+  SupabaseClient get _client => Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKycStatus();
+  }
 
   Future<void> _refresh() async {
     ref.invalidate(managerProfileProvider);
@@ -35,6 +46,45 @@ class _ManagerDashboardScreenState
           .read(managerProfileProvider.future)
           .timeout(const Duration(seconds: 8));
     } catch (_) {}
+    await _loadKycStatus();
+  }
+
+  Future<void> _loadKycStatus() async {
+    if (mounted) {
+      setState(() => _isKycLoading = true);
+    }
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _kycStatus = 'pending';
+          _kycUpdatedAt = null;
+          _isKycLoading = false;
+        });
+        return;
+      }
+
+      final row = await _client
+          .from('kyc_profiles')
+          .select('status,updated_at')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (!mounted) return;
+      setState(() {
+        _kycStatus = (row?['status'] ?? 'pending').toString();
+        _kycUpdatedAt = row?['updated_at']?.toString();
+        _isKycLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _kycStatus = 'pending';
+        _kycUpdatedAt = null;
+        _isKycLoading = false;
+      });
+    }
   }
 
   @override
@@ -170,6 +220,71 @@ class _ManagerDashboardScreenState
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            Text(
+              "Compliance",
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.verified_user_outlined),
+                        const SizedBox(width: 8),
+                        Text(
+                          "KYC Status",
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const Spacer(),
+                        if (_isKycLoading)
+                          const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Chip(
+                            label: Text(_kycStatus.toUpperCase()),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isKycLoading
+                          ? "Loading your KYC compliance status..."
+                          : "Payouts require KYC approval. Keep details up to date.",
+                    ),
+                    if (_kycUpdatedAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text('Last update: ${_kycUpdatedAt!.substring(0, 10)}'),
+                    ],
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await context.pushNamed('managerKyc');
+                          if (!mounted) return;
+                          await _loadKycStatus();
+                        },
+                        icon: const Icon(Icons.assignment_outlined),
+                        label: Text(
+                          _kycStatus == 'approved'
+                              ? 'View KYC'
+                              : 'Complete KYC',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

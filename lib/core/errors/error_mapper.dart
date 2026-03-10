@@ -5,6 +5,18 @@ String userMessageForError(Object error) {
   final raw = error is Failure ? error.message : error.toString();
   final lower = raw.toLowerCase();
 
+  if (lower.contains('invalid ticket number')) {
+    return 'Invalid booking ticket. Please use the latest booking reference.';
+  }
+
+  if (lower.contains('unauthorized booking access')) {
+    return 'You are not allowed to access this booking. Use the correct account or booking ticket.';
+  }
+
+  if (lower.contains('authentication required for this booking')) {
+    return 'This booking requires account sign-in or a valid booking ticket.';
+  }
+
   if (lower.contains('network') ||
       lower.contains('socket') ||
       lower.contains('timeout') ||

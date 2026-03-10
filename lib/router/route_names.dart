@@ -57,5 +57,6 @@ class RouteNames {
   static const settings = '/settings';
   static const managerNotifications = '/manager/notifications';
   static const editManagerProfile = '/manager/profile/edit';
+  static const managerKyc = '/manager/kyc';
   static const managerBookingDetail = '/manager/bookings/:bookingId';
 }

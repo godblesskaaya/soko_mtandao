@@ -19,8 +19,17 @@ class HotelCard extends StatelessWidget {
             AspectRatio(
               aspectRatio: 16 / 9,
               child: hotel.imageUrl != null
-                  ? Image.network(hotel.imageUrl!, fit: BoxFit.cover)
-                  : Container(color: Colors.grey.shade300),
+                  ? Image.network(
+                      hotel.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Container(color: Colors.grey.shade300),
+                    )
+                  : Container(
+                      color: Colors.grey.shade300,
+                      child:
+                          const Center(child: Icon(Icons.image_not_supported)),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(12),
@@ -36,7 +45,7 @@ class HotelCard extends StatelessWidget {
                       hotel.description!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white70),
+                      style: TextStyle(color: Theme.of(context).hintColor),
                     ),
                   ],
                 ],

@@ -32,7 +32,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   final _descriptionController = TextEditingController();
   final _latController = TextEditingController();
   final _lngController = TextEditingController();
-  final _ratingController = TextEditingController(text: "0.0");
   final _regionController = TextEditingController();
   final _countryController = TextEditingController();
   final _cityController = TextEditingController();
@@ -57,7 +56,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
       _descriptionController,
       _latController,
       _lngController,
-      _ratingController,
       _roomsController,
       _regionController,
       _countryController,
@@ -78,7 +76,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
     _descriptionController.text = hotel.description ?? '';
     _latController.text = hotel.lat.toString();
     _lngController.text = hotel.lng.toString();
-    _ratingController.text = hotel.rating.toString();
     _roomsController.text = hotel.totalRooms.toString();
     _regionController.text = hotel.region;
     _countryController.text = hotel.country;
@@ -123,7 +120,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
             amenities: selectedAmenities,
             lat: _latController.text,
             lng: _lngController.text,
-            rating: double.tryParse(_ratingController.text) ?? 0.0,
             totalRooms: int.tryParse(_roomsController.text) ?? 0,
             region: _regionController.text,
             country: _countryController.text,
@@ -146,7 +142,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
             amenities: selectedAmenities,
             lat: double.tryParse(_latController.text) ?? 0.0,
             lng: double.tryParse(_lngController.text) ?? 0.0,
-            rating: double.tryParse(_ratingController.text) ?? 0.0,
             totalRooms: int.tryParse(_roomsController.text) ?? 0,
             region: _regionController.text,
             country: _countryController.text,
@@ -299,8 +294,6 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                     ),
                   ),
 
-                  _buildTextField("Rating", _ratingController,
-                      keyboard: TextInputType.number),
                   _buildTextField("Total Rooms", _roomsController,
                       keyboard: TextInputType.number),
                   _buildTextField("Region", _regionController),

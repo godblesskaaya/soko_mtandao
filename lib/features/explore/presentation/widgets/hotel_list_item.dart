@@ -19,18 +19,34 @@ class HotelListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      leading: CircleAvatar(
-        backgroundImage:
-            hotel.imageUrl != null ? NetworkImage(hotel.imageUrl!) : null,
-        child: hotel.imageUrl == null ? const Icon(Icons.hotel) : null,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: hotel.imageUrl != null
+              ? Image.network(
+                  hotel.imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      Container(color: Colors.grey.shade300),
+                )
+              : Container(
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.hotel),
+                ),
+        ),
       ),
       title: Text(hotel.name,
           style: TextStyle(
               fontWeight: highlighted ? FontWeight.bold : FontWeight.w600)),
       subtitle: hotel.description != null
-          ? Text(hotel.description!,
-              maxLines: 1, overflow: TextOverflow.ellipsis)
-          : null,
+          ? Text(
+              '${hotel.description}  |  ${hotel.availableRooms} rooms',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : Text('${hotel.availableRooms} rooms'),
       trailing: IconButton(
           icon: const Icon(Icons.chevron_right), onPressed: onDetails),
     );

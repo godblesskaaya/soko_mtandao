@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_details.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
 import 'package:soko_mtandao/router/route_names.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../riverpod/find_booking_provider.dart';
 
 class FindBookingScreen extends ConsumerStatefulWidget {
@@ -21,12 +23,132 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
   final _controller = TextEditingController();
   String? _searchId; // Use a nullable string to toggle state
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  bool _canLeaveReview(Booking booking) {
+    return booking.status == BookingStatusEnum.confirmed &&
+        booking.paymentStatus == PaymentStatusEnum.completed;
+  }
+
   bool _canResumePayment(Booking booking) {
     final isPending = booking.status == BookingStatusEnum.pending &&
         booking.paymentStatus == PaymentStatusEnum.pending;
     if (!isPending) return false;
     if (booking.expiresAt == null) return true;
     return DateTime.now().isBefore(booking.expiresAt!);
+  }
+
+  Future<void> _openReviewDialog(Booking booking) async {
+    if (!_canLeaveReview(booking)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Only confirmed stays can be rated.')),
+      );
+      return;
+    }
+
+    final commentCtrl = TextEditingController();
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        var rating = 5;
+        var submitting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> submitReview() async {
+              setDialogState(() => submitting = true);
+              try {
+                final res = await Supabase.instance.client.rpc(
+                  'submit_hotel_review',
+                  params: {
+                    'p_booking_id': booking.id,
+                    'p_rating': rating,
+                    'p_comment': commentCtrl.text.trim(),
+                  },
+                );
+                if (!mounted) return;
+                Navigator.of(context).pop();
+                final success =
+                    res is Map<String, dynamic> && res['success'] == true;
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(success
+                        ? 'Thank you. Your rating was submitted.'
+                        : (res is Map<String, dynamic>
+                            ? (res['message']?.toString() ??
+                                'Failed to submit rating.')
+                            : 'Failed to submit rating.')),
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(content: Text(userMessageForError(e))),
+                );
+              } finally {
+                if (context.mounted) {
+                  setDialogState(() => submitting = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Rate Your Stay'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    value: rating,
+                    decoration: const InputDecoration(labelText: 'Rating'),
+                    items: const [
+                      DropdownMenuItem(value: 5, child: Text('5 - Excellent')),
+                      DropdownMenuItem(value: 4, child: Text('4 - Very Good')),
+                      DropdownMenuItem(value: 3, child: Text('3 - Good')),
+                      DropdownMenuItem(value: 2, child: Text('2 - Fair')),
+                      DropdownMenuItem(value: 1, child: Text('1 - Poor')),
+                    ],
+                    onChanged: submitting
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            setDialogState(() => rating = value);
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: commentCtrl,
+                    minLines: 2,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Comment (optional)',
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: submitting ? null : submitReview,
+                  child: submitting
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Submit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _performSearch() {
@@ -46,6 +168,97 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
     });
     // Hide keyboard
     FocusScope.of(context).unfocus();
+  }
+
+  Future<void> _openDisputeDialog(Booking booking) async {
+    final ticket = (booking.ticketNumber ?? '').trim();
+    if (ticket.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Ticket number is required for disputes.')),
+      );
+      return;
+    }
+
+    final categoryCtrl = TextEditingController(text: 'general');
+    final descriptionCtrl = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        bool submitting = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> submit() async {
+              if (descriptionCtrl.text.trim().isEmpty) return;
+              setDialogState(() => submitting = true);
+              try {
+                await Supabase.instance.client.rpc('submit_dispute', params: {
+                  'p_ticket_number': ticket,
+                  'p_category': categoryCtrl.text.trim(),
+                  'p_description': descriptionCtrl.text.trim(),
+                });
+                if (context.mounted) Navigator.pop(context);
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    const SnackBar(content: Text('Dispute submitted.')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text(userMessageForError(e))),
+                  );
+                }
+              } finally {
+                if (context.mounted) setDialogState(() => submitting = false);
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Submit Dispute'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: categoryCtrl,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descriptionCtrl,
+                      minLines: 3,
+                      maxLines: 6,
+                      decoration: const InputDecoration(
+                        labelText: 'Describe the issue',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: submitting ? null : submit,
+                  child: submitting
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Submit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -81,8 +294,8 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                   child: TextField(
                     controller: _controller,
                     decoration: InputDecoration(
-                      labelText: "Search by Booking ID",
-                      hintText: "e.g., 8f2a8a9d-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+                      labelText: "Search by Ticket Number",
+                      hintText: "e.g., BK-20260228-123456",
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.search),
                       // Show clear button if there is text or an active search
@@ -135,7 +348,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                 const Icon(Icons.search_off, size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
                 Text(
-                  "Booking ID '$_searchId' not found.",
+                  "Ticket '$_searchId' not found.",
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 TextButton(
@@ -153,6 +366,16 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               BookingDetailsWidget(booking: result.booking!),
+              if (_canLeaveReview(result.booking!))
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openReviewDialog(result.booking!),
+                    icon: const Icon(Icons.star_rate_outlined),
+                    label: const Text('Rate This Stay'),
+                  ),
+                ),
               if (_canResumePayment(result.booking!))
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -209,7 +432,9 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                       backgroundColor: Colors.blueAccent,
                       child: Icon(Icons.bookmark, color: Colors.white),
                     ),
-                    title: Text("Booking ID: ${booking.id}"),
+                    title: Text(
+                      "Ticket: ${(booking.ticketNumber ?? '').isNotEmpty ? booking.ticketNumber : booking.id}",
+                    ),
                     // convert date to readable format
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,7 +445,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                         Text(
                             "Place: ${booking.bookingCart.bookings.first.hotel.name}"),
                         Text(
-                            "Date: ${booking.bookingCart.bookings.first.startDate.toIso8601String().substring(0, 10)} to ${booking.bookingCart.bookings.first.endDate.toIso8601String().substring(0, 10)}"),
+                            "Stay nights: ${formatYmd(booking.bookingCart.bookings.first.startDate)} to ${formatYmd(booking.bookingCart.bookings.first.endDate)}"),
                         if (booking.status == BookingStatusEnum.pending &&
                             booking.paymentStatus ==
                                 PaymentStatusEnum.pending &&
@@ -237,7 +462,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () {
                       // Pre-fill the search box and trigger search to get latest status
-                      _controller.text = booking.id;
+                      _controller.text = booking.ticketNumber ?? booking.id;
                       _performSearch();
                     },
                   ),
@@ -255,6 +480,27 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                         ),
                       ),
                     ),
+                  if (_canLeaveReview(booking))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openReviewDialog(booking),
+                          icon: const Icon(Icons.star_rate_outlined),
+                          label: const Text('Rate Stay'),
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openDisputeDialog(booking),
+                      icon: const Icon(Icons.report_problem_outlined),
+                      label: const Text('Submit Dispute'),
+                    ),
+                  ),
                 ],
               ),
             );

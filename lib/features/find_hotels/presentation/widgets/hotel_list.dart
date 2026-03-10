@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/hotel_card.dart';
 import 'package:soko_mtandao/widgets/app_state_view.dart';
 
@@ -77,10 +78,8 @@ class _HotelListWidgetState extends State<HotelListWidget> {
           onTap: () {
             final queryParameters = <String, String>{};
             if (widget.checkIn != null && widget.checkOut != null) {
-              queryParameters['checkIn'] =
-                  widget.checkIn!.toIso8601String().substring(0, 10);
-              queryParameters['checkOut'] =
-                  widget.checkOut!.toIso8601String().substring(0, 10);
+              queryParameters['firstNight'] = formatYmd(widget.checkIn!);
+              queryParameters['lastNight'] = formatYmd(widget.checkOut!);
             }
             context.pushNamed(
               "hotelDetail",

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/features/booking/domain/entities/enums.dart';
 import 'package:soko_mtandao/features/booking/presentation/riverpod/booking_providers.dart';
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_details.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 
 class BookingConfirmationScreen extends ConsumerStatefulWidget {
@@ -17,6 +19,8 @@ class BookingConfirmationScreen extends ConsumerStatefulWidget {
 
 class _BookingConfirmationScreenState
     extends ConsumerState<BookingConfirmationScreen> {
+  bool _cartCleared = false;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +79,15 @@ class _BookingConfirmationScreenState
 
         if (flow.booking == null) {
           return const Center(child: Text('Booking details not found.'));
+        }
+        final isConfirmed =
+            flow.booking!.status == BookingStatusEnum.confirmed &&
+                flow.booking!.paymentStatus == PaymentStatusEnum.completed;
+        if (isConfirmed && !_cartCleared) {
+          _cartCleared = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(bookingCartProvider.notifier).clearCart();
+          });
         }
         return Padding(
           padding: const EdgeInsets.all(16),

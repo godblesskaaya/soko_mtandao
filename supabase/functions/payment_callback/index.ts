@@ -22,6 +22,28 @@ export async function logPayment(paymentExternalId: string, level: string, messa
   }
 }
 
+async function logPaymentStateChange(
+  paymentId: string,
+  bookingId: string,
+  status: string,
+  payload: Record<string, unknown>,
+) {
+  try {
+    await supabase.rpc("log_audit_event", {
+      p_event_type: "payment_state_changed",
+      p_entity_type: "payment",
+      p_entity_id: paymentId,
+      p_payload: {
+        booking_id: bookingId,
+        status,
+        ...payload,
+      },
+    });
+  } catch (_) {
+    // Best effort only.
+  }
+}
+
 function getFirstString(payload: Record<string, unknown>, keys: string[]): string | null {
   const entries = Object.entries(payload);
   for (const key of keys) {
@@ -253,6 +275,11 @@ serve(async (req) => {
 
     if (paymentUpdateError) {
       await logPayment(correlationId, "error", "payment update error", { paymentUpdateError });
+    } else {
+      await logPaymentStateChange(payment.id, payment.booking_id, newStatus, {
+        provider_event_id: providerEventId,
+        callback_amount: callbackAmount,
+      });
     }
 
     if (newStatus === "failed") {

@@ -46,6 +46,11 @@ class ManagerSettingsScreen extends ConsumerWidget {
             // Settings Group: Data
             const AppSectionHeader(title: "Data Management"),
             _buildSettingItem(
+              icon: Icons.verified_user_outlined,
+              title: "KYC Compliance",
+              onTap: () => context.pushNamed('managerKyc'),
+            ),
+            _buildSettingItem(
               icon: Icons.description_outlined,
               title: "Privacy Policy",
               onTap: () {

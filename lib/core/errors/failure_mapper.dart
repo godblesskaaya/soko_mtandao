@@ -6,6 +6,18 @@ Failure failureFromError(Object error) {
   final raw = error.toString();
   final lower = raw.toLowerCase();
 
+  if (lower.contains('invalid ticket number')) {
+    return ServerFailure(
+      'Invalid booking ticket. Please use the latest booking reference.',
+    );
+  }
+
+  if (lower.contains('unauthorized booking access')) {
+    return ServerFailure(
+      'You are not allowed to access this booking. Use the correct account or booking ticket.',
+    );
+  }
+
   if (lower.contains('network') ||
       lower.contains('socket') ||
       lower.contains('timeout')) {

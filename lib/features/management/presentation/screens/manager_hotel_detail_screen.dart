@@ -175,7 +175,13 @@ class _ManagerHotelDetailScreenState
                   runSpacing: 8,
                   children: hotel.amenities
                       .map(
-                        (a) => Chip(label: Text(a.toString())),
+                        (a) => Chip(
+                          avatar: const Icon(
+                            Icons.check_circle_outline,
+                            size: 16,
+                          ),
+                          label: Text(a.name),
+                        ),
                       )
                       .toList(),
                 ),

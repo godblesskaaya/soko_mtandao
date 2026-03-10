@@ -60,3 +60,4 @@ supabase/functions/.env.*
 # Generated source dumps
 output.txt
 lib/output.txt
+lib/output.txt

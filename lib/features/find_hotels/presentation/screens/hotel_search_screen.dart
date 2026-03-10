@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/filter_sheet.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/hotel_list.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/search_bar.dart';
@@ -51,13 +52,13 @@ class HotelSearchScreen extends ConsumerWidget {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Tip: set dates in Filters first to see accurate room availability and pricing.',
+                    'Tip: set first and last stay nights in Filters for accurate room availability and pricing.',
                   ),
                 ),
               ],
             ),
           ),
-          SearchBarWidget(),
+          const SearchBarWidget(),
           if (state.checkIn != null && state.checkOut != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -65,7 +66,7 @@ class HotelSearchScreen extends ConsumerWidget {
                 alignment: Alignment.centerLeft,
                 child: Chip(
                   label: Text(
-                    'Stay: ${state.checkIn!.toIso8601String().substring(0, 10)} to ${state.checkOut!.toIso8601String().substring(0, 10)}',
+                    'Stay nights: ${formatYmd(state.checkIn!)} to ${formatYmd(state.checkOut!)} (${stayNightsInclusive(state.checkIn!, state.checkOut!)} night(s))',
                   ),
                 ),
               ),
@@ -80,6 +81,26 @@ class HotelSearchScreen extends ConsumerWidget {
                 style: TextStyle(color: Colors.red.shade800),
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Row(
+              children: [
+                Text(
+                  '${state.hotels.length} hotel(s) found',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                if (state.isLoading)
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+              ],
+            ),
+          ),
           Expanded(
             child: HotelListWidget(
               hotels: state.hotels,

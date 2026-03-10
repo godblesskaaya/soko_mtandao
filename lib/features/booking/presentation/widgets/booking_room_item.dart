@@ -17,7 +17,8 @@ class BookingRoomItem extends StatelessWidget {
     return ListTile(
       leading: const Icon(Icons.meeting_room),
       title: Text(title),
-      subtitle: Text('Room $roomLabel'),
+      subtitle:
+          Text('Room $roomLabel  |  ${formatTzs(price)} x $nights night(s)'),
       trailing: Text(formatTzs(price * nights)),
     );
   }

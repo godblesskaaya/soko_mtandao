@@ -23,6 +23,7 @@ class PaymentService {
   /// Calls the Supabase Edge Function to initiate AzamPay hosted checkout
   Future<String> createHostedCheckout({
     required String bookingId,
+    String? ticketNumber,
     String? successRedirect,
     String? failRedirect,
   }) async {
@@ -32,6 +33,8 @@ class PaymentService {
           '${AppConfig.appBaseUrl}/payment-success/$bookingId',
       'redirectFailURL':
           failRedirect ?? '${AppConfig.appBaseUrl}/payment-failed',
+      if ((ticketNumber ?? '').trim().isNotEmpty)
+        'ticket_number': ticketNumber!.trim(),
     };
 
     final response = await client.functions.invoke(
@@ -51,6 +54,7 @@ class PaymentService {
 
   Future<NativeCheckoutResult> createNativeCheckout({
     required String bookingId,
+    String? ticketNumber,
     required NativePaymentMethod method,
     required double amount,
     String currency = 'TZS',
@@ -67,6 +71,8 @@ class PaymentService {
       'method': method.name,
       'amount': amount,
       'currency': currency,
+      if ((ticketNumber ?? '').trim().isNotEmpty)
+        'ticket_number': ticketNumber!.trim(),
     };
 
     if (method == NativePaymentMethod.mno) {

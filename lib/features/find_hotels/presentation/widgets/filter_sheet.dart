@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/riverpod/hotel_search_provider.dart';
 
 class FilterSheet extends ConsumerStatefulWidget {
@@ -87,12 +88,19 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 12),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Stay nights (inclusive)',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
               _checkIn == null
-                  ? 'Check-in date'
-                  : 'Check-in: ${_checkIn!.toIso8601String().substring(0, 10)}',
+                  ? 'First night'
+                  : 'First night: ${formatYmd(_checkIn!)}',
             ),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
@@ -106,9 +114,10 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
               if (picked == null) return;
               setState(() {
                 _checkIn = picked;
-                if (_checkOut != null && !_checkOut!.isAfter(_checkIn!)) {
+                if (_checkOut != null && _checkOut!.isBefore(_checkIn!)) {
                   _checkOut = null;
                 }
+                _checkOut ??= _checkIn;
               });
             },
           ),
@@ -116,8 +125,8 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
             contentPadding: EdgeInsets.zero,
             title: Text(
               _checkOut == null
-                  ? 'Check-out date'
-                  : 'Check-out: ${_checkOut!.toIso8601String().substring(0, 10)}',
+                  ? 'Last night'
+                  : 'Last night: ${formatYmd(_checkOut!)}',
             ),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
@@ -125,12 +134,15 @@ class _FilterSheetState extends ConsumerState<FilterSheet> {
               final min = _checkIn ?? now;
               final picked = await showDatePicker(
                 context: context,
-                initialDate: _checkOut ?? min.add(const Duration(days: 1)),
-                firstDate: min.add(const Duration(days: 1)),
+                initialDate: _checkOut ?? min,
+                firstDate: min,
                 lastDate: now.add(const Duration(days: 365)),
               );
               if (picked == null) return;
-              setState(() => _checkOut = picked);
+              setState(() {
+                _checkOut = picked;
+                _checkIn ??= picked;
+              });
             },
           ),
           const SizedBox(height: 20),

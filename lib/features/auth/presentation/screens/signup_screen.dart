@@ -7,7 +7,6 @@ import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
-import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import '../../../../core/services/auth_service.dart';
 
@@ -25,11 +24,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
 
-  // 1. Filtered roles to exclude Admin
-  final roles =
-      UserRole.values.where((role) => role != UserRole.systemAdmin).toList();
-  UserRole selectedRole = UserRole.customer;
-
   bool _acceptedPolicy = false;
   bool _isLoading = false;
   final authService = AuthService();
@@ -39,7 +33,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const AppWebViewScreen(
+        builder: (context) => AppWebViewScreen(
           title: "Privacy Policy",
           url: AppConfig.privacyPolicyUrl,
         ),
@@ -62,7 +56,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
         data: {
-          'role': selectedRole.name,
+          'role': 'customer',
           'firstName': firstNameController.text.trim(),
           'lastName': lastNameController.text.trim(),
         },
@@ -139,26 +133,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               Icons.lock_outline,
                               obscure: true),
                           const SizedBox(height: 15),
-
-                          // 3. Refactored Dropdown
-                          DropdownButtonFormField<UserRole>(
-                            value: selectedRole,
-                            items: roles
-                                .map((role) => DropdownMenuItem(
-                                    value: role,
-                                    child: Text(role.name[0].toUpperCase() +
-                                        role.name.substring(1))))
-                                .toList(),
-                            onChanged: (val) =>
-                                setState(() => selectedRole = val!),
-                            decoration: const InputDecoration(
-                              labelText: "Registering as",
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.badge_outlined),
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
 
                           // 4. Privacy Policy Checkbox
                           CheckboxListTile(

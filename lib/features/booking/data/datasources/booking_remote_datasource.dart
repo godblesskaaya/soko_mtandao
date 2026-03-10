@@ -2,16 +2,44 @@ import 'dart:async';
 
 import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
+import 'package:soko_mtandao/features/booking/data/datasources/booking_datasource.dart';
+import 'package:soko_mtandao/features/booking/data/models/booking_model.dart';
 import 'package:soko_mtandao/features/booking/data/models/user_model.dart';
+import 'package:soko_mtandao/features/booking/data/services/local_booking_storage_service.dart';
 import 'package:soko_mtandao/features/booking/domain/entities/booking_conflict_exception.dart';
 import 'package:soko_mtandao/features/find_booking/entities/booking_search_result.dart';
 import 'package:soko_mtandao/features/hotel_detail/data/models/booking_cart_model.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:soko_mtandao/features/booking/data/datasources/booking_datasource.dart';
-import 'package:soko_mtandao/features/booking/data/models/booking_model.dart';
 
 class BookingRemoteDataSource implements BookingDataSource {
   final SupabaseClient _client = Supabase.instance.client;
+  final LocalBookingStorage _localStorage = LocalBookingStorage();
+  static final Map<String, String> _ticketCache = <String, String>{};
+
+  Future<String?> _resolveTicket(String bookingId) async {
+    final fromCache = _ticketCache[bookingId];
+    if (fromCache != null && fromCache.trim().isNotEmpty) return fromCache;
+
+    final localBookings = await _localStorage.getLocalBookings();
+    for (final booking in localBookings) {
+      if (booking.id == bookingId &&
+          (booking.ticketNumber ?? '').trim().isNotEmpty) {
+        final ticket = booking.ticketNumber!.trim();
+        _ticketCache[bookingId] = ticket;
+        return ticket;
+      }
+    }
+
+    return null;
+  }
+
+  void _cacheTicket(BookingModel booking) {
+    final ticket = (booking.ticketNumber ?? '').trim();
+    if (ticket.isNotEmpty) {
+      _ticketCache[booking.id] = ticket;
+    }
+  }
 
   @override
   Future<BookingModel> initiateBooking({
@@ -19,14 +47,13 @@ class BookingRemoteDataSource implements BookingDataSource {
     required BookingCartModel cart,
     required String sessionId,
   }) async {
-    // Payload shape matches your backend RPC contract
     final payload = {
       'user_data': user.toJson(),
       'cart': cart.bookings
           .map((b) => {
                 'hotel_id': b.hotel.id,
-                'start_date': b.startDate.toIso8601String(),
-                'end_date': b.endDate.toIso8601String(),
+                'start_date': formatYmd(b.startDate),
+                'end_date': formatYmd(b.endDate),
                 'items': b.items
                     .map((i) => {
                           'offering_id': i.offering.id,
@@ -39,51 +66,61 @@ class BookingRemoteDataSource implements BookingDataSource {
       'p_session_id': sessionId,
     };
 
-    // Example RPC (you can swap to REST or table insert)
     final res = await _client.rpc('create_booking', params: payload);
 
-    // Defensive checks — handle variable response shape
     if (res is Map<String, dynamic>) {
       final success = res['success'] == true;
 
       if (success && res['booking'] != null) {
-        // Success path → parse booking
-        return BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
-      } else {
-        // Failure path → room conflicts or validation errors
-        final message = res['message'] ?? 'Booking failed.';
-        final conflicts = (res['conflicts'] as List?) ?? [];
-
-        throw BookingConflictException(
-          message: message,
-          conflicts: conflicts.map((c) => BookingConflict.fromJson(c)).toList(),
-        );
+        final booking =
+            BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
+        _cacheTicket(booking);
+        return booking;
       }
+
+      final message = res['message'] ?? 'Booking failed.';
+      final conflicts = (res['conflicts'] as List?) ?? [];
+      throw BookingConflictException(
+        message: message,
+        conflicts: conflicts.map((c) => BookingConflict.fromJson(c)).toList(),
+      );
     }
 
-    // If response shape is unexpected
     throw Exception('Unexpected response from server');
   }
 
   @override
   Future<BookingModel> getBooking(String bookingId) async {
-    final res = await _client
-        .rpc("get_booking_details", params: {'p_booking_id': bookingId});
+    final ticket = await _resolveTicket(bookingId);
+    final params = <String, dynamic>{'p_booking_id': bookingId};
+    if (ticket != null) params['p_ticket_number'] = ticket;
+
+    final res = await _client.rpc('get_booking_details_secure', params: params);
     if (res == null || res['success'] != true) {
       throw Exception('Failed to load booking: Booking not found');
     }
 
-    return BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
+    final booking =
+        BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
+    _cacheTicket(booking);
+    return booking;
   }
 
   @override
   Future<BookingModel> getBookingStatus(String bookingId) async {
-    final res = await _client
-        .rpc('get_booking_details', params: {'p_booking_id': bookingId});
+    final ticket = await _resolveTicket(bookingId);
+    final params = <String, dynamic>{'p_booking_id': bookingId};
+    if (ticket != null) params['p_ticket_number'] = ticket;
+
+    final res = await _client.rpc('get_booking_details_secure', params: params);
     if (res == null || res['success'] != true) {
       throw Exception('Failed to load booking status');
     }
-    return BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
+
+    final booking =
+        BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
+    _cacheTicket(booking);
+    return booking;
   }
 
   @override
@@ -93,46 +130,47 @@ class BookingRemoteDataSource implements BookingDataSource {
 
   @override
   Future<BookingSearchResult> findBookingById(String bookingId) {
-    // find the booking by id
-    return _client.rpc("get_booking_details",
-        params: {'p_booking_id': bookingId}).then((res) {
+    return _client.rpc('get_booking_details_by_ticket',
+        params: {'p_ticket_number': bookingId}).then((res) {
       if (res != null && res['success'] == true) {
-        return BookingSearchResult(
-            booking: BookingModel.fromJson(res['booking']), found: true);
-      } else {
-        return BookingSearchResult(booking: null, found: false);
+        final booking =
+            BookingModel.fromJson(res['booking'] as Map<String, dynamic>);
+        _cacheTicket(booking);
+        return BookingSearchResult(booking: booking, found: true);
       }
+      return BookingSearchResult(booking: null, found: false);
     });
   }
 
-  // extension for this file
   @override
   Stream<BookingModel> monitorBookingPayment(String bookingId) {
     final controller = StreamController<BookingModel>();
 
     Future<void> fetchAndEmit() async {
       try {
-        final res = await _client
-            .rpc('get_booking_details', params: {'p_booking_id': bookingId});
+        final ticket = await _resolveTicket(bookingId);
+        final params = <String, dynamic>{'p_booking_id': bookingId};
+        if (ticket != null) params['p_ticket_number'] = ticket;
 
-        // Defensive checks — handle variable response shape
+        final res =
+            await _client.rpc('get_booking_details_secure', params: params);
+
         if (res is Map<String, dynamic>) {
           final success = res['success'] == true;
           final booking = res['booking'];
 
           if (success && booking is Map<String, dynamic>) {
-            // Success path → parse booking
-            controller.add(BookingModel.fromJson(booking));
+            final model = BookingModel.fromJson(booking);
+            _cacheTicket(model);
+            controller.add(model);
             return;
-          } else {
-            // Failure path → log error
-            final message = res['message'] ?? 'Failed to fetch booking update.';
-            throw Exception(message);
           }
-        } else {
-          // If response shape is unexpected
-          throw Exception('Unexpected response from server ${res.runtimeType}');
+
+          final message = res['message'] ?? 'Failed to fetch booking update.';
+          throw Exception(message);
         }
+
+        throw Exception('Unexpected response from server ${res.runtimeType}');
       } catch (e, stackTrace) {
         ErrorReporter.report(
           e,
@@ -144,10 +182,8 @@ class BookingRemoteDataSource implements BookingDataSource {
       }
     }
 
-    // 1️⃣ Emit initial snapshot
     fetchAndEmit();
 
-    // 2️⃣ Realtime listener
     final channel = _client
         .channel('public:bookings')
         .onPostgresChanges(
@@ -155,22 +191,14 @@ class BookingRemoteDataSource implements BookingDataSource {
           schema: 'public',
           table: 'bookings',
           filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'id',
-              value: bookingId),
-          // callback: (payload) {
-          //   final newRecord = payload.newRecord;
-          //   // if (newRecord != null && newRecord['id'] == bookingId) {
-          //     controller.add(BookingModel.fromJson(newRecord));
-          //   // }
-          // },
-
-          // callback function to recall fetchAndEmit
-          callback: (payload) => fetchAndEmit(),
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: bookingId,
+          ),
+          callback: (_) => fetchAndEmit(),
         )
         .subscribe();
 
-    // 3️⃣ Polling fallback
     final timer = Timer.periodic(AppConfig.paymentPollInterval, (_) {
       fetchAndEmit();
     });

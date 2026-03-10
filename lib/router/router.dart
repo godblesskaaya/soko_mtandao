@@ -22,6 +22,7 @@ import 'package:soko_mtandao/features/management/presentation/screens/manager_da
 import 'package:soko_mtandao/features/management/presentation/screens/manager_hotel_List_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_hotel_detail_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_booking_detail_screen.dart';
+import 'package:soko_mtandao/features/management/presentation/screens/manager_kyc_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_notifications_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_payments_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_profile_edit_screen.dart';
@@ -39,6 +40,7 @@ import 'package:soko_mtandao/features/system_admin/presentation/screens/system_a
 import 'package:soko_mtandao/layouts/admin_layout.dart';
 import 'package:soko_mtandao/layouts/app_layout.dart';
 import 'package:soko_mtandao/layouts/auth_layout.dart';
+import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/router/redirect_logic.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import '../../features/guest_home/presentation/screens/explore_screen.dart';
@@ -97,7 +99,7 @@ class AppRouter {
           ],
         ),
 
-        // App layout (guest/customer/staff) — nested ShellRoute with dynamic bottom nav
+        // App layout (guest/customer/staff) - nested ShellRoute with dynamic bottom nav
         ShellRoute(
           builder: (context, state, child) {
             final selectedIndex =
@@ -144,14 +146,22 @@ class AppRouter {
                 name: 'hotelDetail',
                 builder: (c, s) {
                   final hotelId = s.pathParameters['hotelId'] ?? '';
-                  final checkIn =
-                      DateTime.tryParse(s.uri.queryParameters['checkIn'] ?? '');
-                  final checkOut = DateTime.tryParse(
+                  final firstNight = DateTime.tryParse(
+                      s.uri.queryParameters['firstNight'] ??
+                          s.uri.queryParameters['checkIn'] ??
+                          '');
+                  final explicitLastNight = DateTime.tryParse(
+                      s.uri.queryParameters['lastNight'] ?? '');
+                  final legacyCheckOut = DateTime.tryParse(
                       s.uri.queryParameters['checkOut'] ?? '');
+                  final lastNight = explicitLastNight ??
+                      (legacyCheckOut == null
+                          ? null
+                          : toLastNight(legacyCheckOut));
                   return HotelDetailScreen(
                     hotelId: hotelId,
-                    initialCheckIn: checkIn,
-                    initialCheckOut: checkOut,
+                    initialFirstNight: firstNight,
+                    initialLastNight: lastNight,
                   );
                 }),
             GoRoute(
@@ -326,6 +336,14 @@ class AppRouter {
               builder: (c, s) {
                 trackManagerScreen('notifications');
                 return const ManagerNotificationsScreen();
+              },
+            ),
+            GoRoute(
+              path: RouteNames.managerKyc,
+              name: 'managerKyc',
+              builder: (c, s) {
+                trackManagerScreen('managerKyc');
+                return const ManagerKycScreen();
               },
             ),
             GoRoute(
