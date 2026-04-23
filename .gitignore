@@ -46,6 +46,11 @@ app.*.map.json
 
 # npx-cache related
 .npx-cache/
+.npx-cache-fix
+.npx-cache-fix-*
+
+# omx related
+.omx/
 
 # Environment and secrets
 .env
