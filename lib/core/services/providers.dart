@@ -10,7 +10,7 @@ final userServiceProvider = Provider<UserService>((ref) => UserService());
 final analyticsServiceProvider =
     Provider<AnalyticsService>((ref) => AnalyticsService());
 
-final authNotifierProvider = Provider<AuthNotifier>((ref) {
+final authNotifierProvider = ChangeNotifierProvider<AuthNotifier>((ref) {
   final auth = ref.read(authServiceProvider);
   final userSvc = ref.read(userServiceProvider);
   final notifier = AuthNotifier(auth, userSvc);

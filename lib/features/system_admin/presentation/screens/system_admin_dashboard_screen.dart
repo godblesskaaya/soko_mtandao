@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 
 class SystemAdminDashboardScreen extends StatefulWidget {
   const SystemAdminDashboardScreen({super.key});
@@ -33,6 +34,13 @@ class _SystemAdminDashboardScreenState
           .from('kyc_profiles')
           .select('user_id,legal_name,status,submitted_at,updated_at')
           .inFilter('status', ['submitted', 'pending', 'rejected', 'suspended'])
+          .order('updated_at', ascending: false)
+          .limit(40);
+
+      final managerApplications = await _client
+          .from('operator_applications')
+          .select(
+              'id,user_id,status,submitted_at,updated_at,review_notes,application_payload')
           .order('updated_at', ascending: false)
           .limit(40);
 
@@ -73,6 +81,7 @@ class _SystemAdminDashboardScreenState
 
       _snapshot = {
         'kyc': kycQueue,
+        'managerApplications': managerApplications,
         'freezes': freezes,
         'disputes': disputes,
         'refunds': refundsSla,
@@ -88,6 +97,16 @@ class _SystemAdminDashboardScreenState
       'p_user_id': userId,
       'p_status': status,
       'p_notes': 'Set from admin dashboard',
+    });
+    await _load();
+  }
+
+  Future<void> _setManagerApplicationStatus(
+      String applicationId, String status) async {
+    await _client.rpc('review_manager_application', params: {
+      'p_application_id': applicationId,
+      'p_status': status,
+      'p_review_notes': 'Updated from admin dashboard',
     });
     await _load();
   }
@@ -158,6 +177,9 @@ class _SystemAdminDashboardScreenState
   @override
   Widget build(BuildContext context) {
     final kyc = List<Map<String, dynamic>>.from(_snapshot['kyc'] ?? const []);
+    final managerApplications = List<Map<String, dynamic>>.from(
+      _snapshot['managerApplications'] ?? const [],
+    );
     final freezes =
         List<Map<String, dynamic>>.from(_snapshot['freezes'] ?? const []);
     final disputes =
@@ -165,12 +187,14 @@ class _SystemAdminDashboardScreenState
     final refunds =
         List<Map<String, dynamic>>.from(_snapshot['refunds'] ?? const []);
     final investigations = List<Map<String, dynamic>>.from(
-        _snapshot['investigations'] ?? const []);
+      _snapshot['investigations'] ?? const [],
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('System Admin Dashboard'),
         actions: [
+          const PersonaSwitcherButton(),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _isLoading ? null : () => _runAction(_load),
@@ -189,6 +213,10 @@ class _SystemAdminDashboardScreenState
                     runSpacing: 8,
                     children: [
                       Chip(label: Text('KYC Queue: ${kyc.length}')),
+                      Chip(
+                        label: Text(
+                            'Manager Apps: ${managerApplications.length}'),
+                      ),
                       Chip(label: Text('Frozen: ${freezes.length}')),
                       Chip(label: Text('Disputes: ${disputes.length}')),
                       Chip(
@@ -304,6 +332,66 @@ class _SystemAdminDashboardScreenState
                                     onPressed: () => _runAction(() =>
                                         _setKycStatus(userId, 'suspended')),
                                     child: const Text('Suspend'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  _sectionTitle('Manager Applications'),
+                  if (managerApplications.isEmpty)
+                    const Text('No manager applications pending review.')
+                  else
+                    ...managerApplications.map((row) {
+                      final applicationId = row['id']?.toString() ?? '';
+                      final status = row['status']?.toString() ?? '-';
+                      final rawPayload = row['application_payload'];
+                      final payload = rawPayload is Map
+                          ? Map<String, dynamic>.from(
+                              rawPayload,
+                            )
+                          : const <String, dynamic>{};
+                      final hotelName =
+                          (payload['name'] ?? 'Unnamed hotel').toString();
+                      final hotelCity = (payload['city'] ?? '-').toString();
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('$hotelName - $hotelCity'),
+                              const SizedBox(height: 4),
+                              Text('Applicant: ${row['user_id'] ?? '-'}'),
+                              Text('Status: $status'),
+                              if ((row['review_notes'] ?? '')
+                                  .toString()
+                                  .isNotEmpty)
+                                Text('Notes: ${row['review_notes']}'),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: () => _runAction(() =>
+                                        _setManagerApplicationStatus(
+                                            applicationId, 'under_review')),
+                                    child: const Text('Mark Under Review'),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () => _runAction(() =>
+                                        _setManagerApplicationStatus(
+                                            applicationId, 'approved')),
+                                    child: const Text('Approve'),
+                                  ),
+                                  OutlinedButton(
+                                    onPressed: () => _runAction(() =>
+                                        _setManagerApplicationStatus(
+                                            applicationId, 'rejected')),
+                                    child: const Text('Reject'),
                                   ),
                                 ],
                               ),

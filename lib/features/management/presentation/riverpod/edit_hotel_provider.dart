@@ -47,6 +47,11 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
     required String city,
     required String phoneNumber,
     required String email,
+    String? checkInFrom,
+    String? checkInUntil,
+    String? checkOutUntil,
+    required List<String> stayRules,
+    required List<String> checkInRequirements,
     String? website,
   }) async {
     try {
@@ -85,6 +90,11 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
         "city": city,
         "phone_number": phoneNumber,
         "email": email,
+        "check_in_from": checkInFrom,
+        "check_in_until": checkInUntil,
+        "check_out_until": checkOutUntil,
+        "stay_rules": stayRules,
+        "check_in_requirements": checkInRequirements,
         "website": website,
       }).eq('id', hotelId);
 

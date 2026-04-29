@@ -81,11 +81,21 @@ final navItems = <NavItem>[
       icon: Icons.bookmarks,
       routeName: 'hotelBookings',
       visibleTo: [UserRole.hotelAdmin]),
+  NavItem(
+      label: 'Profile',
+      icon: Icons.person,
+      routeName: 'profile',
+      visibleTo: [UserRole.hotelAdmin]),
 
   // System Admin
   NavItem(
       label: 'Admin',
       icon: Icons.admin_panel_settings,
       routeName: 'systemAdmin',
+      visibleTo: [UserRole.systemAdmin]),
+  NavItem(
+      label: 'Profile',
+      icon: Icons.person,
+      routeName: 'profile',
       visibleTo: [UserRole.systemAdmin]),
 ];

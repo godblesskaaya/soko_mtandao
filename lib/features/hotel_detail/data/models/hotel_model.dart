@@ -14,6 +14,11 @@ class HotelModel extends Hotel {
     required super.rating,
     required super.images,
     required super.amenities,
+    super.checkInFrom,
+    super.checkInUntil,
+    super.checkOutUntil,
+    super.stayRules,
+    super.checkInRequirements,
   });
   // factory constructor to create a HotelModel from hotel entity
   factory HotelModel.fromEntity(Hotel hotel) {
@@ -25,6 +30,11 @@ class HotelModel extends Hotel {
       rating: hotel.rating,
       images: hotel.images,
       amenities: hotel.amenities,
+      checkInFrom: hotel.checkInFrom,
+      checkInUntil: hotel.checkInUntil,
+      checkOutUntil: hotel.checkOutUntil,
+      stayRules: hotel.stayRules,
+      checkInRequirements: hotel.checkInRequirements,
     );
   }
 
@@ -42,6 +52,34 @@ class HotelModel extends Hotel {
       parsedImages =
           (rawImages as List?)?.map((e) => e.toString()).toList() ?? [];
     }
+    List<String> parseStringList(dynamic raw) {
+      if (raw == null) return const <String>[];
+      if (raw is List) {
+        return raw
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false);
+      }
+      if (raw is String) {
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) return const <String>[];
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is List) {
+            return decoded
+                .map((item) => item.toString().trim())
+                .where((item) => item.isNotEmpty)
+                .toList(growable: false);
+          }
+        } catch (_) {}
+        return trimmed
+            .split('\n')
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false);
+      }
+      return const <String>[];
+    }
 
     return HotelModel(
       id: json['id'],
@@ -50,6 +88,17 @@ class HotelModel extends Hotel {
       address: json['address'] ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       images: parsedImages,
+      checkInFrom: (json['check_in_from'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['check_in_from']).toString().trim(),
+      checkInUntil: (json['check_in_until'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['check_in_until']).toString().trim(),
+      checkOutUntil: (json['check_out_until'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['check_out_until']).toString().trim(),
+      stayRules: parseStringList(json['stay_rules']),
+      checkInRequirements: parseStringList(json['check_in_requirements']),
       amenities: amenityRows
           .whereType<Map>()
           .map((row) => AmenityModel.fromJson(
@@ -67,6 +116,11 @@ class HotelModel extends Hotel {
       'address': address,
       'rating': rating,
       'images': images,
+      'check_in_from': checkInFrom,
+      'check_in_until': checkInUntil,
+      'check_out_until': checkOutUntil,
+      'stay_rules': stayRules,
+      'check_in_requirements': checkInRequirements,
       'amenities': amenities
           .map((a) => {
                 'id': a.id,

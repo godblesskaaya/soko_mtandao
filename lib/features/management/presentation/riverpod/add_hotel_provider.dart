@@ -41,6 +41,11 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
     required String city,
     required String phoneNumber,
     required String email,
+    String? checkInFrom,
+    String? checkInUntil,
+    String? checkOutUntil,
+    required List<String> stayRules,
+    required List<String> checkInRequirements,
     String? website,
   }) async {
     try {
@@ -78,6 +83,11 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
             "city": city,
             "phone_number": phoneNumber,
             "email": email,
+            "check_in_from": checkInFrom,
+            "check_in_until": checkInUntil,
+            "check_out_until": checkOutUntil,
+            "stay_rules": stayRules,
+            "check_in_requirements": checkInRequirements,
             "website": website,
             "manager_user_id": _supabase.auth.currentUser?.id,
           })
@@ -100,6 +110,11 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
         phoneNumber: phoneNumber,
         email: email,
         website: website,
+        checkInFrom: checkInFrom,
+        checkInUntil: checkInUntil,
+        checkOutUntil: checkOutUntil,
+        stayRules: stayRules,
+        checkInRequirements: checkInRequirements,
       );
 
       for (final amenity in amenities) {

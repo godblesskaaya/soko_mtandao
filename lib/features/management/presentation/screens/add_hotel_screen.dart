@@ -38,6 +38,11 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _websiteController = TextEditingController();
+  final _checkInFromController = TextEditingController();
+  final _checkInUntilController = TextEditingController();
+  final _checkOutUntilController = TextEditingController();
+  final _stayRulesController = TextEditingController();
+  final _checkInRequirementsController = TextEditingController();
   final _roomsController = TextEditingController(text: "0");
 
   // State
@@ -63,6 +68,11 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
       _phoneController,
       _emailController,
       _websiteController,
+      _checkInFromController,
+      _checkInUntilController,
+      _checkOutUntilController,
+      _stayRulesController,
+      _checkInRequirementsController,
     ]) {
       c.dispose();
     }
@@ -83,6 +93,12 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
     _phoneController.text = hotel.phoneNumber ?? '';
     _emailController.text = hotel.email ?? '';
     _websiteController.text = hotel.website ?? '';
+    _checkInFromController.text = hotel.checkInFrom ?? '';
+    _checkInUntilController.text = hotel.checkInUntil ?? '';
+    _checkOutUntilController.text = hotel.checkOutUntil ?? '';
+    _stayRulesController.text = _formatMultilineList(hotel.stayRules);
+    _checkInRequirementsController.text =
+        _formatMultilineList(hotel.checkInRequirements);
 
     images = hotel.images
         .map<EditableImage>((url) => EditableImage.remote(url))
@@ -126,6 +142,12 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
             city: _cityController.text,
             phoneNumber: _phoneController.text,
             email: _emailController.text,
+            checkInFrom: _nullableText(_checkInFromController.text),
+            checkInUntil: _nullableText(_checkInUntilController.text),
+            checkOutUntil: _nullableText(_checkOutUntilController.text),
+            stayRules: _parseMultilineList(_stayRulesController.text),
+            checkInRequirements:
+                _parseMultilineList(_checkInRequirementsController.text),
             website: _websiteController.text.isNotEmpty
                 ? _websiteController.text
                 : null,
@@ -148,6 +170,12 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
             city: _cityController.text,
             phoneNumber: _phoneController.text,
             email: _emailController.text,
+            checkInFrom: _nullableText(_checkInFromController.text),
+            checkInUntil: _nullableText(_checkInUntilController.text),
+            checkOutUntil: _nullableText(_checkOutUntilController.text),
+            stayRules: _parseMultilineList(_stayRulesController.text),
+            checkInRequirements:
+                _parseMultilineList(_checkInRequirementsController.text),
             website: _websiteController.text.isNotEmpty
                 ? _websiteController.text
                 : null,
@@ -237,6 +265,28 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                   _buildTextField("Address", _addressController),
                   _buildTextField("Description", _descriptionController,
                       maxLines: 3),
+                  _buildTextField("Check-in from", _checkInFromController,
+                      validator: (_) => null),
+                  _buildTextField("Check-in until", _checkInUntilController,
+                      validator: (_) => null),
+                  _buildTextField("Check-out until", _checkOutUntilController,
+                      validator: (_) => null),
+                  _buildTextField("Stay Rules", _stayRulesController,
+                      maxLines: 4, validator: (_) => null),
+                  _buildHelperText(
+                    context,
+                    'Add one rule per line, for example: No smoking, No outside guests, Quiet hours after 10 PM.',
+                  ),
+                  _buildTextField(
+                    "Check-in Requirements",
+                    _checkInRequirementsController,
+                    maxLines: 4,
+                    validator: (_) => null,
+                  ),
+                  _buildHelperText(
+                    context,
+                    'Add one requirement per line, for example: Government-issued ID required, Confirm arrival time, Lead guest must be present.',
+                  ),
 
                   // ---- LOCATION PICKER ----
                   Padding(
@@ -456,5 +506,36 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildHelperText(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text,
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: Colors.black54),
+        ),
+      ),
+    );
+  }
+
+  List<String> _parseMultilineList(String raw) {
+    return raw
+        .split('\n')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  String _formatMultilineList(List<String> items) => items.join('\n');
+
+  String? _nullableText(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }

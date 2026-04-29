@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
+import 'package:soko_mtandao/router/route_names.dart';
+import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
 import 'package:soko_mtandao/widgets/app_section_header.dart';
 
@@ -19,6 +21,7 @@ class ManagerSettingsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Hotel Management Settings'),
         centerTitle: true,
+        actions: const [PersonaSwitcherButton()],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -51,6 +54,11 @@ class ManagerSettingsScreen extends ConsumerWidget {
               onTap: () => context.pushNamed('managerKyc'),
             ),
             _buildSettingItem(
+              icon: Icons.groups_outlined,
+              title: "Team Access",
+              onTap: () => context.pushNamed('managerTeam'),
+            ),
+            _buildSettingItem(
               icon: Icons.description_outlined,
               title: "Privacy Policy",
               onTap: () {
@@ -65,6 +73,11 @@ class ManagerSettingsScreen extends ConsumerWidget {
                   ),
                 );
               },
+            ),
+            _buildSettingItem(
+              icon: Icons.gavel_outlined,
+              title: "Terms & Conditions",
+              onTap: () => context.push(RouteNames.termsAndConditions),
             ),
             _buildSettingItem(
               icon: Icons.delete_outline,

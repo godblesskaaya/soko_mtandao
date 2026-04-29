@@ -23,3 +23,33 @@ UserRole roleFromString(String role) {
       return UserRole.guest;
   }
 }
+
+String roleToStorageString(UserRole role) {
+  switch (role) {
+    case UserRole.customer:
+      return 'customer';
+    case UserRole.staff:
+      return 'staff';
+    case UserRole.hotelAdmin:
+      return 'hotel_admin';
+    case UserRole.systemAdmin:
+      return 'system_admin';
+    case UserRole.guest:
+      return 'guest';
+  }
+}
+
+String roleLabel(UserRole role) {
+  switch (role) {
+    case UserRole.customer:
+      return 'Customer';
+    case UserRole.staff:
+      return 'Staff';
+    case UserRole.hotelAdmin:
+      return 'Hotel Admin';
+    case UserRole.systemAdmin:
+      return 'System Admin';
+    case UserRole.guest:
+      return 'Guest';
+  }
+}

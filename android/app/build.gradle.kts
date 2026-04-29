@@ -8,6 +8,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.mapbox.maps:android"))
+            .using(module("com.mapbox.maps:android-ndk27:11.14.0"))
+            .because("Mapbox default Android artifacts do not support 16 KB page sizes")
+    }
+}
+
 // 1. Load keystore properties using Kotlin syntax
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")

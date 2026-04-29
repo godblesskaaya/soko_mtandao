@@ -19,6 +19,11 @@ class ManagerHotelModel extends ManagerHotel {
     required String phoneNumber,
     required String email,
     String? website,
+    String? checkInFrom,
+    String? checkInUntil,
+    String? checkOutUntil,
+    List<String> stayRules = const [],
+    List<String> checkInRequirements = const [],
     required double lat,
     required double lng,
     int? totalRooms,
@@ -39,6 +44,11 @@ class ManagerHotelModel extends ManagerHotel {
           phoneNumber: phoneNumber,
           email: email,
           website: website,
+          checkInFrom: checkInFrom,
+          checkInUntil: checkInUntil,
+          checkOutUntil: checkOutUntil,
+          stayRules: stayRules,
+          checkInRequirements: checkInRequirements,
         );
 
   factory ManagerHotelModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +64,34 @@ class ManagerHotelModel extends ManagerHotel {
     } else {
       parsedImages =
           (rawImages as List?)?.map((image) => image.toString()).toList() ?? [];
+    }
+    List<String> parseStringList(dynamic raw) {
+      if (raw == null) return const <String>[];
+      if (raw is List) {
+        return raw
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false);
+      }
+      if (raw is String) {
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) return const <String>[];
+        try {
+          final decoded = jsonDecode(trimmed);
+          if (decoded is List) {
+            return decoded
+                .map((item) => item.toString().trim())
+                .where((item) => item.isNotEmpty)
+                .toList(growable: false);
+          }
+        } catch (_) {}
+        return trimmed
+            .split('\n')
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false);
+      }
+      return const <String>[];
     }
 
     return ManagerHotelModel(
@@ -72,6 +110,17 @@ class ManagerHotelModel extends ManagerHotel {
       totalRooms: json['total_rooms'],
       images: parsedImages,
       description: json['description'] ?? '',
+      checkInFrom: (json['check_in_from'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['check_in_from']).toString().trim(),
+      checkInUntil: (json['check_in_until'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['check_in_until']).toString().trim(),
+      checkOutUntil: (json['check_out_until'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['check_out_until']).toString().trim(),
+      stayRules: parseStringList(json['stay_rules']),
+      checkInRequirements: parseStringList(json['check_in_requirements']),
       amenities: amenityRows
           .whereType<Map>()
           .map((row) => AmenityModel.fromJson(
@@ -98,6 +147,11 @@ class ManagerHotelModel extends ManagerHotel {
       phoneNumber: entity.phoneNumber,
       email: entity.email,
       website: entity.website,
+      checkInFrom: entity.checkInFrom,
+      checkInUntil: entity.checkInUntil,
+      checkOutUntil: entity.checkOutUntil,
+      stayRules: entity.stayRules,
+      checkInRequirements: entity.checkInRequirements,
     );
   }
 
@@ -113,6 +167,11 @@ class ManagerHotelModel extends ManagerHotel {
       'phoneNumber': phoneNumber,
       'email': email,
       'website': website,
+      'check_in_from': checkInFrom,
+      'check_in_until': checkInUntil,
+      'check_out_until': checkOutUntil,
+      'stay_rules': stayRules,
+      'check_in_requirements': checkInRequirements,
       'lat': lat,
       'lng': lng,
       'totalRooms': totalRooms,

@@ -1,13 +1,12 @@
-// Central redirect logic used by router.
-
 import '../core/constants/roles.dart';
+import '../core/models/access_profile.dart';
 import 'route_names.dart';
 
 String? globalRedirect(
   Uri location, {
   required bool isLoggedIn,
   required UserRole? role,
-  required bool hasRedirectedAfterLogin,
+  required AccessProfile accessProfile,
   required bool isInPasswordRecovery,
 }) {
   final path = location.path;
@@ -17,7 +16,6 @@ String? globalRedirect(
     return path == staticPrefix || path.startsWith('$staticPrefix/');
   }
 
-  // Allow reset page only during recovery mode.
   if (isInPasswordRecovery && path == RouteNames.resetPassword) {
     return null;
   }
@@ -44,28 +42,109 @@ String? globalRedirect(
     return isPublicRoute ? null : RouteNames.login;
   }
 
-  // Logged-in users should not remain on auth pages.
-  if (path == RouteNames.login ||
+  final isAuthPage = path == RouteNames.login ||
       path == RouteNames.signup ||
-      path == RouteNames.forgotPassword) {
-    if (role == UserRole.systemAdmin) return RouteNames.systemAdminHome;
-    if (role == UserRole.hotelAdmin) return RouteNames.hotelAdminHome;
-    if (role == UserRole.staff) return RouteNames.staffHome;
-    return RouteNames.guestHome;
+      path == RouteNames.forgotPassword;
+  if (isAuthPage) {
+    return accessProfile.needsInitialPathSelection ||
+            (accessProfile.hasActiveOperatorOnboarding &&
+                accessProfile.activePersona == UserRole.customer)
+        ? RouteNames.onboardingHub
+        : _homeForAccess(accessProfile);
   }
 
-  // First role redirect after login.
-  if (isLoggedIn && role == UserRole.hotelAdmin && !hasRedirectedAfterLogin) {
-    return RouteNames.hotelAdminHome;
+  if (path == RouteNames.splash) {
+    return _homeForAccess(accessProfile);
   }
 
-  // Role-gated admin areas.
-  if (path.startsWith('/hotel-admin') && role != UserRole.hotelAdmin) {
-    return RouteNames.guestHome;
+  final onboardingPaths = {
+    RouteNames.onboardingHub,
+    RouteNames.managerOnboarding,
+    RouteNames.staffOnboarding,
+    RouteNames.pendingAccess,
+    RouteNames.requestHotelAssociation,
+  };
+
+  if (path == RouteNames.onboardingHub &&
+      !accessProfile.needsInitialPathSelection &&
+      !accessProfile.hasActiveOperatorOnboarding) {
+    return _homeForAccess(accessProfile);
   }
+
+  if ((path == RouteNames.managerOnboarding ||
+          path == RouteNames.staffOnboarding ||
+          path == RouteNames.pendingAccess ||
+          path == RouteNames.requestHotelAssociation) &&
+      accessProfile.selectedPath == null &&
+      !accessProfile.needsInitialPathSelection) {
+    return RouteNames.onboardingHub;
+  }
+
+  final isHotelAdminRoute = path.startsWith('/hotel-admin') ||
+      matches(RouteNames.managerHotel) ||
+      matches(RouteNames.hotelList) ||
+      path == RouteNames.addHotel ||
+      matches(RouteNames.offerings) ||
+      matches(RouteNames.addOfferings) ||
+      matches(RouteNames.rooms) ||
+      matches(RouteNames.addRooms) ||
+      matches(RouteNames.editHotel) ||
+      matches(RouteNames.editRoom) ||
+      matches(RouteNames.editOffering) ||
+      matches(RouteNames.roomDetails) ||
+      matches(RouteNames.roomBookings) ||
+      matches(RouteNames.hotelBookings) ||
+      matches(RouteNames.managerPayments) ||
+      path == RouteNames.settings ||
+      path == RouteNames.managerNotifications ||
+      matches(RouteNames.managerBookingDetail) ||
+      path == RouteNames.managerTeam;
+
+  if (isHotelAdminRoute &&
+      !(accessProfile.canUseHotelAdminPersona &&
+          role == UserRole.hotelAdmin)) {
+    return accessProfile.hasActiveOperatorOnboarding
+        ? RouteNames.pendingAccess
+        : RouteNames.guestHome;
+  }
+
   if (path.startsWith('/system-admin') && role != UserRole.systemAdmin) {
     return RouteNames.guestHome;
   }
 
+  if (path.startsWith('/staff/') &&
+      path != RouteNames.staffOnboarding &&
+      path != RouteNames.requestHotelAssociation &&
+      !(accessProfile.canUseStaffPersona && role == UserRole.staff)) {
+    return accessProfile.hasActiveOperatorOnboarding
+        ? RouteNames.pendingAccess
+        : RouteNames.guestHome;
+  }
+
+  if (onboardingPaths.contains(path)) {
+    return null;
+  }
+
   return null;
+}
+
+String _homeForAccess(AccessProfile accessProfile) {
+  switch (accessProfile.activePersona) {
+    case UserRole.staff:
+      return accessProfile.canUseStaffPersona
+          ? RouteNames.staffHome
+          : RouteNames.pendingAccess;
+    case UserRole.hotelAdmin:
+      return accessProfile.canUseHotelAdminPersona
+          ? RouteNames.hotelAdminHome
+          : RouteNames.pendingAccess;
+    case UserRole.systemAdmin:
+      return RouteNames.systemAdminHome;
+    case UserRole.customer:
+    case UserRole.guest:
+      return accessProfile.needsInitialPathSelection ||
+              accessProfile.hasActiveOperatorOnboarding
+          ? RouteNames.onboardingHub
+          : RouteNames.guestHome;
+  }
 }

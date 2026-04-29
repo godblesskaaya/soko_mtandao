@@ -133,9 +133,11 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  Future<void> changeStaffRole(String staffId, String role) {
-    // TODO: implement changeStaffRole
-    throw UnimplementedError();
+  Future<void> changeStaffRole(String staffId, String role) async {
+    await _supabase
+        .from('staff')
+        .update({'role': role.trim()})
+        .eq('id', staffId);
   }
 
   @override
@@ -316,9 +318,25 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  Future<List<StaffMember>> fetchStaff(String hotelId) {
-    // TODO: implement fetchStaff
-    throw UnimplementedError();
+  Future<List<StaffMember>> fetchStaff(String hotelId) async {
+    final response = await _supabase
+        .from('staff')
+        .select('id,name,email,phone,role,is_active')
+        .eq('hotel_id', hotelId)
+        .order('created_at', ascending: false);
+    final rows = _castRows(response);
+    return rows
+        .map(
+          (row) => StaffMember(
+            id: (row['id'] ?? '').toString(),
+            name: (row['name'] ?? '').toString(),
+            email: (row['email'] ?? '').toString(),
+            phone: (row['phone'] ?? '').toString(),
+            role: (row['role'] ?? '').toString(),
+            isActive: row['is_active'] != false,
+          ),
+        )
+        .toList(growable: false);
   }
 
   @override
@@ -343,9 +361,12 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  Future<void> inviteStaff(String hotelId, String email, String role) {
-    // TODO: implement inviteStaff
-    throw UnimplementedError();
+  Future<void> inviteStaff(String hotelId, String email, String role) async {
+    await _supabase.rpc('create_staff_invite', params: {
+      'p_hotel_id': hotelId,
+      'p_email': email.trim(),
+      'p_staff_title': role.trim(),
+    });
   }
 
   @override

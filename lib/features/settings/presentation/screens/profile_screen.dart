@@ -5,8 +5,10 @@ import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/constants/roles.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
-import 'package:soko_mtandao/widgets/app_web_view.dart';
+import 'package:soko_mtandao/router/route_names.dart';
 import 'package:soko_mtandao/widgets/app_section_header.dart';
+import 'package:soko_mtandao/widgets/app_web_view.dart';
+import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -18,14 +20,16 @@ class ProfileScreen extends ConsumerWidget {
     final authNotifier = ref.watch(authNotifierProvider);
     final authService = ref.watch(authServiceProvider);
     final user = authService.currentUser;
-    final role = authNotifier.role;
+    final profile = authNotifier.accessProfile;
 
     final fullName = _resolveDisplayName(user?.userMetadata);
     final email = user?.email ?? '';
-    final roleLabel = _roleLabel(role);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: const [PersonaSwitcherButton()],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -60,7 +64,8 @@ class ProfileScreen extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Text(email),
                         const SizedBox(height: 4),
-                        Text('Role: $roleLabel'),
+                        Text(
+                            'Active persona: ${roleLabel(profile.activePersona)}'),
                       ],
                     ),
                   ),
@@ -68,6 +73,90 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Account access',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: profile.availablePersonas
+                        .map(
+                          (persona) => Chip(
+                            avatar: Icon(
+                              persona == profile.activePersona
+                                  ? Icons.check_circle
+                                  : Icons.person_outline,
+                              size: 16,
+                            ),
+                            label: Text(roleLabel(persona)),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(profile.onboardingSummary),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (profile.selectedPath == 'manage_hotel' ||
+              profile.selectedPath == 'join_team')
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Operator onboarding',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Path: ${_pathLabel(profile.selectedPath)}'),
+                    Text('Onboarding status: ${profile.onboardingStatus}'),
+                    Text('Current step: ${profile.onboardingStep}'),
+                    if (profile.selectedPath == 'manage_hotel')
+                      Text(
+                          'Manager application: ${profile.managerApplicationStatus} | KYC: ${profile.kycStatus}'),
+                    if (profile.selectedPath == 'join_team')
+                      Text(
+                          'Staff association: ${profile.staffAssociationStatus}'),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () =>
+                              context.push(RouteNames.onboardingHub),
+                          icon: const Icon(Icons.alt_route_outlined),
+                          label: const Text('Change Path'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () => context.push(
+                            profile.selectedPath == 'manage_hotel'
+                                ? RouteNames.managerOnboarding
+                                : RouteNames.staffOnboarding,
+                          ),
+                          icon: const Icon(Icons.arrow_forward),
+                          label: const Text('Continue Onboarding'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 12),
           const AppSectionHeader(title: 'Security'),
           ListTile(
@@ -87,12 +176,30 @@ class ProfileScreen extends ConsumerWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => AppWebViewScreen(
-                    title: "Privacy Policy",
+                    title: 'Privacy Policy',
                     url: AppConfig.privacyPolicyUrl,
                   ),
                 ),
               );
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.gavel_outlined),
+            title: const Text('Terms & Conditions'),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => context.push(RouteNames.termsAndConditions),
+          ),
+          ListTile(
+            leading: const Icon(Icons.flag_outlined),
+            title: const Text('Onboarding Hub'),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => context.push(RouteNames.onboardingHub),
+          ),
+          ListTile(
+            leading: const Icon(Icons.pending_actions_outlined),
+            title: const Text('Pending Access Status'),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => context.push(RouteNames.pendingAccess),
           ),
           ListTile(
             leading: const Icon(Icons.delete_outline, color: Colors.red),
@@ -101,7 +208,10 @@ class ProfileScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => context.pushNamed(
               'deleteAccount',
-              pathParameters: {'isManager': 'false'},
+              pathParameters: {
+                'isManager':
+                    (profile.activePersona == UserRole.hotelAdmin).toString(),
+              },
             ),
           ),
           const SizedBox(height: 16),
@@ -133,18 +243,16 @@ class ProfileScreen extends ConsumerWidget {
     return '$firstName $lastName'.trim();
   }
 
-  String _roleLabel(UserRole role) {
-    switch (role) {
-      case UserRole.customer:
-        return 'Customer';
-      case UserRole.staff:
-        return 'Staff';
-      case UserRole.hotelAdmin:
-        return 'Hotel Admin';
-      case UserRole.systemAdmin:
-        return 'System Admin';
-      case UserRole.guest:
-        return 'Guest';
+  String _pathLabel(String? path) {
+    switch (path) {
+      case 'manage_hotel':
+        return 'Manage a hotel';
+      case 'join_team':
+        return 'Join a hotel team';
+      case 'customer':
+        return 'Book stays';
+      default:
+        return 'Not selected';
     }
   }
 }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/features/hotel_detail/domain/entities/hotel.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/hotel_policy_section.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
 
@@ -82,152 +84,181 @@ class _ManagerHotelDetailScreenState
               const Center(child: Text("Pull down to retry")),
             ],
           ),
-          data: (hotel) => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: [
-              /// 🖼️ Cover Image
-              if (hotel.images != null && hotel.images!.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    hotel.images!.first,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
+          data: (hotel) {
+            final policyHotel = Hotel(
+              id: hotel.id,
+              name: hotel.name,
+              description: hotel.description,
+              address: hotel.address,
+              rating: hotel.rating,
+              images: hotel.images,
+              amenities: hotel.amenities,
+              checkInFrom: hotel.checkInFrom,
+              checkInUntil: hotel.checkInUntil,
+              checkOutUntil: hotel.checkOutUntil,
+              stayRules: hotel.stayRules,
+              checkInRequirements: hotel.checkInRequirements,
+            );
 
-              const SizedBox(height: 16),
-
-              /// 🏨 Name & Location
-              Text(
-                hotel.name,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 18),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(hotel.address ?? "No address"),
-                  ),
-                ],
-              ),
-
-              Row(
-                children: [
-                  const Icon(Icons.map, size: 18),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      "${hotel.lat} ${hotel.lng}",
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              children: [
+                /// 🖼️ Cover Image
+                if (hotel.images.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      hotel.images.first,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
                   ),
+
+                const SizedBox(height: 16),
+
+                /// 🏨 Name & Location
+                Text(
+                  hotel.name,
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 18),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(hotel.address),
+                    ),
+                  ],
+                ),
+
+                Row(
+                  children: [
+                    const Icon(Icons.map, size: 18),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        "${hotel.lat} ${hotel.lng}",
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                if (hotel.email.isNotEmpty)
+                  Row(
+                    children: [
+                      const Icon(Icons.email, size: 18),
+                      const SizedBox(width: 4),
+                      Text(hotel.email),
+                    ],
+                  ),
+
+                if (hotel.phoneNumber.isNotEmpty)
+                  Row(
+                    children: [
+                      const Icon(Icons.phone, size: 18),
+                      const SizedBox(width: 4),
+                      Text(hotel.phoneNumber),
+                    ],
+                  ),
+
+                const Divider(height: 32),
+
+                /// 📝 Description
+                if (hotel.description.isNotEmpty)
+                  Text(
+                    hotel.description,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+
+                if (hotel.checkInFrom != null ||
+                    hotel.checkInUntil != null ||
+                    hotel.checkOutUntil != null ||
+                    hotel.stayRules.isNotEmpty ||
+                    hotel.checkInRequirements.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  HotelPolicySection(
+                    hotel: policyHotel,
+                    title: 'Guest-facing policies',
+                  ),
                 ],
-              ),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 20),
 
-              if (hotel.email != null)
-                Row(
-                  children: [
-                    const Icon(Icons.email, size: 18),
-                    const SizedBox(width: 4),
-                    Text(hotel.email!),
-                  ],
-                ),
+                /// 🛎️ Amenities
+                if (hotel.amenities.isNotEmpty) ...[
+                  Text(
+                    "Amenities",
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: hotel.amenities
+                        .map(
+                          (a) => Chip(
+                            avatar: const Icon(
+                              Icons.check_circle_outline,
+                              size: 16,
+                            ),
+                            label: Text(a.name),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 20),
+                ],
 
-              if (hotel.phoneNumber != null)
-                Row(
-                  children: [
-                    const Icon(Icons.phone, size: 18),
-                    const SizedBox(width: 4),
-                    Text(hotel.phoneNumber!),
-                  ],
-                ),
-
-              const Divider(height: 32),
-
-              /// 📝 Description
-              if (hotel.description != null)
+                /// ⚡ Manage Actions
                 Text(
-                  hotel.description!,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-
-              const SizedBox(height: 20),
-
-              /// 🛎️ Amenities
-              if (hotel.amenities.isNotEmpty) ...[
-                Text(
-                  "Amenities",
+                  "Manage",
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
+
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: hotel.amenities
-                      .map(
-                        (a) => Chip(
-                          avatar: const Icon(
-                            Icons.check_circle_outline,
-                            size: 16,
-                          ),
-                          label: Text(a.name),
-                        ),
-                      )
-                      .toList(),
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _buildActionButton("Offerings", Icons.add_box, () {
+                      context.pushNamed(
+                        "offerings",
+                        pathParameters: {"hotelId": widget.hotelId},
+                      );
+                    }),
+                    _buildActionButton("Rooms", Icons.add_home_work, () {
+                      context.pushNamed(
+                        "rooms",
+                        pathParameters: {"hotelId": widget.hotelId},
+                      );
+                    }),
+                    _buildActionButton("View Bookings", Icons.book_online, () {
+                      context.pushNamed(
+                        "hotelBookings",
+                        pathParameters: {"hotelId": widget.hotelId},
+                      );
+                    }),
+                    _buildActionButton("Payments", Icons.payments, () {
+                      context.pushNamed(
+                        "managerPayments",
+                        pathParameters: {"hotelId": widget.hotelId},
+                      );
+                    }),
+                  ],
                 ),
-                const SizedBox(height: 20),
               ],
-
-              /// ⚡ Manage Actions
-              Text(
-                "Manage",
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 12),
-
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: [
-                  _buildActionButton("Offerings", Icons.add_box, () {
-                    context.pushNamed(
-                      "offerings",
-                      pathParameters: {"hotelId": widget.hotelId},
-                    );
-                  }),
-                  _buildActionButton("Rooms", Icons.add_home_work, () {
-                    context.pushNamed(
-                      "rooms",
-                      pathParameters: {"hotelId": widget.hotelId},
-                    );
-                  }),
-                  _buildActionButton("View Bookings", Icons.book_online, () {
-                    context.pushNamed(
-                      "hotelBookings",
-                      pathParameters: {"hotelId": widget.hotelId},
-                    );
-                  }),
-                  _buildActionButton("Payments", Icons.payments, () {
-                    context.pushNamed(
-                      "managerPayments",
-                      pathParameters: {"hotelId": widget.hotelId},
-                    );
-                  }),
-                ],
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

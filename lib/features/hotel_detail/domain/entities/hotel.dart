@@ -9,6 +9,11 @@ class Hotel {
   final double rating;
   final List<String> images;
   final List<Amenity> amenities;
+  final String? checkInFrom;
+  final String? checkInUntil;
+  final String? checkOutUntil;
+  final List<String> stayRules;
+  final List<String> checkInRequirements;
 
   Hotel({
     required this.id,
@@ -18,5 +23,10 @@ class Hotel {
     required this.rating,
     required this.images,
     required this.amenities,
+    this.checkInFrom,
+    this.checkInUntil,
+    this.checkOutUntil,
+    this.stayRules = const [],
+    this.checkInRequirements = const [],
   });
 }

@@ -5,8 +5,13 @@ class RouteNames {
   static const signup = '/signup';
   static const forgotPassword = '/forgot-password';
   static const resetPassword = '/reset-password';
+  static const termsAndConditions = '/terms-and-conditions';
   static const hotelDetail = '/hotel/:hotelId';
   static const hotels = '/hotels';
+  static const onboardingHub = '/onboarding';
+  static const managerOnboarding = '/onboarding/manager';
+  static const staffOnboarding = '/onboarding/staff';
+  static const pendingAccess = '/onboarding/pending';
 
   // Staff
   static const staffHome = '/staff/home';
@@ -59,4 +64,5 @@ class RouteNames {
   static const editManagerProfile = '/manager/profile/edit';
   static const managerKyc = '/manager/kyc';
   static const managerBookingDetail = '/manager/bookings/:bookingId';
+  static const managerTeam = '/manager/team';
 }

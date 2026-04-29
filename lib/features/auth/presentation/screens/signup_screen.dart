@@ -24,7 +24,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
 
-  bool _acceptedPolicy = false;
+  bool _acceptedLegalTerms = false;
   bool _isLoading = false;
   final authService = AuthService();
 
@@ -41,11 +41,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 
+  Future<void> _openTermsAndConditions() async {
+    await context.push(RouteNames.termsAndConditions);
+  }
+
   void signup() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_acceptedPolicy) {
+    if (!_acceptedLegalTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept the Privacy Policy')),
+        const SnackBar(
+          content:
+              Text('Please accept the Terms & Conditions and Privacy Policy'),
+        ),
       );
       return;
     }
@@ -56,16 +63,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
         data: {
-          'role': 'customer',
           'firstName': firstNameController.text.trim(),
           'lastName': lastNameController.text.trim(),
         },
       );
+      if (!mounted) return;
       // show a success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signup successful! Taking you home.')),
+        const SnackBar(
+            content: Text(
+                'Signup successful! Let\'s finish setting up your account.')),
       );
-      if (mounted) context.go(RouteNames.splash);
+      context.go(RouteNames.splash);
     } catch (e) {
       ErrorReporter.report(e, StackTrace.current, source: 'ui.signup');
       if (mounted) {
@@ -136,15 +145,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
                           // 4. Privacy Policy Checkbox
                           CheckboxListTile(
-                            value: _acceptedPolicy,
+                            value: _acceptedLegalTerms,
                             onChanged: (val) =>
-                                setState(() => _acceptedPolicy = val!),
+                                setState(() => _acceptedLegalTerms = val!),
                             contentPadding: EdgeInsets.zero,
                             title: Text.rich(
                               TextSpan(
                                 text: "I agree to the ",
                                 style: const TextStyle(fontSize: 13),
                                 children: [
+                                  TextSpan(
+                                    text: "Terms & Conditions",
+                                    style: const TextStyle(
+                                        color: brandBlue,
+                                        fontWeight: FontWeight.bold),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = _openTermsAndConditions,
+                                  ),
+                                  const TextSpan(text: " and "),
                                   TextSpan(
                                     text: "Privacy Policy",
                                     style: const TextStyle(

@@ -1,5 +1,4 @@
 // hotel_detail_providers.dart
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/features/hotel_detail/data/datasources/hotel_mock_datasource.dart';
@@ -52,7 +51,7 @@ final getRoomAvailabilityUseCaseProvider = Provider((ref) {
 /// HOTEL DETAIL PROVIDER
 /// -------------------------
 final hotelDetailProvider =
-    FutureProvider.family<Hotel, String>((ref, hotelId) async {
+    FutureProvider.family.autoDispose<Hotel, String>((ref, hotelId) async {
   final usecase = ref.read(getHotelDetailUseCaseProvider);
   return await usecase(hotelId);
 });
@@ -60,8 +59,8 @@ final hotelDetailProvider =
 /// -------------------------
 /// HOTEL AMENITIES
 /// -------------------------
-final hotelAmenitiesProvider =
-    FutureProvider.family<List<Amenity>, String>((ref, hotelId) async {
+final hotelAmenitiesProvider = FutureProvider.family
+    .autoDispose<List<Amenity>, String>((ref, hotelId) async {
   final usecase = ref.read(getHotelDetailUseCaseProvider);
   return await usecase(hotelId).then((hotel) => hotel.amenities);
 });
@@ -69,8 +68,8 @@ final hotelAmenitiesProvider =
 /// -------------------------
 /// OFFERINGS (depends on hotel)
 /// -------------------------
-final offeringProvider =
-    FutureProvider.family<List<Offering>, String>((ref, hotelId) async {
+final offeringProvider = FutureProvider.family
+    .autoDispose<List<Offering>, String>((ref, hotelId) async {
   final usecase = ref.read(getHotelOfferingsUseCaseProvider);
   return await usecase(hotelId);
 });
@@ -78,8 +77,8 @@ final offeringProvider =
 /// -------------------------
 /// OFFERING AMENITIES
 /// -------------------------
-final offeringAmenitiesProvider =
-    FutureProvider.family<List<Amenity>, ({String hotelId, String offeringId})>(
+final offeringAmenitiesProvider = FutureProvider.family
+    .autoDispose<List<Amenity>, ({String hotelId, String offeringId})>(
         (ref, params) async {
   final offeringId = params.offeringId;
   final usecase = ref.read(getHotelOfferingsUseCaseProvider);
@@ -92,7 +91,7 @@ final offeringAmenitiesProvider =
 /// -------------------------
 /// ROOM AVAILABILITY (on-demand)
 /// -------------------------
-final roomAvailabilityProvider = FutureProvider.family<
+final roomAvailabilityProvider = FutureProvider.family.autoDispose<
     List<Room>,
     ({
       String hotelId,
@@ -150,7 +149,7 @@ class BookingCartNotifier extends StateNotifier<BookingCartState> {
           item: item,
         ),
       );
-    } on StateError catch (e) {
+    } on StateError {
       // Handle error if room already exists in booking
       rethrow;
     }

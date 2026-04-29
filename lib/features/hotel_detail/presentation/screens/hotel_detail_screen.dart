@@ -7,6 +7,7 @@ import 'package:soko_mtandao/core/utils/stay_dates.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/riverpod/hotel_detail_provider.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/booking_cart_modal.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/header_carousel.dart';
+import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/hotel_policy_section.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/widgets/offering_list.dart';
 
 class HotelDetailScreen extends ConsumerStatefulWidget {
@@ -235,6 +236,15 @@ class _HotelDetailScreenState extends ConsumerState<HotelDetailScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: Text(hotel.description),
                     ),
+                    if (hotel.checkInFrom != null ||
+                        hotel.checkInUntil != null ||
+                        hotel.checkOutUntil != null ||
+                        hotel.stayRules.isNotEmpty ||
+                        hotel.checkInRequirements.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: HotelPolicySection(hotel: hotel),
+                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                       child: Text(

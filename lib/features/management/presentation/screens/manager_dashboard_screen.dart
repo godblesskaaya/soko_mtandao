@@ -9,6 +9,7 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.d
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
+import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 import 'package:soko_mtandao/widgets/entity_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -106,6 +107,7 @@ class _ManagerDashboardScreenState
       appBar: AppBar(
         title: const Text("Hotel Manager Dashboard"),
         actions: [
+          const PersonaSwitcherButton(),
           IconButton(
             tooltip: 'Switch active hotel',
             icon: const Icon(Icons.domain_outlined),
@@ -334,6 +336,12 @@ class _ManagerDashboardScreenState
                   Icons.payments,
                   context,
                   "managerPayments",
+                ),
+                _buildActionButton(
+                  "Team",
+                  Icons.groups_outlined,
+                  context,
+                  "managerTeam",
                 ),
               ],
             ),

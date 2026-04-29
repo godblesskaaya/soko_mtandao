@@ -12,7 +12,17 @@ class EnvConfig {
 
   static const String supportEmail = String.fromEnvironment(
     'SUPPORT_EMAIL',
-    defaultValue: 'support@sokomtandao.co.tz',
+    defaultValue: 'sokomtandaocompany@gmail.com',
+  );
+
+  static const String supportPhone = String.fromEnvironment(
+    'SUPPORT_PHONE',
+    defaultValue: '+255 760 026 016',
+  );
+
+  static const String supportAddress = String.fromEnvironment(
+    'SUPPORT_ADDRESS',
+    defaultValue: 'Moivaro, near KKKT Church, Arusha 23120, Tanzania',
   );
 
   static const String privacyPolicyUrl = String.fromEnvironment(

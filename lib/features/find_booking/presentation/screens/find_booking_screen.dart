@@ -10,6 +10,7 @@ import 'package:soko_mtandao/features/booking/presentation/widgets/booking_detai
 import 'package:soko_mtandao/features/booking/presentation/widgets/booking_expiry_countdown.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 import '../riverpod/find_booking_provider.dart';
 
 class FindBookingScreen extends ConsumerStatefulWidget {
@@ -275,6 +276,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
       appBar: AppBar(
         title: Text(_searchId == null ? "My Bookings" : "Search Result"),
         actions: [
+          const PersonaSwitcherButton(),
           // Optional: A refresh button for the history list
           if (_searchId == null)
             IconButton(

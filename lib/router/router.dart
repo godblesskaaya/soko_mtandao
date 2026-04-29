@@ -14,6 +14,7 @@ import 'package:soko_mtandao/features/booking/presentation/screens/user_info_scr
 import 'package:soko_mtandao/features/find_booking/presentation/screens/find_booking_screen.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/screens/hotel_search_screen.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/screens/hotel_detail_screen.dart';
+import 'package:soko_mtandao/features/legal/presentation/screens/terms_and_conditions_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/add_hotel_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/add_offering_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/add_room_screen.dart';
@@ -28,9 +29,14 @@ import 'package:soko_mtandao/features/management/presentation/screens/manager_pa
 import 'package:soko_mtandao/features/management/presentation/screens/manager_profile_edit_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_room_details_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/manager_settings_screen.dart';
+import 'package:soko_mtandao/features/management/presentation/screens/manager_team_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/offering_management_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/room_management_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/room_occupancy_calendar_screen.dart';
+import 'package:soko_mtandao/features/onboarding/presentation/screens/manager_onboarding_screen.dart';
+import 'package:soko_mtandao/features/onboarding/presentation/screens/onboarding_hub_screen.dart';
+import 'package:soko_mtandao/features/onboarding/presentation/screens/pending_access_screen.dart';
+import 'package:soko_mtandao/features/onboarding/presentation/screens/staff_onboarding_screen.dart';
 import 'package:soko_mtandao/features/settings/presentation/screens/delete_account_screen.dart';
 import 'package:soko_mtandao/features/settings/presentation/screens/profile_screen.dart';
 import 'package:soko_mtandao/features/staff/presentation/screens/request_association_screen.dart';
@@ -75,6 +81,31 @@ class AppRouter {
               final isManager = isManagerStr.toLowerCase() == 'true';
               return DeleteAccountScreen(isManager: isManager);
             }),
+        GoRoute(
+          path: RouteNames.onboardingHub,
+          name: 'onboardingHub',
+          builder: (c, s) => const OnboardingHubScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.managerOnboarding,
+          name: 'managerOnboarding',
+          builder: (c, s) => const ManagerOnboardingScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.staffOnboarding,
+          name: 'staffOnboarding',
+          builder: (c, s) => const StaffOnboardingScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.pendingAccess,
+          name: 'pendingAccess',
+          builder: (c, s) => const PendingAccessScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.termsAndConditions,
+          name: 'termsAndConditions',
+          builder: (c, s) => const TermsAndConditionsScreen(),
+        ),
 
         // Auth layout
         ShellRoute(
@@ -104,7 +135,7 @@ class AppRouter {
           builder: (context, state, child) {
             final selectedIndex =
                 _computeIndex(state.uri.path, authNotifier.role);
-            return AppLayout(child: child, selectedIndex: selectedIndex);
+            return AppLayout(selectedIndex: selectedIndex, child: child);
           },
           routes: [
             GoRoute(
@@ -123,19 +154,6 @@ class AppRouter {
               path: RouteNames.profile,
               name: 'profile',
               builder: (c, s) => const ProfileScreen(),
-              redirect: (context, state) {
-                final authNotifier = ref.read(authNotifierProvider);
-                if (!authNotifier.isLoggedIn) {
-                  return RouteNames.login;
-                }
-                if (authNotifier.role == UserRole.systemAdmin) {
-                  return RouteNames.systemAdminHome;
-                }
-                if (authNotifier.role == UserRole.hotelAdmin) {
-                  return RouteNames.hotelAdminHome;
-                }
-                return null;
-              },
             ),
             GoRoute(
                 path: RouteNames.staffHome,
@@ -331,6 +349,11 @@ class AppRouter {
               },
             ),
             GoRoute(
+              path: RouteNames.managerTeam,
+              name: 'managerTeam',
+              builder: (c, s) => const ManagerTeamScreen(),
+            ),
+            GoRoute(
               path: RouteNames.managerNotifications,
               name: 'notifications',
               builder: (c, s) {
@@ -371,27 +394,14 @@ class AppRouter {
         // Get concrete auth & role state
         final isLoggedIn = authNotifier.isLoggedIn;
         final role = authNotifier.role;
+        final accessProfile = authNotifier.accessProfile;
         final isInPasswordRecovery = authNotifier.isInPasswordRecovery;
-        final staffAssoc = authNotifier.staffHasHotel;
-        final hasRedirectedAfterLogin = authNotifier.hasRedirectedAfterLogin;
 
         final redirect = globalRedirect(state.uri,
             isLoggedIn: isLoggedIn,
             role: role,
-            isInPasswordRecovery: isInPasswordRecovery,
-            hasRedirectedAfterLogin: hasRedirectedAfterLogin);
-
-        // Additional: staff without hotel trying to access staffHome -> take them to request page
-        if (isLoggedIn &&
-            role == UserRole.staff &&
-            !staffAssoc &&
-            state.uri.toString() == RouteNames.staffHome) {
-          return RouteNames.requestHotelAssociation;
-        }
-
-        if (redirect == RouteNames.hotelAdminHome) {
-          authNotifier.markRedirectDone();
-        }
+            accessProfile: accessProfile,
+            isInPasswordRecovery: isInPasswordRecovery);
         return redirect;
       },
       errorBuilder: (context, state) {
@@ -425,6 +435,7 @@ _computeIndex(String location, UserRole role) {
   }
   if (role == UserRole.systemAdmin) {
     if (location.startsWith(RouteNames.systemAdminHome)) return 0;
+    if (location.startsWith(RouteNames.profile)) return 1;
   }
 
   if (role == UserRole.hotelAdmin) {
@@ -440,6 +451,7 @@ _computeIndex(String location, UserRole role) {
     if (matchesPath(RouteNames.hotelBookings) ||
         matchesPath(RouteNames.managerPayments) ||
         matchesPath(RouteNames.managerBookingDetail)) return 4;
+    if (location.startsWith(RouteNames.profile)) return 5;
   }
   return 0;
 }

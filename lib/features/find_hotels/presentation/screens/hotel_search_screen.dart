@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/utils/stay_dates.dart';
+import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/filter_sheet.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/hotel_list.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/widgets/search_bar.dart';
@@ -20,6 +21,7 @@ class HotelSearchScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text("Find Hotels"),
         actions: [
+          const PersonaSwitcherButton(),
           IconButton(
             icon: const Icon(Icons.sort),
             onPressed: () => showModalBottomSheet(

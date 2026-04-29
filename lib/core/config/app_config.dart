@@ -21,4 +21,6 @@ class AppConfig {
 
   static String get privacyPolicyUrl => EnvConfig.privacyPolicyUrl;
   static String get supportEmail => EnvConfig.supportEmail;
+  static String get supportPhone => EnvConfig.supportPhone;
+  static String get supportAddress => EnvConfig.supportAddress;
 }

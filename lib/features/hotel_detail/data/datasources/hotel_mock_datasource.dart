@@ -39,6 +39,17 @@ class HotelMockDataSource implements HotelDetailDataSource {
           Amenity(id: "a3", name: "Gym", icon: "fitness_center"),
           Amenity(id: "a4", name: "Restaurant", icon: "restaurant"),
         ],
+        checkInFrom: "14:00",
+        checkInUntil: "22:00",
+        checkOutUntil: "11:00",
+        stayRules: const [
+          "No smoking inside rooms.",
+          "Pets are not allowed.",
+        ],
+        checkInRequirements: const [
+          "Government-issued ID required at check-in.",
+          "Lead guest must be present on arrival.",
+        ],
       ),
       HotelModel(
         id: "h2",
@@ -54,6 +65,11 @@ class HotelMockDataSource implements HotelDetailDataSource {
           Amenity(id: "a1", name: "Free WiFi", icon: "wifi"),
           Amenity(id: "a2", name: "Swimming Pool", icon: "pool"),
         ],
+        checkInFrom: "12:00",
+        checkInUntil: "20:00",
+        checkOutUntil: "10:00",
+        stayRules: const ["Quiet hours begin at 22:00."],
+        checkInRequirements: const ["Photo ID may be requested on arrival."],
       ),
     ];
 

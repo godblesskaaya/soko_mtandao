@@ -26,6 +26,8 @@ Optional keys:
 
 - `APP_BASE_URL`
 - `SUPPORT_EMAIL`
+- `SUPPORT_PHONE`
+- `SUPPORT_ADDRESS`
 - `PRIVACY_POLICY_URL`
 
 ### Android Mapbox token

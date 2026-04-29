@@ -18,6 +18,11 @@ class ManagerHotel {
   final String email;
   final String? website;
   final int totalRooms;
+  final String? checkInFrom;
+  final String? checkInUntil;
+  final String? checkOutUntil;
+  final List<String> stayRules;
+  final List<String> checkInRequirements;
 
   ManagerHotel({
     required this.id,
@@ -37,5 +42,10 @@ class ManagerHotel {
     required this.phoneNumber,
     required this.email,
     this.website,
+    this.checkInFrom,
+    this.checkInUntil,
+    this.checkOutUntil,
+    this.stayRules = const [],
+    this.checkInRequirements = const [],
   });
 }
