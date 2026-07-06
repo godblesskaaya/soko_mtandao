@@ -80,6 +80,11 @@ class ManagerSettingsScreen extends ConsumerWidget {
               onTap: () => context.push(RouteNames.termsAndConditions),
             ),
             _buildSettingItem(
+              icon: Icons.support_agent_outlined,
+              title: "Contact Us",
+              onTap: () => context.push(RouteNames.contactUs),
+            ),
+            _buildSettingItem(
               icon: Icons.delete_outline,
               title: "Delete Manager Account",
               titleColor: Colors.red,

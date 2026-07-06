@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/router/route_names.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -34,12 +36,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         'If an account exists for this email, a password reset link has been sent.',
       );
 
-      // Optional: navigate back to splash to trigger redirect
-      Navigator.of(context).pop();
+      final router = GoRouter.of(context);
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        context.go(RouteNames.login);
+      }
     } catch (e) {
       _showMessage('Unable to send reset email. Please try again.');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -83,6 +89,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: _loading
                     ? const CircularProgressIndicator()
                     : const Text('Send Reset Link'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton(
+                onPressed: () => context.go(RouteNames.guestHome),
+                child: const Text('Continue to Explore'),
               ),
             ),
           ],

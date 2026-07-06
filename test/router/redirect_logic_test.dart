@@ -18,6 +18,23 @@ void main() {
       expect(redirect, RouteNames.login);
     });
 
+    test('unauthenticated users can open support and legal pages', () {
+      for (final route in [
+        RouteNames.contactUs,
+        RouteNames.termsAndConditions,
+      ]) {
+        final redirect = globalRedirect(
+          Uri.parse(route),
+          isLoggedIn: false,
+          role: null,
+          accessProfile: AccessProfile.guest(),
+          isInPasswordRecovery: false,
+        );
+
+        expect(redirect, isNull, reason: '$route should be public');
+      }
+    });
+
     test('logged in users with no chosen path are sent to onboarding hub', () {
       final profile = _profile();
 

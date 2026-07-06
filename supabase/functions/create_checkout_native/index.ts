@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { AzamPayAuthError, getAzamPayToken } from "../_shared/azampay_auth.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const config = {
@@ -66,43 +67,6 @@ async function canAccessBooking(userId: string, hotelId: string | null, bookingU
     .maybeSingle();
   const role = (roleRow?.role || "").toString().toLowerCase();
   return role === "systemadmin" || role === "system_admin";
-}
-
-async function getAzamPayToken() {
-  const { data: tokenData } = await supabase
-    .from("azampay_tokens")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (tokenData && new Date(tokenData.expires_at) > new Date()) {
-    return tokenData.token;
-  }
-
-  const res = await fetch(config.azamPayAuthUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      appName: config.azamPayAppName,
-      clientId: config.azamPayClientId,
-      clientSecret: config.azamPayClientSecret,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`Failed to obtain AzamPay token (${res.status})`);
-
-  const json = await res.json();
-  const token = json?.data?.accessToken;
-  const expiresIn = json?.data?.expiresIn || 3600;
-  if (!token) throw new Error("AzamPay token missing from auth response");
-
-  await supabase.from("azampay_tokens").insert({
-    token,
-    expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-  });
-
-  return token;
 }
 
 serve(async (req) => {
@@ -180,7 +144,7 @@ serve(async (req) => {
       await supabase.from("bookings").update({ currency }).eq("id", booking.id);
     }
 
-    const token = await getAzamPayToken();
+    const token = await getAzamPayToken(supabase, config);
     const externalId = `booking_${booking.id}_${Date.now()}`;
 
     const apiBase = config.azamPayApiBaseUrl;
@@ -308,15 +272,34 @@ serve(async (req) => {
       },
     };
 
+    let paymentId: string | null = existingPayment?.id ?? null;
+
     if (existingPayment?.status === "pending") {
-      const { error: updateError } = await supabase
+      const { data: updatedPayment, error: updateError } = await supabase
         .from("payments")
         .update(paymentRecord)
-        .eq("id", existingPayment.id);
+        .eq("id", existingPayment.id)
+        .select("id")
+        .single();
       if (updateError) throw updateError;
+      paymentId = updatedPayment?.id ?? paymentId;
     } else {
-      const { error: insertError } = await supabase.from("payments").insert(paymentRecord);
+      const { data: insertedPayment, error: insertError } = await supabase
+        .from("payments")
+        .insert(paymentRecord)
+        .select("id")
+        .single();
       if (insertError) throw insertError;
+      paymentId = insertedPayment?.id ?? null;
+    }
+
+    const { error: lifecycleError } = await supabase.rpc("mark_booking_payment_initiated", {
+      p_booking_id: booking.id,
+      p_payment_id: paymentId,
+      p_grace_minutes: 15,
+    });
+    if (lifecycleError) {
+      console.error("mark_booking_payment_initiated failed", { lifecycleError, bookingId: booking.id });
     }
 
     return new Response(
@@ -329,6 +312,17 @@ serve(async (req) => {
     );
   } catch (e) {
     console.error(e);
+    if (e instanceof AzamPayAuthError) {
+      return new Response(
+        JSON.stringify({
+          error: e.message,
+          azamStatus: e.status,
+          azamStatusText: e.statusText,
+          details: e.details,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },

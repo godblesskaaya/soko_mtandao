@@ -12,8 +12,16 @@ class Booking {
 
   final String? ticketNumber;
   final double? totalPrice; // optional snapshot from backend
+  final double? amountPaid;
   final DateTime? createdAt;
   final DateTime? expiresAt;
+  final DateTime? paymentInitiatedAt;
+  final DateTime? providerGraceExpiresAt;
+  final DateTime? paymentCompletedAt;
+  final String rawStatus;
+  final String rawPaymentStatus;
+  final String reconciliationStatus;
+  final Map<String, dynamic>? latestPayment;
 
   Booking({
     required this.id,
@@ -23,7 +31,15 @@ class Booking {
     required this.paymentStatus,
     this.ticketNumber,
     this.totalPrice,
+    this.amountPaid,
     this.createdAt,
     this.expiresAt,
+    this.paymentInitiatedAt,
+    this.providerGraceExpiresAt,
+    this.paymentCompletedAt,
+    this.rawStatus = 'pending',
+    this.rawPaymentStatus = 'initiated',
+    this.reconciliationStatus = 'none',
+    this.latestPayment,
   });
 }

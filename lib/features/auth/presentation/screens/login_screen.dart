@@ -158,6 +158,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(color: Colors.white, fontSize: 15),
                       ),
                     ),
+                    TextButton(
+                      onPressed: () => context.push(RouteNames.contactUs),
+                      child: const Text(
+                        "Contact Us",
+                        style: TextStyle(color: Colors.white, fontSize: 15),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go(RouteNames.guestHome),
+                      child: const Text(
+                        "Continue to Explore",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
 
                     // Added for Play Store Data Deletion compliance
                     TextButton(

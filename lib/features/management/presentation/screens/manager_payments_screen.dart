@@ -1,7 +1,9 @@
 // lib/features/management/presentation/pages/manager_payments_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart'; // Add intl to your pubspec.yaml
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_payment.dart';
@@ -9,14 +11,12 @@ import 'package:soko_mtandao/features/management/presentation/riverpod/manager_p
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/widgets/active_hotel_context_bar.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManagerPaymentsScreen extends ConsumerStatefulWidget {
   final String hotelId;
 
-  const ManagerPaymentsScreen({
-    super.key,
-    required this.hotelId,
-  });
+  const ManagerPaymentsScreen({super.key, required this.hotelId});
 
   @override
   ConsumerState<ManagerPaymentsScreen> createState() =>
@@ -42,15 +42,15 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
   }
 
   ManagerPaymentListQuery get _query => ManagerPaymentListQuery(
-        hotelId: widget.hotelId,
-        page: _page,
-        limit: _pageSize,
-        sortBy: _sortBy,
-        sortAscending: _sortAsc,
-        settlementStatus: _settlementStatus,
-        startDate: _startDate,
-        endDate: _endDate,
-      );
+    hotelId: widget.hotelId,
+    page: _page,
+    limit: _pageSize,
+    sortBy: _sortBy,
+    sortAscending: _sortAsc,
+    settlementStatus: _settlementStatus,
+    startDate: _startDate,
+    endDate: _endDate,
+  );
 
   @override
   void initState() {
@@ -99,7 +99,7 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text('Fetching financial records...')
+                      Text('Fetching financial records...'),
                     ],
                   ),
                 ),
@@ -127,8 +127,10 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
                     );
                   }
 
-                  final totalRevenue =
-                      payments.fold(0.0, (sum, p) => sum + p.amount);
+                  final totalRevenue = payments.fold(
+                    0.0,
+                    (sum, p) => sum + p.amount,
+                  );
                   final hasNext = payments.length == _pageSize;
 
                   return CustomScrollView(
@@ -165,19 +167,17 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
                       ),
                       // Payments List
                       SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final payment = payments[index];
-                            return PaymentListTile(
-                              payment: payment,
-                              onClose: () {
-                                ref.invalidate(
-                                    managerPaymentsPageProvider(_query));
-                              },
-                            );
-                          },
-                          childCount: payments.length,
-                        ),
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final payment = payments[index];
+                          return PaymentListTile(
+                            payment: payment,
+                            onClose: () {
+                              ref.invalidate(
+                                managerPaymentsPageProvider(_query),
+                              );
+                            },
+                          );
+                        }, childCount: payments.length),
                       ),
                       SliverToBoxAdapter(
                         child: _PaginationControls(
@@ -186,8 +186,9 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
                           onPrev: _page > 1
                               ? () => setState(() => _page -= 1)
                               : null,
-                          onNext:
-                              hasNext ? () => setState(() => _page += 1) : null,
+                          onNext: hasNext
+                              ? () => setState(() => _page += 1)
+                              : null,
                         ),
                       ),
                     ],
@@ -202,177 +203,200 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
   }
 
   Widget _buildHeader(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Revenue & Payments',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            const Text(
-              'Revenue & Payments',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final value = await showMenu<String>(
-                            context: context,
-                            position:
-                                const RelativeRect.fromLTRB(100, 100, 0, 0),
-                            items: const [
-                              PopupMenuItem(
-                                  value: 'settled_at',
-                                  child: Text('Sort: Settled At')),
-                              PopupMenuItem(
-                                  value: 'settled_amount',
-                                  child: Text('Sort: Amount')),
-                              PopupMenuItem(
-                                  value: 'customer_name',
-                                  child: Text('Sort: Customer')),
-                            ],
-                          );
-                          if (value != null) {
-                            setState(() {
-                              _sortBy = value;
-                              _page = 1;
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.sort),
-                        label: const Text('Sort'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => setState(() {
-                          _sortAsc = !_sortAsc;
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final value = await showMenu<String>(
+                        context: context,
+                        position: const RelativeRect.fromLTRB(100, 100, 0, 0),
+                        items: const [
+                          PopupMenuItem(
+                            value: 'settled_at',
+                            child: Text('Sort: Settled At'),
+                          ),
+                          PopupMenuItem(
+                            value: 'settled_amount',
+                            child: Text('Sort: Amount'),
+                          ),
+                          PopupMenuItem(
+                            value: 'customer_name',
+                            child: Text('Sort: Customer'),
+                          ),
+                        ],
+                      );
+                      if (value != null) {
+                        setState(() {
+                          _sortBy = value;
                           _page = 1;
-                        }),
-                        icon: Icon(_sortAsc
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward),
-                        label: Text(_sortAsc ? 'Asc' : 'Desc'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final now = DateTime.now();
-                          final picked = await showDateRangePicker(
-                            context: context,
-                            firstDate: DateTime(now.year - 3),
-                            lastDate: DateTime(now.year + 1),
-                            initialDateRange:
-                                _startDate != null && _endDate != null
-                                    ? DateTimeRange(
-                                        start: _startDate!, end: _endDate!)
-                                    : null,
-                          );
-                          if (picked != null) {
-                            setState(() {
-                              _startDate = DateTime(picked.start.year,
-                                  picked.start.month, picked.start.day);
-                              _endDate = DateTime(picked.end.year,
-                                  picked.end.month, picked.end.day, 23, 59, 59);
-                              _page = 1;
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.date_range),
-                        label: Text(
-                          _startDate == null || _endDate == null
-                              ? 'Date Range'
-                              : '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM').format(_endDate!)}',
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final value = await showMenu<String?>(
-                            context: context,
-                            position:
-                                const RelativeRect.fromLTRB(140, 140, 0, 0),
-                            items: const [
-                              PopupMenuItem<String?>(
-                                  value: null, child: Text('Status: All')),
-                              PopupMenuItem<String?>(
-                                  value: 'paid', child: Text('Status: Paid')),
-                              PopupMenuItem<String?>(
-                                  value: 'available',
-                                  child: Text('Status: Available')),
-                              PopupMenuItem<String?>(
-                                  value: 'locked',
-                                  child: Text('Status: Locked')),
-                              PopupMenuItem<String?>(
-                                  value: 'pending',
-                                  child: Text('Status: Pending')),
-                            ],
-                          );
-                          setState(() {
-                            _settlementStatus = value;
-                            _page = 1;
-                          });
-                        },
-                        icon: const Icon(Icons.filter_list),
-                        label: Text(_settlementStatus == null
-                            ? 'All Status'
-                            : _settlementStatus!),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () async {
-                          try {
-                            final batchId = await ref
-                                .read(managerRepositoryProvider)
-                                .requestPayout(
-                                  widget.hotelId,
-                                  minimumThreshold: 0,
-                                  provider: 'azampay_disburse',
-                                );
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(batchId == null
-                                    ? 'No available balance met payout threshold.'
-                                    : 'Payout batch created: $batchId'),
-                              ),
-                            );
-                            ref.invalidate(
-                                managerWalletSummaryProvider(widget.hotelId));
-                            ref.invalidate(managerPaymentsPageProvider(_query));
-                          } catch (e) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(userMessageForError(e))),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.payments),
-                        label: const Text('Request Payout'),
-                      ),
-                    ],
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.sort),
+                    label: const Text('Sort'),
                   ),
-                ),
-              ],
+                  OutlinedButton.icon(
+                    onPressed: () => setState(() {
+                      _sortAsc = !_sortAsc;
+                      _page = 1;
+                    }),
+                    icon: Icon(
+                      _sortAsc ? Icons.arrow_upward : Icons.arrow_downward,
+                    ),
+                    label: Text(_sortAsc ? 'Asc' : 'Desc'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final picked = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(now.year - 3),
+                        lastDate: DateTime(now.year + 1),
+                        initialDateRange: _startDate != null && _endDate != null
+                            ? DateTimeRange(start: _startDate!, end: _endDate!)
+                            : null,
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _startDate = DateTime(
+                            picked.start.year,
+                            picked.start.month,
+                            picked.start.day,
+                          );
+                          _endDate = DateTime(
+                            picked.end.year,
+                            picked.end.month,
+                            picked.end.day,
+                            23,
+                            59,
+                            59,
+                          );
+                          _page = 1;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.date_range),
+                    label: Text(
+                      _startDate == null || _endDate == null
+                          ? 'Date Range'
+                          : '${DateFormat('dd MMM').format(_startDate!)} - ${DateFormat('dd MMM').format(_endDate!)}',
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final value = await showMenu<String?>(
+                        context: context,
+                        position: const RelativeRect.fromLTRB(140, 140, 0, 0),
+                        items: const [
+                          PopupMenuItem<String?>(
+                            value: null,
+                            child: Text('Status: All'),
+                          ),
+                          PopupMenuItem<String?>(
+                            value: 'paid',
+                            child: Text('Status: Paid'),
+                          ),
+                          PopupMenuItem<String?>(
+                            value: 'available',
+                            child: Text('Status: Available'),
+                          ),
+                          PopupMenuItem<String?>(
+                            value: 'locked',
+                            child: Text('Status: Locked'),
+                          ),
+                          PopupMenuItem<String?>(
+                            value: 'pending',
+                            child: Text('Status: Pending'),
+                          ),
+                        ],
+                      );
+                      setState(() {
+                        _settlementStatus = value;
+                        _page = 1;
+                      });
+                    },
+                    icon: const Icon(Icons.filter_list),
+                    label: Text(
+                      _settlementStatus == null
+                          ? 'All Status'
+                          : _settlementStatus!,
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      try {
+                        final batchId = await ref
+                            .read(managerRepositoryProvider)
+                            .requestPayout(
+                              widget.hotelId,
+                              minimumThreshold: 0,
+                              provider: 'azampay_disburse',
+                            );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              batchId == null
+                                  ? 'No available balance met payout threshold.'
+                                  : 'Payout batch created: $batchId',
+                            ),
+                          ),
+                        );
+                        ref.invalidate(
+                          managerWalletSummaryProvider(widget.hotelId),
+                        );
+                        ref.invalidate(managerPaymentsPageProvider(_query));
+                      } catch (e) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(userMessageForError(e))),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.payments),
+                    label: const Text('Request Payout'),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-      );
+      ],
+    ),
+  );
 }
 
 // --- Payment List Tile ---
-class PaymentListTile extends StatelessWidget {
+class PaymentListTile extends ConsumerWidget {
   final ManagerPayment payment;
   final VoidCallback? onClose;
 
   const PaymentListTile({required this.payment, super.key, this.onClose});
 
   @override
-  Widget build(BuildContext context) {
-    final currencyFormatter =
-        NumberFormat.currency(symbol: 'TZS ', decimalDigits: 0);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currencyFormatter = NumberFormat.currency(
+      symbol: 'TZS ',
+      decimalDigits: 0,
+    );
     final normalizedStatus = payment.status.toLowerCase();
-    final isSuccess = normalizedStatus == 'paid' ||
+    final isSuccess =
+        normalizedStatus == 'paid' ||
         normalizedStatus == 'settled' ||
         normalizedStatus == 'available' ||
         normalizedStatus == 'success';
@@ -407,13 +431,19 @@ class PaymentListTile extends StatelessWidget {
           _StatusBadge(status: payment.status),
         ],
       ),
-      onTap: () => _showPaymentDetails(context, payment),
+      onTap: () => _showPaymentDetails(context, ref, payment),
     );
   }
 
-  void _showPaymentDetails(BuildContext context, ManagerPayment payment) {
-    final currencyFormatter =
-        NumberFormat.currency(symbol: 'TZS ', decimalDigits: 0);
+  void _showPaymentDetails(
+    BuildContext context,
+    WidgetRef ref,
+    ManagerPayment payment,
+  ) {
+    final currencyFormatter = NumberFormat.currency(
+      symbol: 'TZS ',
+      decimalDigits: 0,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -428,10 +458,13 @@ class PaymentListTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Center(
-                child: SizedBox(width: 40, child: Divider(thickness: 4))),
+              child: SizedBox(width: 40, child: Divider(thickness: 4)),
+            ),
             const SizedBox(height: 16),
-            const Text("Transaction Details",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text(
+              "Transaction Details",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 24),
             _detailSection("Customer Details", [
               _detailRow("Name", payment.customerName),
@@ -440,19 +473,96 @@ class PaymentListTile extends StatelessWidget {
             ]),
             _detailSection("Stay Information", [
               _detailRow("Room", payment.roomNumber),
-              _detailRow("Check-in",
-                  DateFormat('dd MMM yyyy').format(payment.checkIn)),
-              _detailRow("Check-out",
-                  DateFormat('dd MMM yyyy').format(payment.checkOut)),
-              _detailRow("Calculation",
-                  "${payment.nights} nights x ${currencyFormatter.format(payment.rate)}"),
+              _detailRow(
+                "Check-in",
+                DateFormat('dd MMM yyyy').format(payment.checkIn),
+              ),
+              _detailRow(
+                "Check-out",
+                DateFormat('dd MMM yyyy').format(payment.checkOut),
+              ),
+              _detailRow(
+                "Calculation",
+                "${payment.nights} nights x ${currencyFormatter.format(payment.rate)}",
+              ),
             ]),
             _detailSection("Payment Info", [
               _detailRow(
-                  "Settled Amount", currencyFormatter.format(payment.amount)),
+                "Settled Amount",
+                currencyFormatter.format(payment.amount),
+              ),
+              _detailRow(
+                "Payment Status",
+                _formatStatus(payment.paymentStatus),
+              ),
+              _detailRow(
+                "Provider Status",
+                _formatStatus(payment.paymentProviderStatus),
+              ),
+              _detailRow(
+                "Payment Reconciliation",
+                _formatStatus(payment.paymentReconciliationStatus),
+              ),
               _detailRow("Gateway Ref", payment.gatewayRef),
               _detailRow("Method", payment.paymentMethod.toUpperCase()),
             ]),
+            _detailSection("Ledger Breakdown", [
+              _detailRow(
+                "Gross",
+                currencyFormatter.format(payment.grossAmount),
+              ),
+              _detailRow(
+                "Platform Commission",
+                currencyFormatter.format(payment.commissionAmount),
+              ),
+              _detailRow("Tax", currencyFormatter.format(payment.taxAmount)),
+              _detailRow(
+                "Hotel Net",
+                currencyFormatter.format(payment.hotelNetAmount),
+              ),
+              _detailRow(
+                "Provider Fee",
+                currencyFormatter.format(payment.providerFeeAmount),
+              ),
+              _detailRow("Settlement", _formatStatus(payment.status)),
+            ]),
+            _detailSection("Booking & Payout", [
+              _detailRow(
+                "Booking Status",
+                _formatStatus(payment.bookingStatus),
+              ),
+              _detailRow(
+                "Booking Payment",
+                _formatStatus(payment.bookingPaymentStatus),
+              ),
+              _detailRow(
+                "Booking Reconciliation",
+                _formatStatus(payment.bookingReconciliationStatus),
+              ),
+              _detailRow("Payout Status", _formatStatus(payment.payoutStatus)),
+              _detailRow(
+                "Payout Provider",
+                _formatStatus(payment.payoutProviderStatus),
+              ),
+              _detailRow("Payout Ref", payment.payoutProviderReference),
+              _detailRow(
+                "Payout External Ref",
+                payment.payoutExternalReference,
+              ),
+            ]),
+            _ManagerPaymentActions(
+              payment: payment,
+              onRequestPayout: () => _requestPayout(context, ref, payment),
+              onOpenBooking: () {
+                Navigator.pop(context);
+                context.pushNamed(
+                  'managerBookingDetail',
+                  pathParameters: {'bookingId': payment.bookingId},
+                );
+              },
+              onCopyEvidence: () => _copyEvidence(context, payment),
+              onEscalate: () => _escalatePayment(context, payment),
+            ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -477,11 +587,14 @@ class PaymentListTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title,
-            style: TextStyle(
-                color: Colors.blue[800],
-                fontWeight: FontWeight.bold,
-                fontSize: 12)),
+        Text(
+          title,
+          style: TextStyle(
+            color: Colors.blue[800],
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
         const SizedBox(height: 8),
         ...children,
         const Divider(height: 24),
@@ -493,13 +606,174 @@ class PaymentListTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.grey)),
-          SelectableText(value,
-              style: const TextStyle(fontWeight: FontWeight.w500)),
+          SizedBox(
+            width: 132,
+            child: Text(label, style: const TextStyle(color: Colors.grey)),
+          ),
+          Expanded(
+            child: SelectableText(
+              value.trim().isEmpty ? '-' : value,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  String _formatStatus(String value) {
+    if (value.trim().isEmpty || value == '-') return '-';
+    return value.replaceAll('_', ' ').toUpperCase();
+  }
+
+  Future<void> _requestPayout(
+    BuildContext context,
+    WidgetRef ref,
+    ManagerPayment payment,
+  ) async {
+    try {
+      final batchId = await ref
+          .read(managerRepositoryProvider)
+          .requestPayout(
+            payment.hotelId,
+            minimumThreshold: 0,
+            provider: 'azampay_disburse',
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            batchId == null
+                ? 'No available balance met payout threshold.'
+                : 'Payout batch created: $batchId',
+          ),
+        ),
+      );
+      onClose?.call();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(userMessageForError(e))));
+    }
+  }
+
+  Future<void> _copyEvidence(
+    BuildContext context,
+    ManagerPayment payment,
+  ) async {
+    final evidence = [
+      'ticket=${payment.ticketNumber}',
+      'booking_id=${payment.bookingId}',
+      'settlement_id=${payment.settlementId}',
+      'settlement_status=${payment.status}',
+      'payment_status=${payment.paymentStatus}',
+      'payment_reconciliation=${payment.paymentReconciliationStatus}',
+      'gateway_ref=${payment.gatewayRef}',
+      'payout_status=${payment.payoutStatus}',
+      'payout_ref=${payment.payoutProviderReference}',
+      'payout_external_ref=${payment.payoutExternalReference}',
+      'gross=${payment.grossAmount}',
+      'hotel_net=${payment.hotelNetAmount}',
+      'provider_fee=${payment.providerFeeAmount}',
+    ].join('\n');
+    await Clipboard.setData(ClipboardData(text: evidence));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Ledger evidence copied.')));
+  }
+
+  Future<void> _escalatePayment(
+    BuildContext context,
+    ManagerPayment payment,
+  ) async {
+    try {
+      final disputeId = await Supabase.instance.client.rpc(
+        'submit_dispute',
+        params: {
+          'p_ticket_number': payment.ticketNumber,
+          'p_category': 'financial_reconciliation',
+          'p_description':
+              'Manager escalation for booking ${payment.bookingId}. '
+              'Settlement ${payment.settlementId}, payment ${payment.paymentStatus}, '
+              'payment reconciliation ${payment.paymentReconciliationStatus}, '
+              'payout ${payment.payoutStatus}, gateway ${payment.gatewayRef}.',
+        },
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Support case opened: $disputeId')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(userMessageForError(e))));
+    }
+  }
+}
+
+class _ManagerPaymentActions extends StatelessWidget {
+  final ManagerPayment payment;
+  final VoidCallback onRequestPayout;
+  final VoidCallback onOpenBooking;
+  final VoidCallback onCopyEvidence;
+  final VoidCallback onEscalate;
+
+  const _ManagerPaymentActions({
+    required this.payment,
+    required this.onRequestPayout,
+    required this.onOpenBooking,
+    required this.onCopyEvidence,
+    required this.onEscalate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final settlementStatus = payment.status.toLowerCase();
+    final payoutStatus = payment.payoutStatus.toLowerCase();
+    final needsReconciliation =
+        [
+          payment.bookingReconciliationStatus,
+          payment.paymentReconciliationStatus,
+        ].any((status) {
+          final normalized = status.toLowerCase();
+          return normalized != '-' && normalized != 'none';
+        });
+    final canRequestPayout =
+        settlementStatus == 'available' &&
+        (payoutStatus == '-' || payoutStatus == 'failed');
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: onOpenBooking,
+          icon: const Icon(Icons.event_note),
+          label: const Text('Open Booking'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onCopyEvidence,
+          icon: const Icon(Icons.copy),
+          label: const Text('Copy Evidence'),
+        ),
+        if (canRequestPayout)
+          FilledButton.icon(
+            onPressed: onRequestPayout,
+            icon: const Icon(Icons.payments),
+            label: const Text('Request Payout'),
+          ),
+        if (needsReconciliation || payoutStatus == 'provider_pending')
+          FilledButton.tonalIcon(
+            onPressed: onEscalate,
+            icon: const Icon(Icons.support_agent),
+            label: const Text('Escalate'),
+          ),
+      ],
     );
   }
 }
@@ -525,8 +799,10 @@ class _FinancialSummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter =
-        NumberFormat.currency(symbol: 'TZS ', decimalDigits: 0);
+    final currencyFormatter = NumberFormat.currency(
+      symbol: 'TZS ',
+      decimalDigits: 0,
+    );
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Container(
@@ -538,27 +814,34 @@ class _FinancialSummaryCards extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Total Settled Revenue",
-                style: TextStyle(color: Colors.white70)),
+            const Text(
+              "Total Settled Revenue",
+              style: TextStyle(color: Colors.white70),
+            ),
             const SizedBox(height: 8),
             Text(
               currencyFormatter.format(totalRevenue),
               style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold),
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: _miniMetric('Commission',
-                      currencyFormatter.format(totalCommissionPaid)),
+                  child: _miniMetric(
+                    'Commission',
+                    currencyFormatter.format(totalCommissionPaid),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child:
-                      _miniMetric('Net', currencyFormatter.format(netEarnings)),
+                  child: _miniMetric(
+                    'Net',
+                    currencyFormatter.format(netEarnings),
+                  ),
                 ),
               ],
             ),
@@ -567,12 +850,16 @@ class _FinancialSummaryCards extends StatelessWidget {
               children: [
                 Expanded(
                   child: _miniMetric(
-                      'Available', currencyFormatter.format(availableBalance)),
+                    'Available',
+                    currencyFormatter.format(availableBalance),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _miniMetric(
-                      'Pending', currencyFormatter.format(pendingBalance)),
+                    'Pending',
+                    currencyFormatter.format(pendingBalance),
+                  ),
                 ),
               ],
             ),
@@ -581,12 +868,14 @@ class _FinancialSummaryCards extends StatelessWidget {
               children: [
                 Expanded(
                   child: _miniMetric(
-                      'Paid Out', currencyFormatter.format(paidOutAmount)),
+                    'Paid Out',
+                    currencyFormatter.format(paidOutAmount),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 const Expanded(child: SizedBox()),
               ],
-            )
+            ),
           ],
         ),
       ),
@@ -597,12 +886,18 @@ class _FinancialSummaryCards extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
         const SizedBox(height: 2),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w700)),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
@@ -615,16 +910,18 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normalized = status.toLowerCase();
-    final color = normalized == 'paid' ||
+    final color =
+        normalized == 'paid' ||
             normalized == 'settled' ||
             normalized == 'available' ||
             normalized == 'success'
         ? Colors.green
         : normalized == 'pending' ||
-                normalized == 'locked' ||
-                normalized == 'processing'
-            ? Colors.orange
-            : Colors.blueGrey;
+              normalized == 'locked' ||
+              normalized == 'processing' ||
+              normalized == 'provider_pending'
+        ? Colors.orange
+        : Colors.blueGrey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -634,8 +931,11 @@ class _StatusBadge extends StatelessWidget {
       ),
       child: Text(
         status.toUpperCase(),
-        style:
-            TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -664,7 +964,9 @@ class _PaginationControls extends StatelessWidget {
           OutlinedButton(onPressed: onPrev, child: const Text("Previous")),
           Text("Page $page"),
           OutlinedButton(
-              onPressed: hasNext ? onNext : null, child: const Text("Next")),
+            onPressed: hasNext ? onNext : null,
+            child: const Text("Next"),
+          ),
         ],
       ),
     );
@@ -682,8 +984,11 @@ class _ErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              size: 64, color: Colors.orange),
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 64,
+            color: Colors.orange,
+          ),
           const SizedBox(height: 16),
           Text(message, textAlign: TextAlign.center),
           TextButton(onPressed: onRetry, child: const Text("Try Again")),

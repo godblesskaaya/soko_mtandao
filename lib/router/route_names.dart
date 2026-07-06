@@ -6,6 +6,7 @@ class RouteNames {
   static const forgotPassword = '/forgot-password';
   static const resetPassword = '/reset-password';
   static const termsAndConditions = '/terms-and-conditions';
+  static const contactUs = '/contact-us';
   static const hotelDetail = '/hotel/:hotelId';
   static const hotels = '/hotels';
   static const onboardingHub = '/onboarding';

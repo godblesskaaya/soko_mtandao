@@ -14,6 +14,7 @@ import 'package:soko_mtandao/features/booking/presentation/screens/user_info_scr
 import 'package:soko_mtandao/features/find_booking/presentation/screens/find_booking_screen.dart';
 import 'package:soko_mtandao/features/find_hotels/presentation/screens/hotel_search_screen.dart';
 import 'package:soko_mtandao/features/hotel_detail/presentation/screens/hotel_detail_screen.dart';
+import 'package:soko_mtandao/features/legal/presentation/screens/contact_us_screen.dart';
 import 'package:soko_mtandao/features/legal/presentation/screens/terms_and_conditions_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/add_hotel_screen.dart';
 import 'package:soko_mtandao/features/management/presentation/screens/add_offering_screen.dart';
@@ -105,6 +106,11 @@ class AppRouter {
           path: RouteNames.termsAndConditions,
           name: 'termsAndConditions',
           builder: (c, s) => const TermsAndConditionsScreen(),
+        ),
+        GoRoute(
+          path: RouteNames.contactUs,
+          name: 'contactUs',
+          builder: (c, s) => const ContactUsScreen(),
         ),
 
         // Auth layout

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { AzamPayAuthError, getAzamPayToken } from "../_shared/azampay_auth.ts";
 import { optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const config = {
@@ -71,43 +72,6 @@ async function logAudit(
   }
 }
 
-async function getAzamPayToken() {
-  const { data: tokenData } = await supabase
-    .from("azampay_tokens")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (tokenData && new Date(tokenData.expires_at) > new Date()) {
-    return tokenData.token as string;
-  }
-
-  const res = await fetch(config.azamPayAuthUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      appName: config.azamPayAppName,
-      clientId: config.azamPayClientId,
-      clientSecret: config.azamPayClientSecret,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`Failed to obtain AzamPay token (${res.status})`);
-
-  const json = await res.json();
-  const token = json?.data?.accessToken;
-  const expiresIn = json?.data?.expiresIn || 3600;
-  if (!token) throw new Error("AzamPay token missing from auth response");
-
-  await supabase.from("azampay_tokens").insert({
-    token,
-    expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-  });
-
-  return token as string;
-}
-
 serve(async (req) => {
   try {
     const requester = await resolveRequester(req);
@@ -132,7 +96,7 @@ serve(async (req) => {
 
     const { data: batch, error: batchError } = await supabase
       .from("payout_batches")
-      .select("id,hotel_id,status,provider,currency,total_amount,provider_batch_ref")
+      .select("id,hotel_id,status,provider,currency,total_amount,provider_batch_ref,provider_external_reference")
       .eq("id", payoutBatchId)
       .maybeSingle();
 
@@ -149,6 +113,17 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: "Batch already completed" }), {
         status: 200,
       });
+    }
+    if (batch.status === "provider_pending" || batch.status === "processing") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Batch already submitted to provider",
+          providerBatchRef: batch.provider_batch_ref ?? null,
+          providerExternalReference: batch.provider_external_reference ?? null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
     }
     if (batch.status === "failed") {
       return new Response(JSON.stringify({ error: "Batch already failed" }), { status: 409 });
@@ -171,15 +146,26 @@ serve(async (req) => {
       });
     }
 
-    await supabase.rpc("mark_payout_batch_processing", {
+    const { data: transitionOk, error: transitionError } = await supabase.rpc("mark_payout_batch_processing", {
       p_batch_id: batch.id,
       p_provider_batch_ref: batch.provider_batch_ref ?? null,
     });
+    if (transitionError) throw transitionError;
+    if (transitionOk !== true) {
+      return new Response(
+        JSON.stringify({ error: "Batch is not dispatchable from its current state" }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     let providerBatchRef: string | null = null;
+    let providerResponse: Record<string, unknown> = {};
+    const providerExternalReference =
+      batch.provider_external_reference ||
+      `SM${batch.id.replaceAll("-", "").slice(0, 28)}`;
 
     if (batch.provider.toLowerCase().includes("azampay")) {
-      const token = await getAzamPayToken();
+      const token = await getAzamPayToken(supabase, config);
       const endpoint = config.azamPayDisburseUrl;
 
       const disbursePayload = {
@@ -199,7 +185,7 @@ serve(async (req) => {
           payoutBatchId: batch.id,
           hotelId: batch.hotel_id,
         },
-        externalReferenceId: `batch_${batch.id}_${Date.now()}`,
+        externalReferenceId: providerExternalReference,
         remarks: `Hotel payout batch ${batch.id}`,
       };
 
@@ -221,6 +207,7 @@ serve(async (req) => {
       } catch {
         parsed = { raw };
       }
+      providerResponse = parsed;
 
       if (!disburseResp.ok) {
         await logAudit("payout_dispatch", requester.id, batch.id, {
@@ -243,6 +230,8 @@ serve(async (req) => {
       }
 
       providerBatchRef =
+        (parsed.pgReferenceId as string | undefined) ||
+        (parsed.pgreferenceid as string | undefined) ||
         (parsed.transactionId as string | undefined) ||
         (parsed.reference as string | undefined) ||
         (parsed.id as string | undefined) ||
@@ -255,15 +244,18 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unsupported payout provider" }), { status: 400 });
     }
 
-    await supabase.rpc("complete_payout_batch", {
+    await supabase.rpc("mark_payout_batch_submitted", {
       p_batch_id: batch.id,
       p_provider_batch_ref: providerBatchRef,
+      p_provider_external_reference: providerExternalReference,
+      p_provider_response: providerResponse,
     });
 
     await logAudit("payout_dispatch", requester.id, batch.id, {
-      outcome: "completed",
+      outcome: "provider_pending",
       provider: batch.provider,
       provider_batch_ref: providerBatchRef,
+      provider_external_reference: providerExternalReference,
       total_amount: batch.total_amount,
     });
 
@@ -271,12 +263,25 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         payoutBatchId: batch.id,
+        status: "provider_pending",
         providerBatchRef,
+        providerExternalReference,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error(e);
+    if (e instanceof AzamPayAuthError) {
+      return new Response(
+        JSON.stringify({
+          error: e.message,
+          azamStatus: e.status,
+          azamStatusText: e.statusText,
+          details: e.details,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500 });
   }
 });

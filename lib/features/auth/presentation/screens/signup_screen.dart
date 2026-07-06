@@ -208,6 +208,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     child: const Text("Already have an account? Login",
                         style: TextStyle(color: Colors.white, fontSize: 15)),
                   ),
+                  TextButton(
+                    onPressed: () => context.push(RouteNames.contactUs),
+                    child: const Text("Contact Us",
+                        style: TextStyle(color: Colors.white, fontSize: 15)),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go(RouteNames.guestHome),
+                    child: const Text("Continue to Explore",
+                        style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  ),
 
                   // 5. Account Deletion Link (Required for Play Store)
                   TextButton(

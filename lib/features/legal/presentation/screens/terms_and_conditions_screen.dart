@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:soko_mtandao/core/config/app_config.dart';
-import 'package:soko_mtandao/core/constants/app_colors.dart';
 
 class TermsAndConditionsScreen extends StatelessWidget {
   const TermsAndConditionsScreen({super.key});
@@ -89,37 +87,6 @@ class TermsAndConditionsScreen extends StatelessWidget {
             title: '11. Changes to these terms',
             body:
                 'We may revise these terms from time to time. Updated terms take effect when published in the app or otherwise communicated. Continued use of the service after an update means you accept the revised terms.',
-          ),
-          Card(
-            margin: const EdgeInsets.only(top: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.support_agent, color: AppColors.brand),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Questions about these terms?',
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Email: ${AppConfig.supportEmail}\nPhone: ${AppConfig.supportPhone}\nAddress: ${AppConfig.supportAddress}\n\nFor production use, these terms should also be reviewed by local counsel before release.',
-                          style: textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),

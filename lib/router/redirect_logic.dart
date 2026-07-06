@@ -32,6 +32,8 @@ String? globalRedirect(
         path == RouteNames.login ||
         path == RouteNames.signup ||
         path == RouteNames.forgotPassword ||
+        path == RouteNames.termsAndConditions ||
+        path == RouteNames.contactUs ||
         path == RouteNames.bookingInitiate ||
         path.startsWith('${RouteNames.bookingReview}/') ||
         path.startsWith('${RouteNames.payment}/') ||
@@ -101,8 +103,7 @@ String? globalRedirect(
       path == RouteNames.managerTeam;
 
   if (isHotelAdminRoute &&
-      !(accessProfile.canUseHotelAdminPersona &&
-          role == UserRole.hotelAdmin)) {
+      !(accessProfile.canUseHotelAdminPersona && role == UserRole.hotelAdmin)) {
     return accessProfile.hasActiveOperatorOnboarding
         ? RouteNames.pendingAccess
         : RouteNames.guestHome;

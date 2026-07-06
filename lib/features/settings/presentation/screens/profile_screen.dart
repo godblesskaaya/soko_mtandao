@@ -190,6 +190,12 @@ class ProfileScreen extends ConsumerWidget {
             onTap: () => context.push(RouteNames.termsAndConditions),
           ),
           ListTile(
+            leading: const Icon(Icons.support_agent_outlined),
+            title: const Text('Contact Us'),
+            trailing: const Icon(Icons.chevron_right, size: 20),
+            onTap: () => context.push(RouteNames.contactUs),
+          ),
+          ListTile(
             leading: const Icon(Icons.flag_outlined),
             title: const Text('Onboarding Hub'),
             trailing: const Icon(Icons.chevron_right, size: 20),

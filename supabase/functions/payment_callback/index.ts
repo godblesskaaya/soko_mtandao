@@ -204,6 +204,33 @@ serve(async (req) => {
     }
 
     if (!payment) {
+      const orphanEventId = `${correlationId}:${getFirstString(payloadMap, ["status", "transactionStatus"]) || "unknown"}:${
+        getFirstString(payloadMap, ["timestamp", "time"]) || Date.now()
+      }`;
+      const { error: reconciliationEventError } = await supabase
+        .from("payment_reconciliation_events")
+        .insert({
+          provider: "azampay",
+          event_type: "orphan_callback",
+          provider_event_id: orphanEventId,
+          booking_id: bookingIdFromPayload,
+          external_reference: externalreference || utilityref || null,
+          provider_reference: reference || fspReferenceId || null,
+          status: getFirstString(payloadMap, ["transactionstatus", "transactionStatus", "status"]),
+          amount: callbackAmount,
+          payload: payloadMap,
+        });
+
+      if (reconciliationEventError) {
+        const code = (reconciliationEventError as { code?: string }).code;
+        if (code !== "23505") {
+          await logPayment(correlationId, "error", "payment_reconciliation_events insert failed", {
+            reconciliationEventError,
+            orphanEventId,
+          });
+        }
+      }
+
       await logPayment(correlationId, "warn", "payment not found for callback references", {
         paymentIdCandidates,
         bookingIdFromPayload,
@@ -268,6 +295,9 @@ serve(async (req) => {
       .update({
         status: newStatus,
         payment_gateway_ref: reference ?? fspReferenceId ?? null,
+        provider_status: newStatus,
+        provider_reference: reference ?? fspReferenceId ?? null,
+        provider_finalized_at: newStatus === "pending" ? null : new Date().toISOString(),
         amount_received: callbackAmount ?? payment.amount ?? null,
         failed_reason: newStatus === "failed" ? "Gateway reported failed status." : null,
       })
@@ -366,19 +396,34 @@ serve(async (req) => {
       return new Response("OK", { status: 200 });
     }
 
-    const { error: bookingUpdateError } = await supabase
-      .from("bookings")
-      .update({
-        payment_status: "completed",
-        status: "confirmed",
-        amount_paid: bookingTotal,
-        payment_completed_at: new Date().toISOString(),
-      })
-      .eq("id", bookingId)
-      .neq("payment_status", "completed");
+    const { data: finalizeOutcome, error: finalizeError } = await supabase.rpc(
+      "finalize_paid_booking",
+      {
+        p_booking_id: bookingId,
+        p_payment_id: payment.id,
+        p_amount_paid: bookingTotal,
+      },
+    );
 
-    if (bookingUpdateError) {
-      await logPayment(correlationId, "error", "booking update error", { bookingUpdateError });
+    if (finalizeError) {
+      await logPayment(correlationId, "error", "finalize_paid_booking failed", { finalizeError });
+      return new Response("OK", { status: 200 });
+    }
+
+    if (finalizeOutcome !== "confirmed" && finalizeOutcome !== "already_confirmed") {
+      await logPayment(correlationId, "error", "paid booking needs reconciliation", {
+        bookingId,
+        finalizeOutcome,
+      });
+      await supabase
+        .from("payment_webhook_events")
+        .update({
+          processed_at: new Date().toISOString(),
+          processed_outcome: finalizeOutcome,
+        })
+        .eq("provider", "azampay")
+        .eq("provider_event_id", providerEventId);
+      return new Response("OK", { status: 200 });
     }
 
     const holdHoursRaw = Number(optionalEnv("SETTLEMENT_HOLD_HOURS", "24"));
@@ -405,7 +450,7 @@ serve(async (req) => {
 
     await supabase
       .from("payment_webhook_events")
-      .update({ processed_at: new Date().toISOString() })
+      .update({ processed_at: new Date().toISOString(), processed_outcome: finalizeOutcome })
       .eq("provider", "azampay")
       .eq("provider_event_id", providerEventId);
 
