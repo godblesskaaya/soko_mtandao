@@ -58,10 +58,10 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
     final offering = ManagerOffering(
       id: widget.offeringId,
       hotelId: widget.hotelId,
-      title: _titleController.text,
-      description: _descriptionController.text,
-      basePrice: double.tryParse(_priceController.text) ?? 0.0,
-      maxGuests: int.tryParse(_maxGuestsController.text) ?? 1,
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      basePrice: double.tryParse(_priceController.text.trim()) ?? 0.0,
+      maxGuests: int.tryParse(_maxGuestsController.text.trim()) ?? 1,
       amenityIds: _selectedAmenityIds,
       imageUrls: _imageUrlsController.text
           .split(RegExp(r'[\n,]'))
@@ -70,21 +70,47 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
           .toList(),
     );
 
-    if (widget.isEditing) {
-      await ref
-          .read(offeringMutationProvider.notifier)
-          .updateOffering(offering);
-    } else {
-      await ref.read(addOfferingProvider.notifier).addOffering(offering);
-    }
+    final result = widget.isEditing
+        ? await ref
+            .read(offeringMutationProvider.notifier)
+            .updateOffering(offering)
+        : await ref.read(addOfferingProvider.notifier).addOffering(offering);
+
+    result.fold(
+      (failure) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(failure.message)),
+        );
+      },
+      (savedOffering) {
+        ref.invalidate(offeringsProvider(widget.hotelId));
+        if (widget.offeringId != null) {
+          ref.invalidate(offeringDetailsProvider(widget.offeringId!));
+        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.isEditing
+                  ? 'Offering updated.'
+                  : 'Offering added: ${savedOffering?.title ?? offering.title}',
+            ),
+          ),
+        );
+        Navigator.of(context).pop(true);
+      },
+    );
   }
 
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Deletion'),
-        content: const Text('Are you sure you want to delete this offering?'),
+        title: const Text('Archive Offering'),
+        content: const Text(
+          'This makes the offering unavailable. It will be blocked if active or future bookings depend on it.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -92,62 +118,38 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Archive', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      await ref
+      final result = await ref
           .read(offeringMutationProvider.notifier)
           .deleteOffering(widget.offeringId!);
 
-      ref.invalidate(offeringsProvider(widget.hotelId));
-      if (mounted) Navigator.of(context).pop(); // Go back after deletion
+      result.fold(
+        (failure) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(failure.message)),
+          );
+        },
+        (_) {
+          ref.invalidate(offeringsProvider(widget.hotelId));
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Offering archived.')),
+          );
+          Navigator.of(context).pop(true);
+        },
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(offeringMutationProvider, (prev, next) {
-      next.whenData((result) {
-        result.fold(
-          (failure) => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.message)),
-          ),
-          (offering) {
-            if (offering != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(widget.isEditing
-                        ? 'Offering updated: ${offering.title}'
-                        : 'Offering added: ${offering.title}')),
-              );
-              Navigator.of(context).pop(); // Go back after success
-            }
-          },
-        );
-      });
-    });
-
-    ref.listen(addOfferingProvider, (prev, next) {
-      next.whenData((result) {
-        result?.fold(
-          (failure) => ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.message)),
-          ),
-          (offering) {
-            if (offering != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Offering added: ${offering.title}')),
-              );
-            }
-          },
-        );
-      });
-    });
-
     if (widget.isEditing) {
       // Editing existing offering
       final offeringAsync =
@@ -180,7 +182,7 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
           if (widget.isEditing)
             IconButton(
               icon: const Icon(Icons.delete),
-              onPressed: _confirmDelete,
+              onPressed: mutationState.isLoading ? null : _confirmDelete,
             ),
         ],
       ),
@@ -205,12 +207,26 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
                 controller: _priceController,
                 decoration: const InputDecoration(labelText: 'Base Price'),
                 keyboardType: TextInputType.number,
+                validator: (value) {
+                  final price = double.tryParse((value ?? '').trim());
+                  if (price == null || price <= 0) {
+                    return 'Enter a price greater than zero';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _maxGuestsController,
                 decoration: const InputDecoration(labelText: 'Max Guests'),
                 keyboardType: TextInputType.number,
+                validator: (value) {
+                  final guests = int.tryParse((value ?? '').trim());
+                  if (guests == null || guests < 1) {
+                    return 'Enter at least 1 guest';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               AsyncMultiSelectField<ManagerAmenity, String>(
@@ -235,11 +251,9 @@ class _OfferingScreenState extends ConsumerState<OfferingScreen> {
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
-                  mutationState.isLoading || addOfferingState.isLoading
-                      ? null
-                      : _submit();
-                },
+                onPressed: mutationState.isLoading || addOfferingState.isLoading
+                    ? null
+                    : _submit,
                 child: addOfferingState.isLoading || mutationState.isLoading
                     ? const CircularProgressIndicator()
                     : Text(

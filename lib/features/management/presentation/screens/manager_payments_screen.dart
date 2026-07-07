@@ -391,7 +391,7 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
           content: Text(
             batchId == null
                 ? 'No available balance met payout threshold.'
-                : 'Payout batch created: $batchId',
+                : 'Payout batch queued for provider dispatch: $batchId',
           ),
         ),
       );
@@ -695,7 +695,7 @@ class PaymentListTile extends ConsumerWidget {
           content: Text(
             batchId == null
                 ? 'No available balance met payout threshold.'
-                : 'Payout batch created: $batchId',
+                : 'Payout batch queued for provider dispatch: $batchId',
           ),
         ),
       );

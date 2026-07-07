@@ -18,7 +18,14 @@ class ManagerTeamScreen extends ConsumerStatefulWidget {
 
 class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
   final _inviteEmailCtrl = TextEditingController();
-  final _inviteRoleCtrl = TextEditingController(text: 'front_desk');
+  static const _staffRoles = <String>[
+    'front_desk',
+    'housekeeping',
+    'accounting',
+    'maintenance',
+    'manager',
+  ];
+  String _inviteRole = 'front_desk';
 
   bool _isLoading = true;
   String? _hotelId;
@@ -122,7 +129,7 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
       final result = await _client.rpc('create_staff_invite', params: {
         'p_hotel_id': hotelId,
         'p_email': _inviteEmailCtrl.text.trim(),
-        'p_staff_title': _inviteRoleCtrl.text.trim(),
+        'p_staff_title': _inviteRole,
       });
       final token = result is Map ? result['invite_token']?.toString() : null;
       if (token != null && token.isNotEmpty) {
@@ -150,7 +157,6 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
   @override
   void dispose() {
     _inviteEmailCtrl.dispose();
-    _inviteRoleCtrl.dispose();
     super.dispose();
   }
 
@@ -189,11 +195,23 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: _inviteRoleCtrl,
+                        DropdownButtonFormField<String>(
+                          initialValue: _inviteRole,
                           decoration: const InputDecoration(
-                            labelText: 'Staff title',
+                            labelText: 'Staff role',
                           ),
+                          items: _staffRoles
+                              .map(
+                                (role) => DropdownMenuItem(
+                                  value: role,
+                                  child: Text(_formatRole(role)),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() => _inviteRole = value);
+                          },
                         ),
                         const SizedBox(height: 12),
                         FilledButton.icon(
@@ -269,9 +287,74 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
                       child: ListTile(
                         title: Text(row['name']?.toString() ?? 'Staff member'),
                         subtitle: Text(
-                          '${row['email'] ?? '-'}\nRole: ${row['role'] ?? '-'}',
+                          '${row['email'] ?? '-'}\n'
+                          'Role: ${_formatRole(row['role']?.toString() ?? '-')}\n'
+                          'Status: ${row['is_active'] == false ? 'Inactive' : 'Active'}',
                         ),
                         isThreeLine: true,
+                        trailing: PopupMenuButton<String>(
+                          tooltip: 'Manage staff',
+                          onSelected: (value) {
+                            if (value.startsWith('role:')) {
+                              final role = value.substring('role:'.length);
+                              _run(() async {
+                                await _client.rpc(
+                                  'update_staff_assignment',
+                                  params: {
+                                    'p_staff_id': row['id'],
+                                    'p_role': role,
+                                    'p_is_active': null,
+                                  },
+                                );
+                              });
+                              return;
+                            }
+                            if (value == 'deactivate') {
+                              _run(() async {
+                                await _client.rpc(
+                                  'update_staff_assignment',
+                                  params: {
+                                    'p_staff_id': row['id'],
+                                    'p_role': null,
+                                    'p_is_active': false,
+                                  },
+                                );
+                              });
+                              return;
+                            }
+                            if (value == 'reactivate') {
+                              _run(() async {
+                                await _client.rpc(
+                                  'update_staff_assignment',
+                                  params: {
+                                    'p_staff_id': row['id'],
+                                    'p_role': null,
+                                    'p_is_active': true,
+                                  },
+                                );
+                              });
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            ..._staffRoles.map(
+                              (role) => PopupMenuItem(
+                                value: 'role:$role',
+                                child: Text('Set ${_formatRole(role)}'),
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                            PopupMenuItem(
+                              value: row['is_active'] == false
+                                  ? 'reactivate'
+                                  : 'deactivate',
+                              child: Text(
+                                row['is_active'] == false
+                                    ? 'Reactivate'
+                                    : 'Deactivate',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -302,10 +385,14 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
                               icon: const Icon(Icons.cancel_outlined),
                               onPressed: row['status'] == 'pending'
                                   ? () => _run(
-                                        () => _client
-                                            .from('staff_invites')
-                                            .update({'status': 'cancelled'})
-                                            .eq('id', row['id']),
+                                        () async {
+                                          await _client.rpc(
+                                            'cancel_staff_invite',
+                                            params: {
+                                              'p_invite_id': row['id'],
+                                            },
+                                          );
+                                        },
                                       )
                                   : null,
                             ),
@@ -317,5 +404,14 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
               ],
             ),
     );
+  }
+
+  static String _formatRole(String role) {
+    if (role == '-') return '-';
+    return role
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 }

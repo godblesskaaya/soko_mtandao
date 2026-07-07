@@ -7,7 +7,10 @@ import 'package:soko_mtandao/core/services/auth_service.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_hotel_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_offering_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_payment_provider.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
+import 'package:soko_mtandao/features/management/presentation/riverpod/manager_room_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/selected_manager_hotel_provider.dart';
 import 'package:soko_mtandao/widgets/persona_switcher_button.dart';
 import 'package:soko_mtandao/widgets/entity_picker.dart';
@@ -292,6 +295,18 @@ class _ManagerDashboardScreenState
             ),
 
             const SizedBox(height: 24),
+            if (selectedHotelId != null && selectedHotelId.isNotEmpty) ...[
+              Text(
+                "Property Readiness",
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              _PropertyReadinessCard(
+                hotelId: selectedHotelId,
+                kycStatus: _kycStatus,
+              ),
+              const SizedBox(height: 24),
+            ],
 
             /// ⚡ Quick Actions
             Text(
@@ -459,4 +474,162 @@ class _ManagerDashboardScreenState
     }
     return 'Hotel Manager';
   }
+}
+
+class _PropertyReadinessCard extends ConsumerWidget {
+  final String hotelId;
+  final String kycStatus;
+
+  const _PropertyReadinessCard({
+    required this.hotelId,
+    required this.kycStatus,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hotelAsync = ref.watch(hotelDetailProvider(hotelId));
+    final roomsAsync = ref.watch(roomsProvider(hotelId));
+    final offeringsAsync = ref.watch(offeringsProvider(hotelId));
+    final payoutAsync = ref.watch(hotelPayoutReadinessProvider(hotelId));
+
+    final isLoading = hotelAsync.isLoading ||
+        roomsAsync.isLoading ||
+        offeringsAsync.isLoading ||
+        payoutAsync.isLoading;
+
+    final issues = <_ReadinessIssue>[];
+    final hotel = hotelAsync.valueOrNull;
+    final rooms = roomsAsync.valueOrNull ?? const [];
+    final offerings = offeringsAsync.valueOrNull ?? const [];
+    final payout = payoutAsync.valueOrNull;
+
+    if (hotel != null) {
+      if (hotel.images.isEmpty) {
+        issues.add(_ReadinessIssue(
+          'Add property photos',
+          'Photos improve trust and listing quality.',
+          'Edit Hotel',
+          () => context.pushNamed('editHotel', pathParameters: {
+            'hotelId': hotelId,
+          }),
+        ));
+      }
+      if (hotel.totalRooms < 1) {
+        issues.add(_ReadinessIssue(
+          'Set total rooms',
+          'The property must declare at least one room.',
+          'Edit Hotel',
+          () => context.pushNamed('editHotel', pathParameters: {
+            'hotelId': hotelId,
+          }),
+        ));
+      }
+    }
+    if (offerings.isEmpty) {
+      issues.add(_ReadinessIssue(
+        'Create an offering',
+        'Customers book offerings tied to room inventory.',
+        'Offerings',
+        () => context.pushNamed('offerings', pathParameters: {
+          'hotelId': hotelId,
+        }),
+      ));
+    }
+    if (rooms.isEmpty) {
+      issues.add(_ReadinessIssue(
+        'Add rooms',
+        'Inventory must exist before customers can reserve stays.',
+        'Rooms',
+        () => context.pushNamed('rooms', pathParameters: {
+          'hotelId': hotelId,
+        }),
+      ));
+    }
+    if (kycStatus != 'approved') {
+      issues.add(_ReadinessIssue(
+        'Complete KYC review',
+        'Approved KYC is required before payouts are available.',
+        'KYC',
+        () => context.pushNamed('managerKyc'),
+      ));
+    }
+    if (payout != null && !payout.ready) {
+      issues.add(_ReadinessIssue(
+        'Complete payout setup',
+        payout.missing.isEmpty
+            ? 'A reviewed payout account is required.'
+            : payout.missing.join(' • '),
+        'Payments',
+        () => context.pushNamed('managerPayments', pathParameters: {
+          'hotelId': hotelId,
+        }),
+      ));
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  issues.isEmpty
+                      ? Icons.verified_outlined
+                      : Icons.rule_folder_outlined,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    issues.isEmpty
+                        ? 'Ready for operations'
+                        : '${issues.length} readiness item${issues.length == 1 ? '' : 's'}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                if (isLoading)
+                  const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (issues.isEmpty)
+              const Text(
+                'This property has listing basics, inventory, offerings, and payout setup in place.',
+              )
+            else
+              ...issues.map(
+                (issue) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(issue.title),
+                  subtitle: Text(issue.description),
+                  trailing: TextButton(
+                    onPressed: issue.onAction,
+                    child: Text(issue.actionLabel),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadinessIssue {
+  final String title;
+  final String description;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  const _ReadinessIssue(
+    this.title,
+    this.description,
+    this.actionLabel,
+    this.onAction,
+  );
 }

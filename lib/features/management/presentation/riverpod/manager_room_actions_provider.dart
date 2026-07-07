@@ -22,16 +22,20 @@ class ManagerRoomActionsNotifier extends AsyncNotifier<void> {
     usecase = ref.watch(updateRoomStatusUsecaseProvider);
   }
 
-  Future<void> updateRoomStatus(RoomStatus status) async {
+  Future<bool> updateRoomStatus(RoomStatus status) async {
     state = const AsyncLoading();
 
     final result = await usecase.call(status);
-    state = result.fold(
-      (failure) => AsyncError(failure, StackTrace.current),
+    return result.fold(
+      (failure) {
+        state = AsyncError(failure, StackTrace.current);
+        return false;
+      },
       (_) {
         // Refresh the room details after successful update
         ref.invalidate(managerRoomDetailsProvider(status.roomId));
-        return const AsyncData(null);
+        state = const AsyncData(null);
+        return true;
       },
     );
   }

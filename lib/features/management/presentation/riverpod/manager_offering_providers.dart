@@ -106,9 +106,12 @@ class AddOfferingNotifier
 
   AddOfferingNotifier(this._useCase) : super(const AsyncData(null));
 
-  Future<void> addOffering(ManagerOffering offering) async {
+  Future<Either<Failure, ManagerOffering>> addOffering(
+    ManagerOffering offering,
+  ) async {
     state = const AsyncLoading();
     final result = await _useCase(offering);
     state = AsyncData(result);
+    return result;
   }
 }

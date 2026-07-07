@@ -22,6 +22,11 @@ class _RoomActionsState extends ConsumerState<RoomActions> {
   List<DateTime> multipleDates = [];
   final TextEditingController noteController = TextEditingController();
 
+  List<RoomStatusType> get _managerStatusOptions => const [
+        RoomStatusType.vacant,
+        RoomStatusType.outOfService,
+      ];
+
   Future<void> pickSingleDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -63,6 +68,24 @@ class _RoomActionsState extends ConsumerState<RoomActions> {
       );
       return;
     }
+    if (dateMode == DateSelectionMode.single && singleDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a date.')),
+      );
+      return;
+    }
+    if (dateMode == DateSelectionMode.range && dateRange == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a date range.')),
+      );
+      return;
+    }
+    if (dateMode == DateSelectionMode.multiple && multipleDates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one date.')),
+      );
+      return;
+    }
 
     final newStatus = RoomStatus(
       roomId: widget.roomId,
@@ -76,9 +99,19 @@ class _RoomActionsState extends ConsumerState<RoomActions> {
           : noteController.text.trim(),
     );
 
-    await ref
+    final succeeded = await ref
         .read(managerRoomActionsProvider.notifier)
         .updateRoomStatus(newStatus);
+
+    if (!succeeded) {
+      final error = ref.read(managerRoomActionsProvider).error;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error?.toString() ?? 'Update failed.')),
+        );
+      }
+      return;
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,10 +153,14 @@ class _RoomActionsState extends ConsumerState<RoomActions> {
                 labelText: "Select Room Status",
                 border: OutlineInputBorder(),
               ),
-              items: RoomStatusType.values
+              items: _managerStatusOptions
                   .map((type) => DropdownMenuItem(
                         value: type,
-                        child: Text(type.name),
+                        child: Text(
+                          type == RoomStatusType.vacant
+                              ? 'Available'
+                              : 'Out of service',
+                        ),
                       ))
                   .toList(),
               onChanged: (val) => setState(() => selectedStatus = val),

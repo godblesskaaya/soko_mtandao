@@ -1,5 +1,4 @@
 // supabase implementation of manager datasource
-import 'package:soko_mtandao/core/services/auth_service.dart';
 import 'package:soko_mtandao/features/management/data/models/manager_amenity_model.dart';
 import 'package:soko_mtandao/features/management/data/models/manager_booking_item_model.dart';
 import 'package:soko_mtandao/features/management/data/models/manager_booking_model.dart';
@@ -46,6 +45,56 @@ class ManagerRemoteDataSource implements ManagerDataSource {
     );
   }
 
+  List<String> _amenityIdsForHotel(ManagerHotel hotel) {
+    return hotel.amenities
+        .map((amenity) => amenity.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  Map<String, dynamic> _hotelRpcParams(
+    ManagerHotel hotel, {
+    required String? hotelId,
+  }) {
+    return {
+      'p_hotel_id': hotelId?.trim().isEmpty == true ? null : hotelId,
+      'p_name': hotel.name.trim(),
+      'p_address': hotel.address.trim(),
+      'p_description': hotel.description.trim(),
+      'p_images': hotel.images,
+      'p_amenity_ids': _amenityIdsForHotel(hotel),
+      'p_lat': hotel.lat,
+      'p_lng': hotel.lng,
+      'p_total_rooms': hotel.totalRooms,
+      'p_region': hotel.region.trim(),
+      'p_country': hotel.country.trim(),
+      'p_city': hotel.city.trim(),
+      'p_phone_number': hotel.phoneNumber.trim(),
+      'p_email': hotel.email.trim(),
+      'p_website': hotel.website?.trim(),
+      'p_check_in_from': hotel.checkInFrom?.trim(),
+      'p_check_in_until': hotel.checkInUntil?.trim(),
+      'p_check_out_until': hotel.checkOutUntil?.trim(),
+      'p_stay_rules': hotel.stayRules,
+      'p_check_in_requirements': hotel.checkInRequirements,
+      'p_is_active': hotel.isActive,
+    };
+  }
+
+  String _roomStatusToDatabase(RoomStatusType status) {
+    switch (status) {
+      case RoomStatusType.vacant:
+        return 'available';
+      case RoomStatusType.outOfService:
+        return 'not_available';
+      case RoomStatusType.pending:
+        return 'pending';
+      case RoomStatusType.booked:
+        return 'booked';
+    }
+  }
+
   RoomStatusType _roomStatusTypeFromDatabase(dynamic value) {
     switch ((value ?? '').toString()) {
       case 'booked':
@@ -59,27 +108,6 @@ class ManagerRemoteDataSource implements ManagerDataSource {
       default:
         return RoomStatusType.vacant;
     }
-  }
-
-  Future<void> _syncOfferingAmenities(
-      String offeringId, List<String> amenityIds) async {
-    await _supabase
-        .from('offering_amenities')
-        .delete()
-        .eq('offering_id', offeringId);
-
-    final uniqueIds =
-        amenityIds.toSet().where((id) => id.trim().isNotEmpty).toList();
-    if (uniqueIds.isEmpty) return;
-
-    await _supabase.from('offering_amenities').insert(
-          uniqueIds
-              .map((amenityId) => {
-                    'offering_id': offeringId,
-                    'amenity_id': amenityId,
-                  })
-              .toList(growable: false),
-        );
   }
 
   @override
@@ -115,125 +143,98 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<ManagerHotelModel> createHotel(ManagerHotel hotel) async {
-    final AuthService authService = AuthService();
-    final response = await _supabase
-        .from('hotels')
-        .insert({
-          "name": hotel.name,
-          "address": hotel.address,
-          "description": hotel.description,
-          "images": hotel.images, // remote URLs, not local paths
-          "location": 'SRID=4326;POINT(${hotel.lng} ${hotel.lat})',
-          "rating": 0.0,
-          "total_rooms": hotel.totalRooms,
-          "region": hotel.region,
-          "country": hotel.country,
-          "city": hotel.city,
-          "phone_number": hotel.phoneNumber,
-          "email": hotel.email,
-          "website": hotel.website,
-          "is_active": true,
-          // "amenities": hotel.amenities.map((a) => a.name).toList(),
-          "manager_user_id": authService.userId,
-        })
-        .select()
-        .single();
-
-    return ManagerHotelModel.fromJson(response);
+    final hotelId = await _supabase.rpc(
+      'upsert_managed_hotel',
+      params: _hotelRpcParams(hotel, hotelId: null),
+    );
+    return ManagerHotelModel.fromEntity(
+      await fetchHotelDetail(hotelId.toString()),
+    );
   }
 
   @override
   Future<ManagerHotelModel> updateHotel(ManagerHotel hotel) async {
-    final response = await _supabase
-        .from('hotels')
-        .update({
-          'name': hotel.name,
-          'address': hotel.address,
-          'description': hotel.description,
-          'images': hotel.images,
-          'location': 'SRID=4326;POINT(${hotel.lng} ${hotel.lat})',
-          'total_rooms': hotel.totalRooms,
-          'region': hotel.region,
-          'country': hotel.country,
-          'city': hotel.city,
-          'phone_number': hotel.phoneNumber,
-          'email': hotel.email,
-          'website': hotel.website,
-          'is_active': hotel.isActive,
-          'check_in_from': hotel.checkInFrom,
-          'check_in_until': hotel.checkInUntil,
-          'check_out_until': hotel.checkOutUntil,
-          'stay_rules': hotel.stayRules,
-          'check_in_requirements': hotel.checkInRequirements,
-        })
-        .eq('id', hotel.id)
-        .select()
-        .single();
-
-    return ManagerHotelModel.fromJson(response);
+    final hotelId = await _supabase.rpc(
+      'upsert_managed_hotel',
+      params: _hotelRpcParams(hotel, hotelId: hotel.id),
+    );
+    return ManagerHotelModel.fromEntity(
+      await fetchHotelDetail(hotelId.toString()),
+    );
   }
 
   @override
   Future<void> cancelBooking(String bookingId) async {
-    await _supabase
-        .from('bookings')
-        .update({
-          'status': 'cancelled',
-          'payment_status': 'cancelled',
-        })
-        .eq('id', bookingId);
+    await _supabase.rpc('cancel_booking_for_manager', params: {
+      'p_booking_id': bookingId,
+      'p_reason': 'Manager cancellation requested from app',
+    });
   }
 
   @override
   Future<void> changeStaffRole(String staffId, String role) async {
-    await _supabase
-        .from('staff')
-        .update({'role': role.trim()})
-        .eq('id', staffId);
+    await _supabase.rpc('update_staff_assignment', params: {
+      'p_staff_id': staffId,
+      'p_role': role.trim(),
+      'p_is_active': null,
+    });
   }
 
   @override
   Future<ManagerOfferingModel> createOffering(ManagerOffering offering) async {
-    final response = await _supabase
-        .from('offerings')
-        .insert(ManagerOfferingModel.fromEntity(offering).toJson())
-        .select()
-        .single();
-    final offeringId = (response['id'] ?? '').toString();
-    if (offeringId.isNotEmpty) {
-      await _syncOfferingAmenities(offeringId, offering.amenityIds);
-      final hydrated = await fetchOfferingById(offeringId);
-      return ManagerOfferingModel.fromEntity(hydrated);
-    }
-    return ManagerOfferingModel.fromJson(response);
+    final offeringId = await _supabase.rpc(
+      'upsert_offering_with_amenities',
+      params: {
+        'p_offering_id': null,
+        'p_hotel_id': offering.hotelId,
+        'p_title': offering.title.trim(),
+        'p_description': offering.description.trim(),
+        'p_price': offering.basePrice,
+        'p_max_guests': offering.maxGuests,
+        'p_is_available': offering.isActive,
+        'p_amenity_ids': offering.amenityIds,
+        'p_images': offering.imageUrls,
+      },
+    );
+    final hydrated = await fetchOfferingById(offeringId.toString());
+    return ManagerOfferingModel.fromEntity(hydrated);
   }
 
   @override
   Future<ManagerRoomModel> createRoom(ManagerRoom room) async {
-    final response = await _supabase
-        .from('hotel_rooms')
-        .insert(ManagerRoomModel.fromEntity(room).toJson())
-        .select()
-        .single();
-
-    return ManagerRoomModel.fromJson(response);
+    final roomId = await _supabase.rpc('upsert_room_for_manager', params: {
+      'p_room_id': null,
+      'p_hotel_id': room.hotelId,
+      'p_offering_id': room.offeringId,
+      'p_room_number': room.roomNumber.trim(),
+      'p_capacity': room.capacity,
+      'p_is_active': room.isActive,
+    });
+    return getRoomById(roomId.toString());
   }
 
   @override
   Future<void> deactivateHotel(String hotelId) async {
-    await _supabase
-        .from('hotels')
-        .update({'is_active': false}).eq('id', hotelId);
+    await _supabase.rpc('deactivate_hotel_for_manager', params: {
+      'p_hotel_id': hotelId,
+      'p_reason': 'Deactivated from manager app',
+    });
   }
 
   @override
   Future<void> deleteOffering(String offeringId) async {
-    await _supabase.from('offerings').delete().eq('id', offeringId);
+    await _supabase.rpc('archive_offering_for_manager', params: {
+      'p_offering_id': offeringId,
+      'p_reason': 'Archived from manager app',
+    });
   }
 
   @override
   Future<void> deleteRoom(String roomId) async {
-    await _supabase.from('hotel_rooms').delete().eq('id', roomId);
+    await _supabase.rpc('archive_room_for_manager', params: {
+      'p_room_id': roomId,
+      'p_reason': 'Archived from manager app',
+    });
   }
 
   @override
@@ -471,14 +472,17 @@ class ManagerRemoteDataSource implements ManagerDataSource {
     if (offeringId.isEmpty) {
       throw ArgumentError('offering.id is required when updating an offering');
     }
-    final res = _supabase
-        .from('offerings')
-        .update(ManagerOfferingModel.fromEntity(offering).toJson())
-        .eq('id', offeringId)
-        .select()
-        .single();
-    return res.then((value) async {
-      await _syncOfferingAmenities(offeringId, offering.amenityIds);
+    return _supabase.rpc('upsert_offering_with_amenities', params: {
+      'p_offering_id': offeringId,
+      'p_hotel_id': offering.hotelId,
+      'p_title': offering.title.trim(),
+      'p_description': offering.description.trim(),
+      'p_price': offering.basePrice,
+      'p_max_guests': offering.maxGuests,
+      'p_is_available': offering.isActive,
+      'p_amenity_ids': offering.amenityIds,
+      'p_images': offering.imageUrls,
+    }).then((value) async {
       final hydrated = await fetchOfferingById(offeringId);
       return ManagerOfferingModel.fromEntity(hydrated);
     });
@@ -486,13 +490,14 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<ManagerRoomModel> updateRoom(ManagerRoom room) {
-    final res = _supabase
-        .from('hotel_rooms')
-        .update(ManagerRoomModel.fromEntity(room).toJson())
-        .eq('id', room.id as Object)
-        .select()
-        .single();
-    return res.then((value) => ManagerRoomModel.fromJson(value));
+    return _supabase.rpc('upsert_room_for_manager', params: {
+      'p_room_id': room.id,
+      'p_hotel_id': room.hotelId,
+      'p_offering_id': room.offeringId,
+      'p_room_number': room.roomNumber.trim(),
+      'p_capacity': room.capacity,
+      'p_is_active': room.isActive,
+    }).then((value) => getRoomById(value.toString()));
   }
 
   @override
@@ -507,7 +512,7 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
     final params = {
       'p_room_id': statusData.roomId,
-      'p_status': statusData.status.name,
+      'p_status': _roomStatusToDatabase(statusData.status),
       'p_note': statusData.note,
       'p_start_date': statusData.startDate?.toIso8601String().split('T').first,
       'p_end_date': statusData.endDate?.toIso8601String().split('T').first,

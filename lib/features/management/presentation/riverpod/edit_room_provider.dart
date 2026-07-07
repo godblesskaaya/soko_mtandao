@@ -19,19 +19,20 @@ class RoomMutationNotifier extends StateNotifier<RoomMutationState> {
         _delete = delete,
         super(const AsyncData(Right(null)));
 
-  Future<void> updateRoom(ManagerRoom room) async {
+  Future<Either<Failure, ManagerRoom?>> updateRoom(ManagerRoom room) async {
     state = const AsyncLoading();
     final result = await _update.call(room);
     state = AsyncData(result);
+    return result.map((room) => room);
   }
 
-  Future<void> deleteRoom(String roomId) async {
+  Future<Either<Failure, ManagerRoom?>> deleteRoom(String roomId) async {
     state = const AsyncLoading();
     final result = await _delete.call(roomId);
+    final mapped = result.map((_) => null);
 
-    state = AsyncData(
-      result.map((_) => null), // delete returns Unit
-    );
+    state = AsyncData(mapped);
+    return mapped;
   }
 }
 

@@ -43,7 +43,7 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
   final _checkOutUntilController = TextEditingController();
   final _stayRulesController = TextEditingController();
   final _checkInRequirementsController = TextEditingController();
-  final _roomsController = TextEditingController(text: "0");
+  final _roomsController = TextEditingController(text: "1");
 
   // State
   List<ManagerAmenity> selectedAmenities = [];
@@ -301,9 +301,15 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                               border: OutlineInputBorder(),
                             ),
                             readOnly: true,
-                            validator: (val) => (val == null || val.isEmpty)
-                                ? "Required"
-                                : null,
+                            validator: (val) {
+                              final parsed = double.tryParse(val ?? '');
+                              if (parsed == null ||
+                                  parsed < -90 ||
+                                  parsed > 90) {
+                                return 'Valid latitude required';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -315,9 +321,15 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                               border: OutlineInputBorder(),
                             ),
                             readOnly: true,
-                            validator: (val) => (val == null || val.isEmpty)
-                                ? "Required"
-                                : null,
+                            validator: (val) {
+                              final parsed = double.tryParse(val ?? '');
+                              if (parsed == null ||
+                                  parsed < -180 ||
+                                  parsed > 180) {
+                                return 'Valid longitude required';
+                              }
+                              return null;
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -344,8 +356,18 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                     ),
                   ),
 
-                  _buildTextField("Total Rooms", _roomsController,
-                      keyboard: TextInputType.number),
+                  _buildTextField(
+                    "Total Rooms",
+                    _roomsController,
+                    keyboard: TextInputType.number,
+                    validator: (val) {
+                      final rooms = int.tryParse((val ?? '').trim());
+                      if (rooms == null || rooms < 1) {
+                        return 'Enter at least 1 room';
+                      }
+                      return null;
+                    },
+                  ),
                   _buildTextField("Region", _regionController),
                   _buildTextField("Country", _countryController),
                   _buildTextField("City", _cityController),

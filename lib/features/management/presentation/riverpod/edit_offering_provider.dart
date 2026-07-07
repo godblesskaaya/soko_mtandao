@@ -19,19 +19,24 @@ class OfferingMutationNotifier extends StateNotifier<OfferingMutationState> {
         _delete = delete,
         super(const AsyncData(Right(null)));
 
-  Future<void> updateOffering(ManagerOffering offering) async {
+  Future<Either<Failure, ManagerOffering?>> updateOffering(
+    ManagerOffering offering,
+  ) async {
     state = const AsyncLoading();
     final result = await _update.call(offering);
     state = AsyncData(result);
+    return result.map((offering) => offering);
   }
 
-  Future<void> deleteOffering(String offeringId) async {
+  Future<Either<Failure, ManagerOffering?>> deleteOffering(
+    String offeringId,
+  ) async {
     state = const AsyncLoading();
     final result = await _delete.call(offeringId);
+    final mapped = result.map((_) => null);
 
-    state = AsyncData(
-      result.map((_) => null), // delete returns Unit
-    );
+    state = AsyncData(mapped);
+    return mapped;
   }
 }
 

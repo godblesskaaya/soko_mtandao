@@ -6,6 +6,7 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_room.da
 import 'package:soko_mtandao/features/management/domain/usecases/bookings/get_booking_detail.dart';
 import 'package:soko_mtandao/features/management/domain/usecases/bookings/get_bookings.dart';
 import 'package:soko_mtandao/features/management/domain/usecases/bookings/get_bookings_for_room.dart';
+import 'package:soko_mtandao/features/management/domain/usecases/bookings/cancel_booking.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_room_providers.dart';
 
@@ -30,6 +31,11 @@ final bookingDetailProvider =
     FutureProvider.family<ManagerBooking, String>((ref, bookingId) {
   return ref.watch(getBookingDetailProvider).call(bookingId).then((result) =>
       result.fold((failure) => throw failure, (booking) => booking));
+});
+
+final cancelBookingUseCaseProvider = Provider<CancelBooking>((ref) {
+  final repo = ref.watch(managerRepositoryProvider);
+  return CancelBooking(repo);
 });
 
 final bookingListCombinedProvider =

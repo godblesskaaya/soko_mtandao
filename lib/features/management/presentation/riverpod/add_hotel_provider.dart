@@ -5,7 +5,6 @@ import 'package:soko_mtandao/core/errors/error_reporter.dart';
 import 'package:soko_mtandao/core/errors/failure_mapper.dart';
 import 'package:soko_mtandao/core/errors/failures.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_amenity.dart';
-import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddHotelState {
@@ -57,6 +56,7 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
       }
 
       final urls = <String>[];
+      final uploadedStoragePaths = <String>[];
       for (final path in images) {
         final file = File(path);
         final fileName =
@@ -74,61 +74,44 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
         final publicUrl =
             _supabase.storage.from('hotel-images').getPublicUrl(storagePath);
         urls.add(publicUrl);
+        uploadedStoragePaths.add(storagePath);
       }
 
-      final response = await _supabase
-          .from('hotels')
-          .insert({
-            "name": name,
-            "address": address,
-            "description": description,
-            "images": urls,
-            "location": 'SRID=4326;POINT($lng $lat)',
-            "total_rooms": totalRooms,
-            "region": region,
-            "country": country,
-            "city": city,
-            "phone_number": phoneNumber,
-            "email": email,
-            "check_in_from": checkInFrom,
-            "check_in_until": checkInUntil,
-            "check_out_until": checkOutUntil,
-            "stay_rules": stayRules,
-            "check_in_requirements": checkInRequirements,
-            "website": website,
-            "manager_user_id": managerUserId,
-          })
-          .select()
-          .single();
-
-      final hotel = ManagerHotel(
-        id: response['id'].toString(),
-        name: name,
-        address: address,
-        description: description,
-        images: urls,
-        lat: double.tryParse(lat) ?? 0.0,
-        lng: double.tryParse(lng) ?? 0.0,
-        rating: 0.0,
-        totalRooms: totalRooms,
-        region: region,
-        country: country,
-        city: city,
-        phoneNumber: phoneNumber,
-        email: email,
-        website: website,
-        checkInFrom: checkInFrom,
-        checkInUntil: checkInUntil,
-        checkOutUntil: checkOutUntil,
-        stayRules: stayRules,
-        checkInRequirements: checkInRequirements,
-      );
-
-      for (final amenity in amenities) {
-        await _supabase.from('hotel_amenities').insert({
-          "hotel_id": hotel.id,
-          "amenity_id": amenity.amenityId,
+      try {
+        await _supabase.rpc('upsert_managed_hotel', params: {
+          'p_hotel_id': null,
+          'p_name': name.trim(),
+          'p_address': address.trim(),
+          'p_description': description.trim(),
+          'p_images': urls,
+          'p_amenity_ids': amenities
+              .map((amenity) => amenity.amenityId)
+              .where((id) => id.trim().isNotEmpty)
+              .toSet()
+              .toList(),
+          'p_lat': double.tryParse(lat),
+          'p_lng': double.tryParse(lng),
+          'p_total_rooms': totalRooms,
+          'p_region': region.trim(),
+          'p_country': country.trim(),
+          'p_city': city.trim(),
+          'p_phone_number': phoneNumber.trim(),
+          'p_email': email.trim(),
+          'p_check_in_from': checkInFrom,
+          'p_check_in_until': checkInUntil,
+          'p_check_out_until': checkOutUntil,
+          'p_stay_rules': stayRules,
+          'p_check_in_requirements': checkInRequirements,
+          'p_website': website,
+          'p_is_active': true,
         });
+      } catch (_) {
+        if (uploadedStoragePaths.isNotEmpty) {
+          await _supabase.storage
+              .from('hotel-images')
+              .remove(uploadedStoragePaths);
+        }
+        rethrow;
       }
     } catch (e) {
       ErrorReporter.report(e, StackTrace.current,

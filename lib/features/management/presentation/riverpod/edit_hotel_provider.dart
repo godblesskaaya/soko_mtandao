@@ -64,6 +64,7 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
 
       /// 1. Upload only NEW images
       final finalImageUrls = <String>[];
+      final uploadedStoragePaths = <String>[];
 
       for (final image in images) {
         if (image.isRemote) {
@@ -80,38 +81,45 @@ class EditHotelNotifier extends StateNotifier<EditHotelState> {
               _supabase.storage.from('hotel-images').getPublicUrl(storagePath);
 
           finalImageUrls.add(publicUrl);
+          uploadedStoragePaths.add(storagePath);
         }
       }
 
-      /// 2. Update hotel
-      await _supabase.from('hotels').update({
-        "name": name,
-        "address": address,
-        "description": description,
-        "images": finalImageUrls,
-        "location": 'SRID=4326;POINT($lng $lat)',
-        "total_rooms": totalRooms,
-        "region": region,
-        "country": country,
-        "city": city,
-        "phone_number": phoneNumber,
-        "email": email,
-        "check_in_from": checkInFrom,
-        "check_in_until": checkInUntil,
-        "check_out_until": checkOutUntil,
-        "stay_rules": stayRules,
-        "check_in_requirements": checkInRequirements,
-        "website": website,
-      }).eq('id', hotelId);
-
-      /// 3. Sync amenities (simple approach)
-      await _supabase.from('hotel_amenities').delete().eq('hotel_id', hotelId);
-
-      for (final amenity in amenities) {
-        await _supabase.from('hotel_amenities').insert({
-          "hotel_id": hotelId,
-          "amenity_id": amenity.amenityId,
+      try {
+        await _supabase.rpc('upsert_managed_hotel', params: {
+          'p_hotel_id': hotelId,
+          'p_name': name.trim(),
+          'p_address': address.trim(),
+          'p_description': description.trim(),
+          'p_images': finalImageUrls,
+          'p_amenity_ids': amenities
+              .map((amenity) => amenity.amenityId)
+              .where((id) => id.trim().isNotEmpty)
+              .toSet()
+              .toList(),
+          'p_lat': lat,
+          'p_lng': lng,
+          'p_total_rooms': totalRooms,
+          'p_region': region.trim(),
+          'p_country': country.trim(),
+          'p_city': city.trim(),
+          'p_phone_number': phoneNumber.trim(),
+          'p_email': email.trim(),
+          'p_check_in_from': checkInFrom,
+          'p_check_in_until': checkInUntil,
+          'p_check_out_until': checkOutUntil,
+          'p_stay_rules': stayRules,
+          'p_check_in_requirements': checkInRequirements,
+          'p_website': website,
+          'p_is_active': true,
         });
+      } catch (_) {
+        if (uploadedStoragePaths.isNotEmpty) {
+          await _supabase.storage
+              .from('hotel-images')
+              .remove(uploadedStoragePaths);
+        }
+        rethrow;
       }
     } catch (e) {
       state = state.copyWith(error: failureFromError(e));

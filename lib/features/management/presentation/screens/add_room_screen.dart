@@ -45,21 +45,33 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (selectedOfferingId == null || selectedOfferingId!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an offering before saving.')),
+      );
+      return;
+    }
+
     final room = ManagerRoom(
       id: widget.roomId ?? '',
       hotelId: widget.hotelId,
       offeringId: selectedOfferingId!,
-      roomNumber: _roomNumberController.text,
-      capacity: int.tryParse(_capacityController.text) ?? 1,
+      roomNumber: _roomNumberController.text.trim(),
+      capacity: int.tryParse(_capacityController.text.trim()) ?? 1,
       isActive: true,
     );
 
+    bool succeeded = false;
     if (widget.isEditing) {
       final roomMutationNotifier = ref.read(RoomMutationProvider.notifier);
-      await roomMutationNotifier.updateRoom(room);
+      final result = await roomMutationNotifier.updateRoom(room);
+      succeeded = result.fold((_) => false, (_) => true);
     } else {
-      await ref.read(addRoomProvider.notifier).addRoom(room);
+      final result = await ref.read(addRoomProvider.notifier).addRoom(room);
+      succeeded = result.fold((_) => false, (_) => true);
     }
+
+    if (!succeeded) return;
 
     ref.invalidate(roomsProvider(widget.hotelId));
 
@@ -89,7 +101,9 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
 
     if (confirmed == true) {
       final roomMutationNotifier = ref.read(RoomMutationProvider.notifier);
-      await roomMutationNotifier.deleteRoom(widget.roomId!);
+      final result = await roomMutationNotifier.deleteRoom(widget.roomId!);
+      final succeeded = result.fold((_) => false, (_) => true);
+      if (!succeeded) return;
 
       ref.invalidate(roomsProvider(widget.hotelId));
 
@@ -170,7 +184,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
           if (widget.isEditing)
             IconButton(
               icon: const Icon(Icons.delete),
-              onPressed: _confirmDelete,
+              onPressed: roomMutationState.isLoading ? null : _confirmDelete,
             ),
         ],
       ),
@@ -205,14 +219,19 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
                 controller: _capacityController,
                 decoration: const InputDecoration(labelText: 'Capacity'),
                 keyboardType: TextInputType.number,
+                validator: (value) {
+                  final capacity = int.tryParse((value ?? '').trim());
+                  if (capacity == null || capacity < 1) {
+                    return 'Enter a capacity of at least 1';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
-                  addRoomState.isLoading || roomMutationState.isLoading
-                      ? null
-                      : _submit();
-                },
+                onPressed: addRoomState.isLoading || roomMutationState.isLoading
+                    ? null
+                    : _submit,
                 child: addRoomState.isLoading || roomMutationState.isLoading
                     ? const CircularProgressIndicator()
                     : Text(widget.isEditing ? 'Update Room' : 'Add Room'),

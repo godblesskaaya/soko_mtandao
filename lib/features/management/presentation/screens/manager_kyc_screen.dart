@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManagerKycScreen extends StatefulWidget {
@@ -102,7 +103,7 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
         'p_national_id': _nationalIdCtrl.text.trim(),
         'p_date_of_birth': dob.toIso8601String().substring(0, 10),
         'p_physical_address': _addressCtrl.text.trim(),
-        'p_phone_verified': _phoneVerified,
+        'p_phone_verified': false,
         'p_document_url': _documentUrlCtrl.text.trim().isEmpty
             ? null
             : _documentUrlCtrl.text.trim(),
@@ -130,7 +131,7 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(userMessageForError(e))),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -295,11 +296,19 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    SwitchListTile(
+                    ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Phone Number Verified (OTP)'),
-                      value: _phoneVerified,
-                      onChanged: (v) => setState(() => _phoneVerified = v),
+                      leading: Icon(
+                        _phoneVerified
+                            ? Icons.verified_user_outlined
+                            : Icons.pending_actions_outlined,
+                      ),
+                      title: const Text('Phone verification'),
+                      subtitle: Text(
+                        _phoneVerified
+                            ? 'Verified and recorded by compliance.'
+                            : 'Pending compliance verification. Managers cannot self-verify this field.',
+                      ),
                     ),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,

@@ -112,9 +112,10 @@ class AddRoomNotifier
 
   AddRoomNotifier(this._useCase) : super(const AsyncData(null));
 
-  Future<void> addRoom(ManagerRoom room) async {
+  Future<Either<Failure, ManagerRoom>> addRoom(ManagerRoom room) async {
     state = const AsyncLoading();
     final result = await _useCase(room);
     state = AsyncData(result);
+    return result;
   }
 }
