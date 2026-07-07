@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { AzamPayAuthError, getAzamPayToken } from "../_shared/azampay_auth.ts";
-import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { optionalConfiguredEnv, optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const config = {
   supabaseUrl: requireEnv("SUPABASE_URL"),
@@ -17,13 +17,26 @@ const config = {
     "AZAMPAY_DISBURSE_URL",
     "https://api-disbursement-sandbox.azampay.co.tz/api/v1/azampay/disburse",
   ) as string,
-  azamPayApiKey: optionalEnv("AZAMPAY_API_KEY"),
+  azamPayDisburseTransferType: optionalConfiguredEnv("AZAMPAY_DISBURSE_TRANSFER_TYPE", "INTERNAL") as string,
 };
 
 const supabase = createClient(
   config.supabaseUrl,
   config.supabaseServiceRoleKey,
 );
+
+const azamPayDisbursementProviders = new Set(["tigo", "airtel", "azampesa"]);
+
+type PayoutAccount = {
+  provider_type: string | null;
+  provider_name: string | null;
+  account_name: string | null;
+  account_number: string | null;
+  mobile_number: string | null;
+  currency: string | null;
+  country_code: string | null;
+  verification_status: string | null;
+};
 
 async function resolveRequester(req: Request) {
   const authHeader = req.headers.get("Authorization");
@@ -53,6 +66,36 @@ async function canDispatchForHotel(userId: string, hotelId: string) {
   return role === "systemadmin" || role === "system_admin";
 }
 
+function normalizeAzamPayDisbursementProvider(value: string | null | undefined): string | null {
+  const normalized = (value || "").trim().toLowerCase();
+  if (!azamPayDisbursementProviders.has(normalized)) return null;
+  return normalized;
+}
+
+function getDisbursementSourceConfig(currency: string | null): {
+  countryCode: string;
+  fullName: string;
+  bankName: string;
+  accountNumber: string;
+  currency: string;
+} | null {
+  const fullName = optionalConfiguredEnv("AZAMPAY_DISBURSE_SOURCE_FULL_NAME");
+  const bankName = normalizeAzamPayDisbursementProvider(
+    optionalConfiguredEnv("AZAMPAY_DISBURSE_SOURCE_BANK_NAME"),
+  );
+  const accountNumber = optionalConfiguredEnv("AZAMPAY_DISBURSE_SOURCE_ACCOUNT_NUMBER");
+
+  if (!fullName || !bankName || !accountNumber) return null;
+
+  return {
+    countryCode: optionalConfiguredEnv("AZAMPAY_DISBURSE_SOURCE_COUNTRY_CODE", "TZ") as string,
+    fullName,
+    bankName,
+    accountNumber,
+    currency: optionalConfiguredEnv("AZAMPAY_DISBURSE_SOURCE_CURRENCY", currency || "TZS") as string,
+  };
+}
+
 async function logAudit(
   eventType: string,
   actorUserId: string,
@@ -70,6 +113,42 @@ async function logAudit(
   } catch (_) {
     // Best effort only.
   }
+}
+
+function validateDestinationAccount(payoutAccount: PayoutAccount, batchCurrency: string | null) {
+  const missing: string[] = [];
+  const providerType = (payoutAccount.provider_type || "").toLowerCase();
+  const bankName = normalizeAzamPayDisbursementProvider(payoutAccount.provider_name);
+  const accountNumber = payoutAccount.mobile_number;
+
+  if ((payoutAccount.verification_status || "").toLowerCase() !== "approved") {
+    missing.push("approved payout account");
+  }
+  if (providerType !== "mobile_money") missing.push("mobile money payout account");
+  if (!payoutAccount.account_name?.trim()) missing.push("account holder name");
+  if (!bankName) missing.push("provider must be tigo, airtel, or azampesa");
+  if (!accountNumber?.trim()) missing.push("mobile wallet number");
+  if (!/^[A-Z]{2}$/.test((payoutAccount.country_code || "").trim().toUpperCase())) {
+    missing.push("country code");
+  }
+  if (!/^[A-Z]{3}$/.test((payoutAccount.currency || batchCurrency || "").trim().toUpperCase())) {
+    missing.push("currency");
+  }
+
+  if (missing.length > 0) {
+    return { ok: false as const, reason: `Payout destination is incomplete: ${missing.join(", ")}` };
+  }
+
+  return {
+    ok: true as const,
+    destination: {
+      countryCode: (payoutAccount.country_code || "TZ").trim().toUpperCase(),
+      fullName: payoutAccount.account_name!.trim(),
+      bankName: bankName!,
+      accountNumber: accountNumber!.trim(),
+      currency: (payoutAccount.currency || batchCurrency || "TZS").trim().toUpperCase(),
+    },
+  };
 }
 
 serve(async (req) => {
@@ -131,7 +210,7 @@ serve(async (req) => {
 
     const { data: payoutAccount, error: accountError } = await supabase
       .from("hotel_payout_accounts")
-      .select("*")
+      .select("provider_type,provider_name,account_name,account_number,mobile_number,currency,country_code,verification_status")
       .eq("hotel_id", batch.hotel_id)
       .eq("is_active", true)
       .maybeSingle();
@@ -144,6 +223,32 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "No active payout account for hotel" }), {
         status: 400,
       });
+    }
+
+    const destinationResult = validateDestinationAccount(
+      payoutAccount as PayoutAccount,
+      batch.currency || "TZS",
+    );
+    if (!destinationResult.ok) {
+      await supabase.rpc("fail_payout_batch", {
+        p_batch_id: batch.id,
+        p_reason: destinationResult.reason,
+      });
+      return new Response(JSON.stringify({ error: destinationResult.reason }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const sourceConfig = getDisbursementSourceConfig(batch.currency || "TZS");
+    if (!sourceConfig) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "AzamPay disbursement source account is not configured. Set AZAMPAY_DISBURSE_SOURCE_* secrets.",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const { data: transitionOk, error: transitionError } = await supabase.rpc("mark_payout_batch_processing", {
@@ -169,15 +274,10 @@ serve(async (req) => {
       const endpoint = config.azamPayDisburseUrl;
 
       const disbursePayload = {
-        destination: {
-          countryCode: "TZ",
-          fullName: payoutAccount.account_name || "Hotel Beneficiary",
-          bankName: payoutAccount.provider_name,
-          accountNumber: payoutAccount.account_number || payoutAccount.mobile_number,
-          currency: batch.currency || "TZS",
-        },
+        source: sourceConfig,
+        destination: destinationResult.destination,
         transferDetails: {
-          type: "INTERNAL",
+          type: config.azamPayDisburseTransferType,
           amount: Number(batch.total_amount),
           dateInEpoch: Date.now(),
         },
@@ -195,7 +295,6 @@ serve(async (req) => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           Accept: "application/json",
-          ...(config.azamPayApiKey ? { "X-API-Key": config.azamPayApiKey } : {}),
         },
         body: JSON.stringify(disbursePayload),
       });

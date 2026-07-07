@@ -30,6 +30,11 @@ class EnvConfig {
     defaultValue: 'https://sites.google.com/view/sokomtandaocompany-privacy',
   );
 
+  static const String passwordResetRedirectUrl = String.fromEnvironment(
+    'PASSWORD_RESET_REDIRECT_URL',
+    defaultValue: 'soko-mtandao://reset-password',
+  );
+
   static void validate() {
     final missing = <String>[
       if (supabaseUrl.trim().isEmpty) 'SUPABASE_URL',

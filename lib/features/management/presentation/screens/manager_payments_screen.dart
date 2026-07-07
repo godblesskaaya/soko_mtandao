@@ -70,6 +70,8 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
   Widget build(BuildContext context) {
     final paymentsAsync = ref.watch(managerPaymentsPageProvider(_query));
     final walletAsync = ref.watch(managerWalletSummaryProvider(widget.hotelId));
+    final readinessAsync =
+        ref.watch(hotelPayoutReadinessProvider(widget.hotelId));
 
     return Scaffold(
       body: Column(
@@ -80,12 +82,13 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
             routeName: 'managerPayments',
             subtitle: 'You are viewing payouts and settlements for this hotel.',
           ),
-          _buildHeader(context),
+          _buildHeader(context, readinessAsync),
           const Divider(height: 1),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(managerPaymentsPageProvider(_query));
+                ref.invalidate(hotelPayoutReadinessProvider(widget.hotelId));
                 try {
                   await ref
                       .read(managerPaymentsPageProvider(_query).future)
@@ -202,7 +205,10 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) => Padding(
+  Widget _buildHeader(
+    BuildContext context,
+    AsyncValue<PayoutReadiness> readinessAsync,
+  ) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,37 +343,17 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
                           : _settlementStatus!,
                     ),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: () => _openPayoutAccountDialog(context),
+                    icon: const Icon(Icons.account_balance),
+                    label: const Text('Payout Account'),
+                  ),
                   FilledButton.icon(
-                    onPressed: () async {
-                      try {
-                        final batchId = await ref
-                            .read(managerRepositoryProvider)
-                            .requestPayout(
-                              widget.hotelId,
-                              minimumThreshold: 0,
-                              provider: 'azampay_disburse',
-                            );
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              batchId == null
-                                  ? 'No available balance met payout threshold.'
-                                  : 'Payout batch created: $batchId',
-                            ),
-                          ),
-                        );
-                        ref.invalidate(
-                          managerWalletSummaryProvider(widget.hotelId),
-                        );
-                        ref.invalidate(managerPaymentsPageProvider(_query));
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(userMessageForError(e))),
-                        );
-                      }
-                    },
+                    onPressed: readinessAsync.maybeWhen(
+                      data: (readiness) =>
+                          readiness.ready ? () => _requestPayout(context) : null,
+                      orElse: () => null,
+                    ),
                     icon: const Icon(Icons.payments),
                     label: const Text('Request Payout'),
                   ),
@@ -376,9 +362,65 @@ class _ManagerPaymentsScreenState extends ConsumerState<ManagerPaymentsScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        readinessAsync.when(
+          data: (readiness) => _PayoutReadinessCard(
+            readiness: readiness,
+            onConfigure: () => _openPayoutAccountDialog(context),
+          ),
+          loading: () => const LinearProgressIndicator(minHeight: 2),
+          error: (err, _) => _PayoutReadinessCard.error(
+            message: userMessageForError(err),
+            onConfigure: () => _openPayoutAccountDialog(context),
+          ),
+        ),
       ],
     ),
   );
+
+  Future<void> _requestPayout(BuildContext context) async {
+    try {
+      final batchId = await ref.read(managerRepositoryProvider).requestPayout(
+            widget.hotelId,
+            minimumThreshold: 0,
+            provider: 'azampay_disburse',
+          );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            batchId == null
+                ? 'No available balance met payout threshold.'
+                : 'Payout batch created: $batchId',
+          ),
+        ),
+      );
+      ref.invalidate(managerWalletSummaryProvider(widget.hotelId));
+      ref.invalidate(hotelPayoutReadinessProvider(widget.hotelId));
+      ref.invalidate(managerPaymentsPageProvider(_query));
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageForError(e))),
+      );
+    }
+  }
+
+  Future<void> _openPayoutAccountDialog(BuildContext context) async {
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _PayoutAccountDialog(hotelId: widget.hotelId),
+    );
+    if (saved == true) {
+      ref.invalidate(hotelPayoutReadinessProvider(widget.hotelId));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Payout account submitted for compliance review.'),
+        ),
+      );
+    }
+  }
 }
 
 // --- Payment List Tile ---
@@ -634,6 +676,12 @@ class PaymentListTile extends ConsumerWidget {
     ManagerPayment payment,
   ) async {
     try {
+      final readiness = await ref.read(
+        hotelPayoutReadinessProvider(payment.hotelId).future,
+      );
+      if (!readiness.ready) {
+        throw Exception('Payout blocked: ${readiness.missing.join(', ')}');
+      }
       final batchId = await ref
           .read(managerRepositoryProvider)
           .requestPayout(
@@ -779,6 +827,255 @@ class _ManagerPaymentActions extends StatelessWidget {
 }
 
 // --- Supporting Widgets ---
+
+class _PayoutReadinessCard extends StatelessWidget {
+  final PayoutReadiness? readiness;
+  final String? errorMessage;
+  final VoidCallback onConfigure;
+
+  const _PayoutReadinessCard({
+    required this.readiness,
+    required this.onConfigure,
+  }) : errorMessage = null;
+
+  const _PayoutReadinessCard.error({
+    required String message,
+    required this.onConfigure,
+  })  : readiness = null,
+        errorMessage = message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isReady = readiness?.ready == true;
+    final statusColor = isReady ? Colors.green : Colors.orange;
+    final account = readiness?.account;
+    final missing = readiness?.missing ?? const <String>[];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isReady ? Icons.verified_user : Icons.warning_amber_rounded,
+            color: statusColor,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isReady
+                      ? 'Payouts ready'
+                      : 'Payout setup requires attention',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                if (errorMessage != null)
+                  Text(errorMessage!)
+                else if (isReady)
+                  Text(
+                    '${account?['provider_name'] ?? 'Provider'} • '
+                    '${account?['account_name'] ?? 'Account'} • '
+                    '${account?['currency'] ?? 'TZS'}',
+                  )
+                else
+                  Text(
+                    missing.isEmpty
+                        ? 'Complete KYC and payout account review before requesting disbursement.'
+                        : missing.join(' • '),
+                  ),
+              ],
+            ),
+          ),
+          TextButton.icon(
+            onPressed: onConfigure,
+            icon: const Icon(Icons.edit),
+            label: const Text('Edit'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayoutAccountDialog extends StatefulWidget {
+  final String hotelId;
+
+  const _PayoutAccountDialog({required this.hotelId});
+
+  @override
+  State<_PayoutAccountDialog> createState() => _PayoutAccountDialogState();
+}
+
+class _PayoutAccountDialogState extends State<_PayoutAccountDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _accountNameCtrl = TextEditingController();
+  final _mobileNumberCtrl = TextEditingController();
+  final _countryCodeCtrl = TextEditingController(text: 'TZ');
+  final _currencyCtrl = TextEditingController(text: 'TZS');
+  String _providerName = 'tigo';
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _accountNameCtrl.dispose();
+    _mobileNumberCtrl.dispose();
+    _countryCodeCtrl.dispose();
+    _currencyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await Supabase.instance.client.rpc('upsert_hotel_payout_account', params: {
+        'p_hotel_id': widget.hotelId,
+        'p_provider_type': 'mobile_money',
+        'p_provider_name': _providerName,
+        'p_account_name': _accountNameCtrl.text.trim(),
+        'p_account_number': null,
+        'p_mobile_number': _mobileNumberCtrl.text.trim(),
+        'p_currency': _currencyCtrl.text.trim().toUpperCase(),
+        'p_country_code': _countryCodeCtrl.text.trim().toUpperCase(),
+        'p_provider_reference': null,
+        'p_metadata': {
+          'submitted_from': 'manager_payments_screen',
+          'submitted_at': DateTime.now().toUtc().toIso8601String(),
+        },
+      });
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageForError(e))),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Payout Account'),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _providerName,
+                  items: const [
+                    DropdownMenuItem(value: 'tigo', child: Text('Tigo')),
+                    DropdownMenuItem(value: 'airtel', child: Text('Airtel')),
+                    DropdownMenuItem(
+                      value: 'azampesa',
+                      child: Text('Azampesa'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() => _providerName = value ?? 'tigo');
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Money Provider',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _accountNameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Account Holder Legal Name',
+                  ),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _mobileNumberCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Wallet Number',
+                  ),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _countryCodeCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration:
+                            const InputDecoration(labelText: 'Country Code'),
+                        validator: (v) {
+                          final value = (v ?? '').trim().toUpperCase();
+                          return RegExp(r'^[A-Z]{2}$').hasMatch(value)
+                              ? null
+                              : 'Use 2 letters';
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _currencyCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration:
+                            const InputDecoration(labelText: 'Currency'),
+                        validator: (v) {
+                          final value = (v ?? '').trim().toUpperCase();
+                          return RegExp(r'^[A-Z]{3}$').hasMatch(value)
+                              ? null
+                              : 'Use 3 letters';
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Saving changes sends this account back to compliance review before payouts can be requested.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _isSubmitting ? null : _submit,
+          icon: _isSubmitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.save),
+          label: const Text('Submit'),
+        ),
+      ],
+    );
+  }
+}
 
 class _FinancialSummaryCards extends StatelessWidget {
   final double totalRevenue;

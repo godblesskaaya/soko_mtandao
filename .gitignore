@@ -59,6 +59,7 @@ app.*.map.json
 !.env.example
 env/*.json
 !env/*.example.json
+access_token.txt
 supabase/functions/.env
 supabase/functions/.env.*
 !supabase/functions/.env.example
@@ -66,7 +67,8 @@ supabase/functions/.env.*
 # Generated source dumps
 output.txt
 lib/output.txt
-lib/output.txt
+file_contents.py
+generate_usecases.py
 
 # Database backups and migration exports
 backups/

@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:soko_mtandao/core/errors/error_mapper.dart';
+import 'package:soko_mtandao/core/errors/error_reporter.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 
-class ResetPasswordScreen extends StatefulWidget {
+class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key});
 
   @override
-  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _loading = false;
@@ -30,24 +34,28 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() => _loading = true);
 
-    final res = await Supabase.instance.client.auth.updateUser(
-      UserAttributes(password: password),
-    );
+    try {
+      final res = await ref.read(authServiceProvider).updatePassword(password);
 
-    setState(() => _loading = false);
+      if (res.user == null) {
+        _showError('Unable to reset password. Please request a new link.');
+        return;
+      }
 
-    if (res.user == null) {
-      _showError('Unable to reset password. Please request a new link.');
-      return;
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password updated successfully')),
+      );
+
+      context.goNamed('splash');
+    } catch (e, stackTrace) {
+      ErrorReporter.report(e, stackTrace, source: 'ui.reset_password');
+      if (mounted) {
+        _showError(userMessageForError(e));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Password updated successfully')),
-    );
-
-    // Redirect to login or home
-    context.goNamed('splash');
   }
 
   void _showError(String message) {

@@ -1,11 +1,27 @@
 import { serve } from "https://deno.land/std@0.223.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { optionalEnv, requireEnv } from "../_shared/env.ts";
+import { optionalConfiguredEnv, optionalEnv, requireEnv } from "../_shared/env.ts";
 
 const supabase = createClient(
   requireEnv("SUPABASE_URL"),
   requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
 );
+const callbackPassword = optionalConfiguredEnv("AZAMPAY_CALLBACK_PASSWORD");
+const callbackUser = optionalConfiguredEnv("AZAMPAY_CALLBACK_USER");
+const callbackClientId = optionalEnv("AZAMPAY_CLIENT_ID");
+const callbackPublicKeyPem = optionalConfiguredEnv("AZAMPAY_CALLBACK_PUBLIC_KEY_PEM");
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const left = new TextEncoder().encode(a);
+  const right = new TextEncoder().encode(b);
+  if (left.length !== right.length) return false;
+
+  let diff = 0;
+  for (let i = 0; i < left.length; i++) {
+    diff |= left[i] ^ right[i];
+  }
+  return diff === 0;
+}
 
 export async function logPayment(paymentExternalId: string, level: string, message: string, payload = {}) {
   try {
@@ -55,6 +71,146 @@ function getFirstString(payload: Record<string, unknown>, keys: string[]): strin
   return null;
 }
 
+function sanitizeCallbackPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeCallbackPayload);
+  if (!value || typeof value !== "object") return value;
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    sanitized[key] = /password|signature|token|secret|key/i.test(key)
+      ? "[redacted]"
+      : sanitizeCallbackPayload(item);
+  }
+  return sanitized;
+}
+
+function hasValidCallbackCredentials(payload: Record<string, unknown>): boolean {
+  if (!callbackPassword) return false;
+
+  const suppliedPassword = getFirstString(payload, ["password"]);
+  if (!suppliedPassword || !timingSafeEqual(suppliedPassword, callbackPassword)) {
+    return false;
+  }
+
+  const suppliedClientId = getFirstString(payload, ["clientId", "clientid"]);
+  if (
+    callbackClientId &&
+    (!suppliedClientId || !timingSafeEqual(suppliedClientId, callbackClientId))
+  ) {
+    return false;
+  }
+
+  const suppliedUser = getFirstString(payload, ["user"]);
+  if (callbackUser && (!suppliedUser || !timingSafeEqual(suppliedUser, callbackUser))) {
+    return false;
+  }
+
+  return true;
+}
+
+function describeCallbackAuth(payload: Record<string, unknown>): Record<string, unknown> {
+  const suppliedPassword = getFirstString(payload, ["password"]);
+  const suppliedClientId = getFirstString(payload, ["clientId", "clientid"]);
+  const suppliedUser = getFirstString(payload, ["user"]);
+  const suppliedSignature = getFirstString(payload, ["signature"]);
+
+  return {
+    configured: {
+      password: !!callbackPassword,
+      user: !!callbackUser,
+      clientId: !!callbackClientId,
+      publicKey: !!callbackPublicKeyPem,
+    },
+    supplied: {
+      password: !!suppliedPassword,
+      user: !!suppliedUser,
+      clientId: !!suppliedClientId,
+      signature: !!suppliedSignature,
+    },
+    matched: {
+      password: !!callbackPassword && !!suppliedPassword &&
+        timingSafeEqual(suppliedPassword, callbackPassword),
+      user: !callbackUser || (!!suppliedUser && timingSafeEqual(suppliedUser, callbackUser)),
+      clientId: !callbackClientId ||
+        (!!suppliedClientId && timingSafeEqual(suppliedClientId, callbackClientId)),
+    },
+  };
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value.replace(/\s+/g, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function pemToDer(pem: string): Uint8Array {
+  const normalized = pem.replace(/\\n/g, "\n");
+  const base64 = normalized
+    .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+    .replace(/-----END PUBLIC KEY-----/g, "")
+    .replace(/\s+/g, "");
+  return base64ToBytes(base64);
+}
+
+async function hasValidCallbackSignature(payload: Record<string, unknown>): Promise<boolean> {
+  if (!callbackPublicKeyPem) return false;
+
+  const signature = getFirstString(payload, ["signature"]);
+  const utilityref = getFirstString(payload, ["utilityref", "utilityRef"]) || "";
+  const externalreference =
+    getFirstString(payload, ["externalreference", "externalReference"]) || "";
+  const transactionstatus =
+    getFirstString(payload, ["transactionstatus", "transactionStatus", "status"]) || "";
+  const operator = getFirstString(payload, ["operator"]) || "";
+  if (!signature || (!utilityref && !externalreference)) return false;
+
+  try {
+    const publicKey = pemToDer(callbackPublicKeyPem);
+    const signatureBytes = base64ToBytes(signature);
+    const attempts = [
+      {
+        hash: "SHA-256",
+        payload: `${utilityref}${externalreference}${transactionstatus}${operator}`,
+      },
+      {
+        hash: "SHA-256",
+        payload: `${utilityref}${externalreference}`,
+      },
+      {
+        hash: "SHA-512",
+        payload: `${utilityref}${externalreference}`,
+      },
+    ];
+
+    for (const attempt of attempts) {
+      const key = await crypto.subtle.importKey(
+        "spki",
+        publicKey,
+        {
+          name: "RSASSA-PKCS1-v1_5",
+          hash: attempt.hash,
+        },
+        false,
+        ["verify"],
+      );
+      const valid = await crypto.subtle.verify(
+        "RSASSA-PKCS1-v1_5",
+        key,
+        signatureBytes,
+        new TextEncoder().encode(attempt.payload),
+      );
+      if (valid) return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("AzamPay callback signature verification failed", { error });
+    return false;
+  }
+}
+
 function extractBookingId(payload: Record<string, unknown>): string | null {
   const additional =
     (payload.additionalProperties as Record<string, unknown> | undefined) ||
@@ -74,14 +230,64 @@ function extractBookingId(payload: Record<string, unknown>): string | null {
 function normalizePaymentStatus(raw: string | undefined): "success" | "failed" | "pending" {
   const status = (raw || "").toLowerCase();
   if (status === "success") return "success";
-  if (status === "failed") return "failed";
+  if (["failed", "failure", "rejected", "cancelled", "canceled"].includes(status)) return "failed";
   return "pending";
+}
+
+type CallbackPayment = {
+  id: string;
+  booking_id: string;
+  status: string;
+  amount: number | null;
+};
+
+function amountMatchesPayment(payment: CallbackPayment, callbackAmount: number | null): boolean {
+  const expectedAmount = Number(payment.amount ?? 0);
+  if (!callbackAmount || !Number.isFinite(expectedAmount) || expectedAmount <= 0) return false;
+  return Math.abs(callbackAmount - expectedAmount) <= 0.0001;
+}
+
+async function findPaymentForCallback(
+  paymentIdCandidates: string[],
+  bookingIdFromPayload: string | null,
+): Promise<CallbackPayment | null> {
+  for (const candidate of paymentIdCandidates) {
+    const { data } = await supabase
+      .from("payments")
+      .select("id,booking_id,status,amount")
+      .eq("external_id", candidate)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  for (const candidate of paymentIdCandidates) {
+    const { data } = await supabase
+      .from("payments")
+      .select("id,booking_id,status,amount")
+      .eq("payment_gateway_ref", candidate)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  if (bookingIdFromPayload) {
+    const { data } = await supabase
+      .from("payments")
+      .select("id,booking_id,status,amount")
+      .eq("booking_id", bookingIdFromPayload)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  return null;
 }
 
 serve(async (req) => {
   try {
     const payload = await req.json();
     const payloadMap = payload as Record<string, unknown>;
+    const sanitizedPayload = sanitizeCallbackPayload(payloadMap);
 
     const utilityref = getFirstString(payloadMap, ["utilityref", "utilityRef"]);
     const reference = getFirstString(payloadMap, ["reference", "transid", "txnReferenceNumber"]);
@@ -94,58 +300,42 @@ serve(async (req) => {
     );
 
     const correlationId = paymentIdCandidates[0] || bookingIdFromPayload || "unknown";
-
-    await logPayment(correlationId, "info", "callback payload", {
-      payload,
-      paymentIdCandidates,
-      bookingIdFromPayload,
-    });
-
     const callbackAmountRaw = Number(getFirstString(payloadMap, ["amount"]));
     const callbackAmount =
       Number.isFinite(callbackAmountRaw) && callbackAmountRaw > 0 ? callbackAmountRaw : null;
 
-    let payment: { id: string; booking_id: string; status: string; amount: number | null } | null =
-      null;
+    let payment = await findPaymentForCallback(paymentIdCandidates, bookingIdFromPayload);
+    const credentialsAuthorized = hasValidCallbackCredentials(payloadMap);
+    const signatureAuthorized = await hasValidCallbackSignature(payloadMap);
+    const knownPaymentAuthorized = !!payment && amountMatchesPayment(payment, callbackAmount);
+    const isAuthorized = credentialsAuthorized || signatureAuthorized || knownPaymentAuthorized;
 
-    for (const candidate of paymentIdCandidates) {
-      const { data } = await supabase
-        .from("payments")
-        .select("id,booking_id,status,amount")
-        .eq("external_id", candidate)
-        .maybeSingle();
-      if (data) {
-        payment = data;
-        break;
-      }
+    if (!isAuthorized) {
+      await logPayment(correlationId, "warn", "unauthorized callback payload", {
+        payload: sanitizedPayload,
+        paymentIdCandidates,
+        bookingIdFromPayload,
+        matchedPaymentId: payment?.id ?? null,
+        callbackAmount,
+        auth: describeCallbackAuth(payloadMap),
+      });
+
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    if (!payment) {
-      for (const candidate of paymentIdCandidates) {
-        const { data } = await supabase
-          .from("payments")
-          .select("id,booking_id,status,amount")
-          .eq("payment_gateway_ref", candidate)
-          .maybeSingle();
-        if (data) {
-          payment = data;
-          break;
-        }
-      }
-    }
-
-    if (!payment && bookingIdFromPayload) {
-      const { data } = await supabase
-        .from("payments")
-        .select("id,booking_id,status,amount")
-        .eq("booking_id", bookingIdFromPayload)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data) {
-        payment = data;
-      }
-    }
+    await logPayment(correlationId, "info", "callback payload", {
+      payload: sanitizedPayload,
+      paymentIdCandidates,
+      bookingIdFromPayload,
+      authMode: credentialsAuthorized
+        ? "credentials"
+        : signatureAuthorized
+        ? "signature"
+        : "known_payment_reference",
+    });
 
     if (!payment && bookingIdFromPayload) {
       const { data: booking } = await supabase
@@ -178,7 +368,7 @@ serve(async (req) => {
             payment_gateway_ref: gatewayRef,
             amount_received: callbackAmount,
             idempotency_key: `callback_recovery_${booking.id}_${Date.now()}`,
-            azampay_response: payloadMap,
+            azampay_response: sanitizedPayload,
             metadata: {
               recovery: true,
               bookingIdFromPayload,
@@ -218,7 +408,7 @@ serve(async (req) => {
           provider_reference: reference || fspReferenceId || null,
           status: getFirstString(payloadMap, ["transactionstatus", "transactionStatus", "status"]),
           amount: callbackAmount,
-          payload: payloadMap,
+          payload: sanitizedPayload,
         });
 
       if (reconciliationEventError) {
@@ -263,7 +453,7 @@ serve(async (req) => {
         booking_id: payment.booking_id,
         webhook_status: newStatus,
         amount: callbackAmount,
-        payload: payloadMap,
+        payload: sanitizedPayload,
       });
 
     if (webhookEventError) {
@@ -287,6 +477,53 @@ serve(async (req) => {
         .update({ processed_at: new Date().toISOString() })
         .eq("provider", "azampay")
         .eq("provider_event_id", providerEventId);
+      return new Response("OK", { status: 200 });
+    }
+
+    const expectedAmount = Number(payment.amount ?? 0);
+    if (
+      newStatus === "success" &&
+      callbackAmount != null &&
+      Number.isFinite(expectedAmount) &&
+      expectedAmount > 0 &&
+      Math.abs(callbackAmount - expectedAmount) > 0.0001
+    ) {
+      await supabase
+        .from("payments")
+        .update({
+          status: "pending",
+          amount_received: callbackAmount,
+          reconciliation_status: "needs_reconciliation",
+          failed_reason: "Gateway success amount did not match expected payment amount.",
+        })
+        .eq("id", payment.id);
+
+      await supabase
+        .from("bookings")
+        .update({
+          status: "payment_reconciliation",
+          payment_status: "pending",
+          reconciliation_status: "amount_mismatch",
+        })
+        .eq("id", payment.booking_id)
+        .neq("payment_status", "completed");
+
+      await logPayment(correlationId, "error", "payment amount mismatch", {
+        expectedAmount,
+        callbackAmount,
+        paymentId: payment.id,
+        bookingId: payment.booking_id,
+      });
+
+      await supabase
+        .from("payment_webhook_events")
+        .update({
+          processed_at: new Date().toISOString(),
+          processed_outcome: "amount_mismatch",
+        })
+        .eq("provider", "azampay")
+        .eq("provider_event_id", providerEventId);
+
       return new Response("OK", { status: 200 });
     }
 

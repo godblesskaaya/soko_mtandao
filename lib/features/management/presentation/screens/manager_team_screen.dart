@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
@@ -74,7 +75,7 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
           .order('created_at', ascending: false);
       final inviteRows = await _client
           .from('staff_invites')
-          .select('id,email,staff_title,status,invite_token,expires_at,created_at')
+          .select('id,email,staff_title,status,expires_at,created_at')
           .eq('hotel_id', hotelId)
           .order('created_at', ascending: false);
       final requestRows = await _client
@@ -104,6 +105,39 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Team access updated.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageForError(error))),
+      );
+    }
+  }
+
+  Future<void> _createInvite() async {
+    final hotelId = _hotelId;
+    if (hotelId == null || hotelId.isEmpty) return;
+
+    try {
+      final result = await _client.rpc('create_staff_invite', params: {
+        'p_hotel_id': hotelId,
+        'p_email': _inviteEmailCtrl.text.trim(),
+        'p_staff_title': _inviteRoleCtrl.text.trim(),
+      });
+      final token = result is Map ? result['invite_token']?.toString() : null;
+      if (token != null && token.isNotEmpty) {
+        await Clipboard.setData(ClipboardData(text: token));
+      }
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            token != null && token.isNotEmpty
+                ? 'Invite created. Token copied to clipboard.'
+                : 'Invite created.',
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -163,13 +197,7 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
                         ),
                         const SizedBox(height: 12),
                         FilledButton.icon(
-                          onPressed: () => _run(
-                            () => _client.rpc('create_staff_invite', params: {
-                              'p_hotel_id': _hotelId,
-                              'p_email': _inviteEmailCtrl.text.trim(),
-                              'p_staff_title': _inviteRoleCtrl.text.trim(),
-                            }),
-                          ),
+                          onPressed: _createInvite,
                           icon: const Icon(Icons.mark_email_read_outlined),
                           label: const Text('Create Invite'),
                         ),
@@ -259,10 +287,30 @@ class _ManagerTeamScreenState extends ConsumerState<ManagerTeamScreen> {
                       child: ListTile(
                         title: Text(row['email']?.toString() ?? ''),
                         subtitle: Text(
-                          'Role: ${row['staff_title'] ?? '-'}\nToken: ${row['invite_token'] ?? '-'}',
+                          'Role: ${row['staff_title'] ?? '-'}\n'
+                          'Created: ${row['created_at'] ?? '-'}\n'
+                          'Expires: ${row['expires_at'] ?? 'No expiry set'}',
                         ),
                         isThreeLine: true,
-                        trailing: Text((row['status'] ?? '').toString()),
+                        trailing: Wrap(
+                          spacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text((row['status'] ?? '').toString()),
+                            IconButton(
+                              tooltip: 'Cancel invite',
+                              icon: const Icon(Icons.cancel_outlined),
+                              onPressed: row['status'] == 'pending'
+                                  ? () => _run(
+                                        () => _client
+                                            .from('staff_invites')
+                                            .update({'status': 'cancelled'})
+                                            .eq('id', row['id']),
+                                      )
+                                  : null,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

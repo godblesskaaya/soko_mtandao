@@ -18,6 +18,19 @@ function getFirstString(payload: Record<string, unknown>, keys: string[]): strin
   return null;
 }
 
+function sanitizeCallbackPayload(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeCallbackPayload);
+  if (!value || typeof value !== "object") return value;
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    sanitized[key] = /password|signature|token|secret|key/i.test(key)
+      ? "[redacted]"
+      : sanitizeCallbackPayload(item);
+  }
+  return sanitized;
+}
+
 function normalizePayoutStatus(raw: string | null): "success" | "failed" | "pending" {
   const status = (raw || "").trim().toLowerCase();
   if (["success", "successful", "completed", "complete", "paid"].includes(status)) return "success";
@@ -46,6 +59,7 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     const payloadMap = payload as Record<string, unknown>;
+    const sanitizedPayload = sanitizeCallbackPayload(payloadMap);
 
     const externalReference = getFirstString(payloadMap, [
       "initiatorReferenceId",
@@ -105,7 +119,7 @@ serve(async (req) => {
       payout_batch_id: batch?.id ?? null,
       status,
       amount,
-      payload: payloadMap,
+      payload: sanitizedPayload,
     });
 
     if (eventError) {
@@ -143,7 +157,7 @@ serve(async (req) => {
     } else if (status === "failed") {
       const { error } = await supabase.rpc("fail_payout_batch", {
         p_batch_id: batch.id,
-        p_reason: `Provider failed payout: ${JSON.stringify(payloadMap).slice(0, 250)}`,
+        p_reason: `Provider failed payout: ${JSON.stringify(sanitizedPayload).slice(0, 250)}`,
       });
       if (error) {
         console.error("fail_payout_batch failed", { error, batchId: batch.id });

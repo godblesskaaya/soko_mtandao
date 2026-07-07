@@ -8,6 +8,8 @@ String? globalRedirect(
   required UserRole? role,
   required AccessProfile accessProfile,
   required bool isInPasswordRecovery,
+  bool isAuthInitialized = true,
+  bool isRoleResolved = true,
 }) {
   final path = location.path;
 
@@ -22,6 +24,10 @@ String? globalRedirect(
 
   if (isInPasswordRecovery && path != RouteNames.resetPassword) {
     return RouteNames.resetPassword;
+  }
+
+  if (!isAuthInitialized || (isLoggedIn && !isRoleResolved)) {
+    return null;
   }
 
   if (!isLoggedIn) {

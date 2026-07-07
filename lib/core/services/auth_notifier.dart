@@ -16,6 +16,7 @@ class AuthNotifier extends ChangeNotifier {
   final AuthService _authService;
   final UserService _userService;
   StreamSubscription<AuthState>? _authSub;
+  int _profileRequestId = 0;
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -70,6 +71,7 @@ class AuthNotifier extends ChangeNotifier {
   }
 
   void _updateFromSession() {
+    _profileRequestId++;
     final session = _authService.session;
 
     if (_isInPasswordRecovery) {
@@ -87,12 +89,13 @@ class AuthNotifier extends ChangeNotifier {
     }
 
     _isRoleResolved = false;
-    _fetchAccessProfile();
+    _fetchAccessProfile(_profileRequestId);
   }
 
-  Future<void> _fetchAccessProfile() async {
+  Future<void> _fetchAccessProfile(int requestId) async {
     final uid = _authService.userId;
     if (uid == null) {
+      if (requestId != _profileRequestId) return;
       _isRoleResolved = true;
       _accessProfile = AccessProfile.guest();
       notifyListeners();
@@ -100,8 +103,11 @@ class AuthNotifier extends ChangeNotifier {
     }
 
     try {
-      _accessProfile = await _userService.fetchAccessProfile(uid);
+      final profile = await _userService.fetchAccessProfile(uid);
+      if (requestId != _profileRequestId) return;
+      _accessProfile = profile;
     } catch (e, stackTrace) {
+      if (requestId != _profileRequestId) return;
       ErrorReporter.report(
         e,
         stackTrace,
@@ -137,9 +143,10 @@ class AuthNotifier extends ChangeNotifier {
   }
 
   Future<void> refreshAccessProfile() async {
+    final requestId = ++_profileRequestId;
     _isRoleResolved = false;
     notifyListeners();
-    await _fetchAccessProfile();
+    await _fetchAccessProfile(requestId);
   }
 
   Future<void> setActivePersona(UserRole newRole) async {

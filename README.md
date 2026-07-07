@@ -29,6 +29,7 @@ Optional keys:
 - `SUPPORT_PHONE`
 - `SUPPORT_ADDRESS`
 - `PRIVACY_POLICY_URL`
+- `PASSWORD_RESET_REDIRECT_URL`
 
 ### Android Mapbox token
 

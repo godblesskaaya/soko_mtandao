@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:soko_mtandao/core/config/env_config.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/router/route_names.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ForgotPasswordScreen extends StatefulWidget {
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   bool _loading = false;
 
@@ -25,10 +28,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _loading = true);
 
     try {
-      await Supabase.instance.client.auth.resetPasswordForEmail(
-        email,
-        redirectTo: 'soko-mtandao://reset-password',
-      );
+      await ref.read(authServiceProvider).sendPasswordResetEmail(
+            email: email,
+            redirectTo: EnvConfig.passwordResetRedirectUrl,
+          );
 
       if (!mounted) return;
 

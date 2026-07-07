@@ -17,7 +17,6 @@ const config = {
     "AZAMPAY_API_BASE_URL",
     "https://sandbox.azampay.co.tz",
   ) as string,
-  azamPayApiKey: optionalEnv("AZAMPAY_API_KEY"),
 };
 
 const supabase = createClient(
@@ -35,6 +34,16 @@ function parsePositiveNumber(value: unknown): number | null {
 
 function normalizeTicket(value: unknown): string {
   return (value?.toString() || "").trim().toUpperCase();
+}
+
+function createAzamPayExternalId(): string {
+  const time = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomUUID().replaceAll("-", "").slice(0, 18).toUpperCase();
+  return `SM${time}${random}`.slice(0, 30);
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 async function resolveRequester(req: Request) {
@@ -74,13 +83,14 @@ serve(async (req) => {
     const body = await req.json();
     const bookingId = body.booking_id?.toString();
     const ticketNumber = body.ticket_number?.toString();
+    const action = body.action?.toString().toLowerCase() || "";
     const method = (body.method?.toString().toLowerCase() || "mno") as NativeMethod;
     const requester = await resolveRequester(req);
 
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "Missing booking_id" }), { status: 400 });
     }
-    if (method !== "mno" && method !== "bank") {
+    if (action !== "generate_bank_otp" && method !== "mno" && method !== "bank") {
       return new Response(JSON.stringify({ error: "Invalid method. Use 'mno' or 'bank'." }), {
         status: 400,
       });
@@ -131,30 +141,90 @@ serve(async (req) => {
       }
     }
 
+    const token = await getAzamPayToken(supabase, config);
+    const apiBase = config.azamPayApiBaseUrl;
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    if (action === "generate_bank_otp") {
+      const provider = body.provider?.toString().toUpperCase();
+      if (provider !== "CRDB" && provider !== "NMB") {
+        return new Response(JSON.stringify({ error: "OTP provider must be CRDB or NMB" }), {
+          status: 400,
+        });
+      }
+
+      const endpoint = `${apiBase}/azampay/bank/${provider === "CRDB" ? "otp" : "otp1"}`;
+      const otpResp = await fetch(endpoint, {
+        method: "POST",
+        headers,
+      });
+      const raw = await otpResp.text();
+      let responsePayload: unknown = raw;
+      try {
+        responsePayload = raw ? JSON.parse(raw) : {};
+      } catch {
+        responsePayload = raw;
+      }
+
+      if (!otpResp.ok) {
+        return new Response(
+          JSON.stringify({
+            error: "Bank OTP generation failed",
+            azamStatus: otpResp.status,
+            details: responsePayload,
+          }),
+          { status: 502, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "OTP requested. Check the bank-registered mobile number.",
+          provider,
+          details: responsePayload,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     const bookingTotal = parsePositiveNumber(booking.total_price);
     const amount = parsePositiveNumber(body.amount) ?? bookingTotal;
-    if (amount == null) {
-      return new Response(JSON.stringify({ error: "Invalid amount" }), { status: 400 });
+    if (amount == null || bookingTotal == null) {
+      return new Response(JSON.stringify({ error: "Invalid booking amount" }), { status: 400 });
     }
-    if (bookingTotal != null && amount > bookingTotal) {
-      return new Response(JSON.stringify({ error: "Amount exceeds booking total" }), { status: 400 });
+    if (Math.abs(amount - bookingTotal) > 0.0001) {
+      return new Response(JSON.stringify({ error: "Amount must equal booking total" }), { status: 400 });
     }
     const currency = (body.currency?.toString() || booking.currency?.toString() || "TZS").toUpperCase();
     if ((booking.currency?.toString() || "").toUpperCase() != currency) {
       await supabase.from("bookings").update({ currency }).eq("id", booking.id);
     }
 
-    const token = await getAzamPayToken(supabase, config);
-    const externalId = `booking_${booking.id}_${Date.now()}`;
+    const { data: existingPayment } = await supabase
+      .from("payments")
+      .select("id,status,retry_count,external_id")
+      .eq("booking_id", booking.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const apiBase = config.azamPayApiBaseUrl;
+    const externalId = existingPayment?.status === "pending" && existingPayment.external_id
+      ? existingPayment.external_id.toString()
+      : createAzamPayExternalId();
+
     const endpoint =
       method === "mno" ? `${apiBase}/azampay/mno/checkout` : `${apiBase}/azampay/bank/checkout`;
 
     let gatewayPayload: Record<string, unknown>;
+    let provider: string | undefined;
     if (method === "mno") {
       const accountNumber = body.account_number?.toString();
-      const provider = body.provider?.toString();
+      provider = body.provider?.toString();
       if (!accountNumber || !provider) {
         return new Response(
           JSON.stringify({ error: "MNO requires account_number and provider" }),
@@ -168,12 +238,9 @@ serve(async (req) => {
         currency,
         externalId,
         provider,
-        additionalProperties: {
-          bookingId: booking.id,
-        },
       };
     } else {
-      const provider = body.provider?.toString();
+      provider = body.provider?.toString();
       const merchantAccountNumber = body.merchant_account_number?.toString();
       const merchantMobileNumber = body.merchant_mobile_number?.toString();
       const otp = body.otp?.toString();
@@ -205,52 +272,6 @@ serve(async (req) => {
       };
     }
 
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    };
-    const apiKey = config.azamPayApiKey;
-    if (apiKey) headers["X-API-Key"] = apiKey;
-
-    const gatewayResp = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(gatewayPayload),
-    });
-
-    const raw = await gatewayResp.text();
-    let responsePayload: unknown = raw;
-    try {
-      responsePayload = raw ? JSON.parse(raw) : {};
-    } catch {
-      responsePayload = raw;
-    }
-
-    if (!gatewayResp.ok) {
-      return new Response(
-        JSON.stringify({
-          error: "Native checkout failed",
-          azamStatus: gatewayResp.status,
-          details: responsePayload,
-        }),
-        { status: 502, headers: { "Content-Type": "application/json" } },
-      );
-    }
-
-    const checkoutResponse = (responsePayload || {}) as Record<string, unknown>;
-    const transactionId = checkoutResponse.transactionId?.toString() || null;
-    const message = checkoutResponse.message?.toString() || "Payment initiated";
-    const initiated = checkoutResponse.success !== false;
-
-    const { data: existingPayment } = await supabase
-      .from("payments")
-      .select("id,status,retry_count")
-      .eq("booking_id", booking.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     const paymentRecord = {
       booking_id: booking.id,
       external_id: externalId,
@@ -258,17 +279,16 @@ serve(async (req) => {
       currency,
       status: "pending",
       type: method === "mno" ? "native_mno" : "native_bank",
-      payment_gateway_ref: transactionId,
+      provider_status: "initiating",
       retry_count: (existingPayment?.retry_count || 0) + 1,
       last_retry_at: new Date().toISOString(),
       idempotency_key: `native_${booking.id}_${Date.now()}`,
-      azampay_response: responsePayload,
       metadata: {
         booking_id: booking.id,
         method,
-        provider: body.provider ?? null,
+        provider,
         booking_total: booking.total_price,
-        is_partial: bookingTotal != null ? amount < bookingTotal : false,
+        is_partial: false,
       },
     };
 
@@ -291,6 +311,132 @@ serve(async (req) => {
         .single();
       if (insertError) throw insertError;
       paymentId = insertedPayment?.id ?? null;
+    }
+
+    let gatewayResp: Response;
+    try {
+      gatewayResp = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(gatewayPayload),
+      });
+    } catch (error) {
+      if (paymentId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            provider_status: "request_failed",
+            failed_reason: error instanceof Error ? error.message : "AzamPay request failed",
+          })
+          .eq("id", paymentId);
+      }
+      return new Response(
+        JSON.stringify({
+          error: "AzamPay native checkout request failed",
+          details: error instanceof Error ? error.message : "Request failed",
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    const raw = await gatewayResp.text();
+    let responsePayload: unknown = raw;
+    try {
+      responsePayload = raw ? JSON.parse(raw) : {};
+    } catch {
+      responsePayload = raw;
+    }
+
+    if (!gatewayResp.ok) {
+      if (paymentId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            provider_status: "failed",
+            failed_reason: "AzamPay native checkout failed",
+            azampay_response: responsePayload,
+          })
+          .eq("id", paymentId);
+      }
+      return new Response(
+        JSON.stringify({
+          error: "Native checkout failed",
+          azamStatus: gatewayResp.status,
+          details: responsePayload,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (!isObjectRecord(responsePayload) || typeof responsePayload.success !== "boolean") {
+      console.error("AzamPay native checkout returned an invalid success payload", {
+        status: gatewayResp.status,
+        statusText: gatewayResp.statusText,
+        endpoint,
+        raw,
+        responsePayload,
+      });
+      if (paymentId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            provider_status: "invalid_response",
+            failed_reason: "AzamPay native checkout returned an invalid response",
+            azampay_response: responsePayload,
+          })
+          .eq("id", paymentId);
+      }
+      return new Response(
+        JSON.stringify({
+          error: "Native checkout returned an invalid AzamPay response",
+          azamStatus: gatewayResp.status,
+          details: responsePayload,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    const checkoutResponse = responsePayload;
+    const transactionId = checkoutResponse.transactionId?.toString() || null;
+    const message = checkoutResponse.message?.toString() || "Payment initiated";
+    const initiated = checkoutResponse.success === true;
+
+    if (!initiated) {
+      if (paymentId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            provider_status: "not_initiated",
+            failed_reason: message || "AzamPay native checkout was not initiated",
+            azampay_response: responsePayload,
+          })
+          .eq("id", paymentId);
+      }
+      return new Response(
+        JSON.stringify({
+          error: message || "Native checkout was not initiated",
+          azamStatus: gatewayResp.status,
+          details: responsePayload,
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (paymentId) {
+      const { error: paymentUpdateError } = await supabase
+        .from("payments")
+        .update({
+          payment_gateway_ref: transactionId,
+          provider_status: "initiated",
+          azampay_response: responsePayload,
+          failed_reason: null,
+        })
+        .eq("id", paymentId);
+      if (paymentUpdateError) throw paymentUpdateError;
     }
 
     const { error: lifecycleError } = await supabase.rpc("mark_booking_payment_initiated", {

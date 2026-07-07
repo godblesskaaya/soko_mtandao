@@ -6,9 +6,9 @@ import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
+import 'package:soko_mtandao/core/services/providers.dart';
 import 'package:soko_mtandao/widgets/app_web_view.dart';
 import 'package:soko_mtandao/router/route_names.dart';
-import '../../../../core/services/auth_service.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -26,7 +26,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   bool _acceptedLegalTerms = false;
   bool _isLoading = false;
-  final authService = AuthService();
 
   // Helper function to launch your Google Sites URL
   Future<void> _launchPrivacyUrl() async {
@@ -59,7 +58,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await authService.signUp(
+      await ref.read(authNotifierProvider).signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
         data: {

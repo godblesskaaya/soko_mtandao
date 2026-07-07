@@ -51,21 +51,28 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
 
+      final managerUserId = _supabase.auth.currentUser?.id;
+      if (managerUserId == null || managerUserId.isEmpty) {
+        throw Exception('Authentication required to upload hotel images.');
+      }
+
       final urls = <String>[];
       for (final path in images) {
         final file = File(path);
         final fileName =
             "${DateTime.now().millisecondsSinceEpoch}_${file.uri.pathSegments.last}";
+        final storagePath = "$managerUserId/$fileName";
 
-        final uploadRes =
-            await _supabase.storage.from('hotel-images').upload(fileName, file);
+        final uploadRes = await _supabase.storage
+            .from('hotel-images')
+            .upload(storagePath, file);
 
         if (uploadRes.isEmpty) {
           throw Exception("Image upload failed");
         }
 
         final publicUrl =
-            _supabase.storage.from('hotel-images').getPublicUrl(fileName);
+            _supabase.storage.from('hotel-images').getPublicUrl(storagePath);
         urls.add(publicUrl);
       }
 
@@ -89,7 +96,7 @@ class AddHotelNotifier extends StateNotifier<AddHotelState> {
             "stay_rules": stayRules,
             "check_in_requirements": checkInRequirements,
             "website": website,
-            "manager_user_id": _supabase.auth.currentUser?.id,
+            "manager_user_id": managerUserId,
           })
           .select()
           .single();

@@ -3,6 +3,38 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_payment
 import 'package:soko_mtandao/features/management/domain/entities/manager_wallet_summary.dart';
 import 'package:soko_mtandao/features/management/domain/usecases/hotels/get_payments.dart';
 import 'package:soko_mtandao/features/management/presentation/riverpod/manager_providers.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class PayoutReadiness {
+  final bool ready;
+  final String kycStatus;
+  final String payoutAccountStatus;
+  final List<String> missing;
+  final Map<String, dynamic>? account;
+
+  const PayoutReadiness({
+    required this.ready,
+    required this.kycStatus,
+    required this.payoutAccountStatus,
+    required this.missing,
+    required this.account,
+  });
+
+  factory PayoutReadiness.fromJson(Map<String, dynamic> json) {
+    return PayoutReadiness(
+      ready: json['ready'] == true,
+      kycStatus: (json['kyc_status'] ?? 'missing').toString(),
+      payoutAccountStatus:
+          (json['payout_account_status'] ?? 'missing').toString(),
+      missing: (json['missing'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(growable: false),
+      account: json['account'] is Map
+          ? Map<String, dynamic>.from(json['account'] as Map)
+          : null,
+    );
+  }
+}
 
 class ManagerPaymentListQuery {
   final String hotelId;
@@ -84,6 +116,15 @@ final managerWalletSummaryProvider =
     FutureProvider.family<ManagerWalletSummary, String>((ref, hotelId) async {
   final repo = ref.watch(managerRepositoryProvider);
   return repo.getWalletSummary(hotelId);
+});
+
+final hotelPayoutReadinessProvider =
+    FutureProvider.family<PayoutReadiness, String>((ref, hotelId) async {
+  final response = await Supabase.instance.client.rpc(
+    'get_hotel_payout_readiness',
+    params: {'p_hotel_id': hotelId},
+  );
+  return PayoutReadiness.fromJson(Map<String, dynamic>.from(response as Map));
 });
 
 final requestPayoutProvider = FutureProvider.family<

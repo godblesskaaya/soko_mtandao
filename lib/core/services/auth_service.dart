@@ -84,6 +84,17 @@ class AuthService {
     );
   }
 
+  Future<void> sendPasswordResetEmail({
+    required String email,
+    required String redirectTo,
+  }) {
+    return _supabase.auth.resetPasswordForEmail(email, redirectTo: redirectTo);
+  }
+
+  Future<UserResponse> updatePassword(String password) {
+    return _supabase.auth.updateUser(UserAttributes(password: password));
+  }
+
   Future<void> signOut() async {
     final uid = _supabase.auth.currentUser?.id;
     await _audit(

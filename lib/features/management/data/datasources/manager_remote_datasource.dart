@@ -12,6 +12,7 @@ import 'package:soko_mtandao/features/management/domain/entities/manager_amenity
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_booking_item.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:soko_mtandao/features/hotel_detail/data/models/room_model.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_availability.dart';
 import 'package:soko_mtandao/features/hotel_detail/domain/entities/room_status.dart';
 import 'package:soko_mtandao/features/management/domain/entities/manager_hotel.dart';
@@ -37,6 +38,27 @@ class ManagerRemoteDataSource implements ManagerDataSource {
     final raw = row['amenities'];
     if (raw is! Map) return null;
     return Map<String, dynamic>.from(raw as Map);
+  }
+
+  Map<String, dynamic> _withoutNulls(Map<String, dynamic> value) {
+    return Map<String, dynamic>.fromEntries(
+      value.entries.where((entry) => entry.value != null),
+    );
+  }
+
+  RoomStatusType _roomStatusTypeFromDatabase(dynamic value) {
+    switch ((value ?? '').toString()) {
+      case 'booked':
+        return RoomStatusType.booked;
+      case 'pending':
+        return RoomStatusType.pending;
+      case 'not_available':
+      case 'out_of_service':
+        return RoomStatusType.outOfService;
+      case 'available':
+      default:
+        return RoomStatusType.vacant;
+    }
   }
 
   Future<void> _syncOfferingAmenities(
@@ -122,14 +144,44 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<ManagerHotelModel> updateHotel(ManagerHotel hotel) async {
-    // TODO: implement updateHotel
-    throw UnimplementedError();
+    final response = await _supabase
+        .from('hotels')
+        .update({
+          'name': hotel.name,
+          'address': hotel.address,
+          'description': hotel.description,
+          'images': hotel.images,
+          'location': 'SRID=4326;POINT(${hotel.lng} ${hotel.lat})',
+          'total_rooms': hotel.totalRooms,
+          'region': hotel.region,
+          'country': hotel.country,
+          'city': hotel.city,
+          'phone_number': hotel.phoneNumber,
+          'email': hotel.email,
+          'website': hotel.website,
+          'is_active': hotel.isActive,
+          'check_in_from': hotel.checkInFrom,
+          'check_in_until': hotel.checkInUntil,
+          'check_out_until': hotel.checkOutUntil,
+          'stay_rules': hotel.stayRules,
+          'check_in_requirements': hotel.checkInRequirements,
+        })
+        .eq('id', hotel.id)
+        .select()
+        .single();
+
+    return ManagerHotelModel.fromJson(response);
   }
 
   @override
-  Future<void> cancelBooking(String bookingId) {
-    // TODO: implement cancelBooking
-    throw UnimplementedError();
+  Future<void> cancelBooking(String bookingId) async {
+    await _supabase
+        .from('bookings')
+        .update({
+          'status': 'cancelled',
+          'payment_status': 'cancelled',
+        })
+        .eq('id', bookingId);
   }
 
   @override
@@ -168,9 +220,10 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  Future<void> deactivateHotel(String hotelId) {
-    // TODO: implement deactivateHotel
-    throw UnimplementedError();
+  Future<void> deactivateHotel(String hotelId) async {
+    await _supabase
+        .from('hotels')
+        .update({'is_active': false}).eq('id', hotelId);
   }
 
   @override
@@ -179,7 +232,7 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  void deleteRoom(String roomId) async {
+  Future<void> deleteRoom(String roomId) async {
     await _supabase.from('hotel_rooms').delete().eq('id', roomId);
   }
 
@@ -193,9 +246,27 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<List<ManagerBookingItemModel>> fetchBookings(String hotelId,
-      {Map<String, dynamic>? filters}) {
-    // TODO: implement fetchBookings
-    throw UnimplementedError();
+      {Map<String, dynamic>? filters}) async {
+    final normalized = filters ?? const <String, dynamic>{};
+    final limit = normalized['limit'] as int?;
+    final offset = (normalized['offset'] as int?) ?? 0;
+    const allowedSort = {'start_date', 'end_date', 'created_at', 'id'};
+    final sortBy = allowedSort.contains(normalized['sort_by'])
+        ? normalized['sort_by'] as String
+        : 'start_date';
+    final sortAsc = normalized['sort_asc'] as bool? ?? false;
+
+    dynamic query =
+        _supabase.from('booking_items').select().eq('hotel_id', hotelId);
+    query = query.order(sortBy, ascending: sortAsc);
+    if (limit != null && limit > 0) {
+      query = query.range(offset, offset + limit - 1);
+    }
+
+    final response = await query;
+    return _castRows(response)
+        .map(ManagerBookingItemModel.fromJson)
+        .toList(growable: false);
   }
 
   @override
@@ -341,9 +412,28 @@ class ManagerRemoteDataSource implements ManagerDataSource {
 
   @override
   Future<RoomAvailability> getRoomAvailability(
-      String roomId, DateTime startDate, DateTime endDate) {
-    // TODO: implement getRoomAvailability
-    throw UnimplementedError();
+      String roomId, DateTime startDate, DateTime endDate) async {
+    final roomRow =
+        await _supabase.from('hotel_rooms').select().eq('id', roomId).single();
+    final statusRows = await _supabase
+        .from('room_statuses')
+        .select('date,status')
+        .eq('room_id', roomId)
+        .gte('date', startDate.toIso8601String().split('T').first)
+        .lte('date', endDate.toIso8601String().split('T').first);
+
+    final availability = <DateTime, RoomStatusType>{};
+    for (final row in _castRows(statusRows)) {
+      final rawDate = row['date'];
+      if (rawDate == null) continue;
+      availability[DateTime.parse(rawDate.toString())] =
+          _roomStatusTypeFromDatabase(row['status']);
+    }
+
+    return RoomAvailability(
+      room: RoomModel.fromJson(Map<String, dynamic>.from(roomRow as Map)),
+      availabilityByDate: availability,
+    );
   }
 
   @override
@@ -355,9 +445,15 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  Future<List<ManagerRoomModel>> getRoomsByOffering(String offeringId) {
-    // TODO: implement getRoomsByOffering
-    throw UnimplementedError();
+  Future<List<ManagerRoomModel>> getRoomsByOffering(String offeringId) async {
+    final response = await _supabase
+        .from('hotel_rooms')
+        .select()
+        .eq('offering_id', offeringId)
+        .order('room_number', ascending: true);
+    return _castRows(response)
+        .map(ManagerRoomModel.fromJson)
+        .toList(growable: false);
   }
 
   @override
@@ -418,13 +514,7 @@ class ManagerRemoteDataSource implements ManagerDataSource {
       'p_dates': dates,
     };
 
-    final response =
-        await _supabase.rpc('upsert_room_statuses', params: params);
-
-    if (response.error != null) {
-      throw Exception(
-          'Failed to upsert room status: ${response.error!.message}');
-    }
+    await _supabase.rpc('upsert_room_statuses', params: params);
   }
 
   @override
@@ -475,9 +565,16 @@ class ManagerRemoteDataSource implements ManagerDataSource {
   }
 
   @override
-  Future<ManagerBooking> updateBooking(ManagerBooking booking) {
-    // TODO: implement updateBooking
-    throw UnimplementedError();
+  Future<ManagerBooking> updateBooking(ManagerBooking booking) async {
+    final response = await _supabase
+        .from('bookings')
+        .update(_withoutNulls(ManagerBookingModel.fromEntity(booking).toJson())
+          ..remove('id')
+          ..remove('created_at'))
+        .eq('id', booking.id)
+        .select()
+        .single();
+    return ManagerBookingModel.fromJson(response);
   }
 
   @override

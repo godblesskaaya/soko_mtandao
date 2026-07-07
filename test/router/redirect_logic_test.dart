@@ -67,6 +67,32 @@ void main() {
       expect(redirect, RouteNames.guestHome);
     });
 
+    test('does not redirect while auth is initializing', () {
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.hotelAdminHome),
+        isLoggedIn: false,
+        role: null,
+        accessProfile: AccessProfile.guest(),
+        isInPasswordRecovery: false,
+        isAuthInitialized: false,
+      );
+
+      expect(redirect, isNull);
+    });
+
+    test('does not redirect signed in users before role is resolved', () {
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.hotelAdminHome),
+        isLoggedIn: true,
+        role: UserRole.guest,
+        accessProfile: AccessProfile.guest(),
+        isInPasswordRecovery: false,
+        isRoleResolved: false,
+      );
+
+      expect(redirect, isNull);
+    });
+
     test('pending manager applicants cannot open hotel admin routes', () {
       final profile = _profile(
         selectedPath: 'manage_hotel',

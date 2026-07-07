@@ -107,6 +107,35 @@ class PaymentService {
     );
   }
 
+  Future<NativeCheckoutResult> generateBankOtp({
+    required String bookingId,
+    String? ticketNumber,
+    required String provider,
+  }) async {
+    final response = await client.functions.invoke(
+      'create_checkout_native',
+      body: {
+        'booking_id': bookingId,
+        'action': 'generate_bank_otp',
+        'provider': provider,
+        if ((ticketNumber ?? '').trim().isNotEmpty)
+          'ticket_number': ticketNumber!.trim(),
+      },
+    );
+
+    if (response.status == 200 && response.data is Map<String, dynamic>) {
+      final data = response.data as Map<String, dynamic>;
+      return NativeCheckoutResult(
+        success: data['success'] == true,
+        message: data['message']?.toString(),
+      );
+    }
+
+    throw Exception(
+      'Failed to generate bank OTP: ${response.data ?? response.status}',
+    );
+  }
+
   /// Optionally verify payment manually (if realtime fails)
   Future<bool> verifyPayment(String bookingId) async {
     final res = await client

@@ -68,17 +68,17 @@ class ManagerBookingModel extends ManagerBooking {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'hotelId': hotelId,
-      'customerName': customerName,
-      'customerPhone': customerPhone,
-      'customerEmail': customerEmail,
-      'totalPrice': totalPrice,
+      'hotel_id': hotelId,
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'customer_email': customerEmail,
+      'total_price': totalPrice,
       'status': status,
-      'paymentStatus': paymentStatus,
-      'paymentType': paymentType,
-      'receiptUrl': receiptUrl,
-      'ticketNumber': ticketNumber,
-      'createdAt': createdAt?.toIso8601String(),
+      'payment_status': paymentStatus,
+      'payment_type': paymentType,
+      'receipt_url': receiptUrl,
+      'ticket_number': ticketNumber,
+      'created_at': createdAt?.toIso8601String(),
     };
   }
 }

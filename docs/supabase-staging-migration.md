@@ -85,16 +85,24 @@ Supabase automatically created staging `SUPABASE_*` function secrets, but custom
 ```text
 AZAMPAY_APP_NAME
 AZAMPAY_AUTH_URL
-AZAMPAY_CALLBACK_SECRET
-AZAMPAY_CHECKOUT_URL
+AZAMPAY_CALLBACK_PASSWORD
+AZAMPAY_CALLBACK_PUBLIC_KEY_PEM
+AZAMPAY_CALLBACK_USER
 AZAMPAY_CLIENT_ID
 AZAMPAY_CLIENT_SECRET
+AZAMPAY_DISBURSE_SOURCE_ACCOUNT_NUMBER
+AZAMPAY_DISBURSE_SOURCE_BANK_NAME
+AZAMPAY_DISBURSE_SOURCE_COUNTRY_CODE
+AZAMPAY_DISBURSE_SOURCE_CURRENCY
+AZAMPAY_DISBURSE_SOURCE_FULL_NAME
+AZAMPAY_DISBURSE_TRANSFER_TYPE
+AZAMPAY_DISBURSE_URL
 AZAMPAY_VENDOR_ID
 AZAMPAY_VENDOR_NAME
 ORIGIN
 ```
 
-Use sandbox AzamPay values for staging.
+Use sandbox AzamPay values for staging. `ORIGIN` is the frontend web origin used for hosted checkout `requestOrigin` and fallback redirects.
 
 A tracked template exists at:
 
@@ -284,3 +292,61 @@ wqmarlzyzukreiwibwjs
 ```
 
 Staging function secrets still need sandbox AzamPay values before payment flows can be tested there.
+
+## AzamPay Payout Readiness
+
+Migration `20260707100000_azampay_payout_readiness.sql` is applied to the linked project. Payout creation now checks `get_hotel_payout_readiness(p_hotel_id)` before settlements are locked. Readiness requires:
+
+- approved manager KYC with legal identity, beneficial owner, compliance contact, verified phone, and accepted payout terms
+- an active hotel payout account submitted through `upsert_hotel_payout_account`
+- payout account `verification_status = 'approved'`, set by `review_hotel_payout_account`
+- AzamPay payout account provider must be mobile money: `tigo`, `airtel`, or `azampesa`
+
+`payout_dispatch` was redeployed after the migration and repeats the critical AzamPay destination checks before calling `/api/v1/azampay/disburse`.
+
+Production/staging disbursement still requires platform source-account secrets:
+
+```text
+AZAMPAY_DISBURSE_SOURCE_COUNTRY_CODE
+AZAMPAY_DISBURSE_SOURCE_FULL_NAME
+AZAMPAY_DISBURSE_SOURCE_BANK_NAME
+AZAMPAY_DISBURSE_SOURCE_ACCOUNT_NUMBER
+AZAMPAY_DISBURSE_SOURCE_CURRENCY
+AZAMPAY_DISBURSE_TRANSFER_TYPE
+```
+
+Without those secrets, payout batches remain protected from provider submission and `payout_dispatch` returns a configuration error.
+
+`AZAMPAY_DISBURSE_SOURCE_BANK_NAME` must be one of the raw schema values `tigo`, `airtel`, or `azampesa`. The field is named `bankName` by AzamPay, but the Tanzania disbursement schema currently defines it as a mobile-money enum.
+
+## AzamPay Payment Readiness
+
+Payment functions were revalidated against the AzamPay docs on 2026-07-07. Current coverage:
+
+- token generation uses `/AppRegistration/GenerateToken` with `appName`, `clientId`, and `clientSecret`
+- hosted checkout uses `/api/v1/Partner/PostCheckout`
+- native MNO checkout uses `/azampay/mno/checkout`
+- native bank checkout uses `/azampay/bank/checkout`
+- bank OTP generation is available through `/azampay/bank/otp` for CRDB and `/azampay/bank/otp1` for NMB
+- checkout callback authentication supports documented callback credentials and RSA signatures
+
+The callback signature verifier now supports the current documented signature input:
+
+```text
+utilityref + externalreference + transactionstatus + operator
+```
+
+with SHA-256/RSA, while retaining legacy two-field fallbacks.
+
+The following Supabase secrets were added with placeholders on 2026-07-07. Values beginning with `REPLACE_ME` are ignored by the payout dispatch function until replaced, so they are safe placeholders but not production-ready:
+
+```text
+AZAMPAY_CALLBACK_USER=REPLACE_ME_AZAMPAY_CALLBACK_USER
+AZAMPAY_CALLBACK_PASSWORD=REPLACE_ME_AZAMPAY_CALLBACK_PASSWORD
+AZAMPAY_CALLBACK_PUBLIC_KEY_PEM=REPLACE_ME_AZAMPAY_PUBLIC_KEY_PEM
+AZAMPAY_DISBURSE_SOURCE_FULL_NAME=REPLACE_ME_PLATFORM_SOURCE_ACCOUNT_NAME
+AZAMPAY_DISBURSE_SOURCE_BANK_NAME=tigo
+AZAMPAY_DISBURSE_SOURCE_ACCOUNT_NUMBER=REPLACE_ME_PLATFORM_SOURCE_ACCOUNT_NUMBER
+```
+
+Replace these before production payment acceptance. `ORIGIN` must be a real HTTPS frontend origin accepted by AzamPay; the functions derive `/payment-success` and `/payment-failed` from it when callers do not provide valid web redirect URLs.

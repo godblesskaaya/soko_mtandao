@@ -13,18 +13,13 @@ const config = {
     "AZAMPAY_AUTH_URL",
     "https://authenticator-sandbox.azampay.co.tz/AppRegistration/GenerateToken",
   ) as string,
-  azamPayCheckoutUrl: optionalEnv(
-    "AZAMPAY_CHECKOUT_URL",
-    "https://sandbox.azampay.co.tz/api/v1/Partner/PostCheckout",
+  azamPayApiBaseUrl: optionalEnv(
+    "AZAMPAY_API_BASE_URL",
+    "https://sandbox.azampay.co.tz",
   ) as string,
-  azamPayRedirectSuccessUrl: optionalEnv(
-    "AZAMPAY_REDIRECT_SUCCESS_URL",
-    "https://yourapp.com/payment-success",
-  ) as string,
-  azamPayRedirectFailUrl: optionalEnv(
-    "AZAMPAY_REDIRECT_FAIL_URL",
-    "https://yourapp.com/payment-failed",
-  ) as string,
+  azamPayVendorId: requireEnv("AZAMPAY_VENDOR_ID"),
+  azamPayVendorName: requireEnv("AZAMPAY_VENDOR_NAME"),
+  appOrigin: optionalEnv("ORIGIN", "https://yourapp.com") as string,
 };
 
 const supabase = createClient(
@@ -42,13 +37,23 @@ function isHttpUrl(value: unknown): value is string {
   }
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    .test(value.trim());
+function resolveHttpOrigin(value: unknown): string {
+  if (!isHttpUrl(value)) return "https://yourapp.com";
+  return new URL(value).origin;
+}
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, "");
 }
 
 function normalizeTicket(value: unknown): string {
   return (value?.toString() || "").trim().toUpperCase();
+}
+
+function createAzamPayExternalId(): string {
+  const time = Date.now().toString(36).toUpperCase();
+  const random = crypto.randomUUID().replaceAll("-", "").slice(0, 18).toUpperCase();
+  return `SM${time}${random}`.slice(0, 30);
 }
 
 async function resolveRequester(req: Request) {
@@ -153,7 +158,7 @@ serve(async (req) => {
     // One active payment per booking: reuse existing pending checkout url.
     const { data: existingPayment } = await supabase
       .from("payments")
-      .select("id,status,checkout_url,retry_count")
+      .select("id,status,checkout_url,retry_count,external_id")
       .eq("booking_id", booking.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -167,12 +172,13 @@ serve(async (req) => {
     }
 
     const token = await getAzamPayToken(supabase, config);
-    const externalId = `booking_${booking.id}_${Date.now()}`;
-    const vendorId = optionalEnv("AZAMPAY_VENDOR_ID");
-    const vendorName = optionalEnv("AZAMPAY_VENDOR_NAME");
+    const externalId = existingPayment?.status === "pending" && existingPayment.external_id
+      ? existingPayment.external_id.toString()
+      : createAzamPayExternalId();
 
-    const fallbackSuccessUrl = config.azamPayRedirectSuccessUrl;
-    const fallbackFailUrl = config.azamPayRedirectFailUrl;
+    const appOrigin = resolveHttpOrigin(config.appOrigin);
+    const fallbackSuccessUrl = `${appOrigin}/payment-success`;
+    const fallbackFailUrl = `${appOrigin}/payment-failed`;
 
     // AzamPay expects web URLs. Ignore custom deep-link schemes from mobile clients.
     const safeRedirectSuccessURL = isHttpUrl(redirectSuccessURL)
@@ -182,8 +188,7 @@ serve(async (req) => {
       ? redirectFailURL
       : fallbackFailUrl;
 
-    const requestOrigin = optionalEnv("AZAMPAY_REQUEST_ORIGIN") ||
-      new URL(safeRedirectSuccessURL).origin;
+    const requestOrigin = new URL(safeRedirectSuccessURL).origin;
 
     const payload: Record<string, unknown> = {
       amount: booking.total_price.toString(),
@@ -195,6 +200,8 @@ serve(async (req) => {
       redirectFailURL: safeRedirectFailURL,
       redirectSuccessURL: safeRedirectSuccessURL,
       requestOrigin,
+      vendorId: config.azamPayVendorId,
+      vendorName: config.azamPayVendorName,
       cart: {
         // Keep shape aligned to AzamPay PostCheckoutRequest.cart contract.
         items: [
@@ -205,28 +212,78 @@ serve(async (req) => {
       },
     };
 
-    // Keep backwards compatibility: vendor fields are optional.
-    if (vendorId && vendorName && isUuid(vendorId)) {
-      payload.vendorId = vendorId;
-      payload.vendorName = vendorName;
-    } else if (vendorId || vendorName) {
-      console.warn(
-        "AZAMPAY_VENDOR_ID/AZAMPAY_VENDOR_NAME provided but invalid. Skipping vendor fields.",
-        { hasVendorId: !!vendorId, hasVendorName: !!vendorName, vendorId },
-      );
+    const checkoutEndpoint = `${trimTrailingSlashes(config.azamPayApiBaseUrl)}/api/v1/Partner/PostCheckout`;
+
+    const paymentRecord = {
+      booking_id: booking.id,
+      external_id: externalId,
+      amount: booking.total_price,
+      currency,
+      status: "pending",
+      type: "hosted_checkout",
+      provider_status: "initiating",
+      retry_count: (existingPayment?.retry_count || 0) + 1,
+      last_retry_at: new Date().toISOString(),
+      idempotency_key: `checkout_${booking.id}_${Date.now()}`,
+      metadata: {
+        booking_id: booking.id,
+        customer_name: booking.customer_name,
+        customer_phone: booking.customer_phone,
+        retry: (existingPayment?.retry_count || 0) + 1,
+      },
+    };
+
+    let paymentId: string | null = existingPayment?.id ?? null;
+
+    if (existingPayment?.status === "pending") {
+      const { data: updatedPayment, error: updateError } = await supabase
+        .from("payments")
+        .update(paymentRecord)
+        .eq("id", existingPayment.id)
+        .select("id")
+        .single();
+      if (updateError) throw updateError;
+      paymentId = updatedPayment?.id ?? paymentId;
+    } else {
+      const { data: insertedPayment, error: insertError } = await supabase
+        .from("payments")
+        .insert(paymentRecord)
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+      paymentId = insertedPayment?.id ?? null;
     }
 
-    const checkoutEndpoint = config.azamPayCheckoutUrl;
-
-    const resp = await fetch(checkoutEndpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json, text/plain, text/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    let resp: Response;
+    try {
+      resp = await fetch(checkoutEndpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json, text/plain, text/json",
+        },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      if (paymentId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            provider_status: "request_failed",
+            failed_reason: error instanceof Error ? error.message : "AzamPay hosted checkout request failed",
+          })
+          .eq("id", paymentId);
+      }
+      return new Response(
+        JSON.stringify({
+          error: "AzamPay hosted checkout request failed",
+          details: error instanceof Error ? error.message : "Request failed",
+        }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     const raw = await resp.text();
     const locationHeader = resp.headers.get("location");
@@ -263,6 +320,19 @@ serve(async (req) => {
         responseUrl: resp.url,
         raw,
       });
+      if (paymentId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            provider_status: resp.ok ? "invalid_response" : "failed",
+            failed_reason: resp.ok
+              ? "AzamPay hosted checkout returned no checkout URL"
+              : "AzamPay hosted checkout failed",
+            azampay_response: azampayResponse,
+          })
+          .eq("id", paymentId);
+      }
       return new Response(
         JSON.stringify({
           error: "Failed to create hosted checkout",
@@ -278,44 +348,17 @@ serve(async (req) => {
       );
     }
 
-    const paymentRecord = {
-      booking_id: booking.id,
-      external_id: externalId,
-      amount: booking.total_price,
-      currency,
-      status: "pending",
-      checkout_url: checkoutUrl,
-      retry_count: (existingPayment?.retry_count || 0) + 1,
-      last_retry_at: new Date().toISOString(),
-      idempotency_key: `checkout_${booking.id}_${Date.now()}`,
-      azampay_response: azampayResponse,
-      metadata: {
-        booking_id: booking.id,
-        customer_name: booking.customer_name,
-        customer_phone: booking.customer_phone,
-        retry: (existingPayment?.retry_count || 0) + 1,
-      },
-    };
-
-    let paymentId: string | null = existingPayment?.id ?? null;
-
-    if (existingPayment?.status === "pending") {
-      const { data: updatedPayment, error: updateError } = await supabase
+    if (paymentId) {
+      const { error: paymentUpdateError } = await supabase
         .from("payments")
-        .update(paymentRecord)
-        .eq("id", existingPayment.id)
-        .select("id")
-        .single();
-      if (updateError) throw updateError;
-      paymentId = updatedPayment?.id ?? paymentId;
-    } else {
-      const { data: insertedPayment, error: insertError } = await supabase
-        .from("payments")
-        .insert(paymentRecord)
-        .select("id")
-        .single();
-      if (insertError) throw insertError;
-      paymentId = insertedPayment?.id ?? null;
+        .update({
+          checkout_url: checkoutUrl,
+          provider_status: "initiated",
+          azampay_response: azampayResponse,
+          failed_reason: null,
+        })
+        .eq("id", paymentId);
+      if (paymentUpdateError) throw paymentUpdateError;
     }
 
     const { error: lifecycleError } = await supabase.rpc("mark_booking_payment_initiated", {

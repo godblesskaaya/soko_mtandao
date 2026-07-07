@@ -15,8 +15,16 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
   final _dobCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _documentUrlCtrl = TextEditingController();
+  final _businessRegistrationCtrl = TextEditingController();
+  final _taxIdCtrl = TextEditingController();
+  final _businessTypeCtrl = TextEditingController();
+  final _beneficialOwnerNameCtrl = TextEditingController();
+  final _beneficialOwnerIdCtrl = TextEditingController();
+  final _compliancePhoneCtrl = TextEditingController();
+  final _complianceEmailCtrl = TextEditingController();
 
   bool _phoneVerified = false;
+  bool _payoutTermsAccepted = false;
   bool _isLoading = true;
   bool _isSubmitting = false;
   String _status = 'pending';
@@ -42,7 +50,7 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
       final row = await _client
           .from('kyc_profiles')
           .select(
-              'legal_name,national_id,date_of_birth,physical_address,phone_verified,status,updated_at')
+              'legal_name,national_id,date_of_birth,physical_address,phone_verified,status,updated_at,business_registration_number,tax_identification_number,business_type,beneficial_owner_name,beneficial_owner_national_id,compliance_contact_phone,compliance_contact_email,payout_terms_accepted_at')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -52,7 +60,20 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
         final dob = (row['date_of_birth'] ?? '').toString();
         _dobCtrl.text = dob.isEmpty ? '' : dob.substring(0, 10);
         _addressCtrl.text = (row['physical_address'] ?? '').toString();
+        _businessRegistrationCtrl.text =
+            (row['business_registration_number'] ?? '').toString();
+        _taxIdCtrl.text = (row['tax_identification_number'] ?? '').toString();
+        _businessTypeCtrl.text = (row['business_type'] ?? '').toString();
+        _beneficialOwnerNameCtrl.text =
+            (row['beneficial_owner_name'] ?? '').toString();
+        _beneficialOwnerIdCtrl.text =
+            (row['beneficial_owner_national_id'] ?? '').toString();
+        _compliancePhoneCtrl.text =
+            (row['compliance_contact_phone'] ?? '').toString();
+        _complianceEmailCtrl.text =
+            (row['compliance_contact_email'] ?? '').toString();
         _phoneVerified = row['phone_verified'] == true;
+        _payoutTermsAccepted = row['payout_terms_accepted_at'] != null;
         _status = (row['status'] ?? 'pending').toString();
         _lastUpdated = row['updated_at']?.toString();
       }
@@ -72,6 +93,9 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
       if (dob == null) {
         throw Exception('Invalid date of birth. Use YYYY-MM-DD.');
       }
+      if (!_payoutTermsAccepted) {
+        throw Exception('Accept the payout compliance terms before submitting.');
+      }
 
       await _client.rpc('submit_kyc_profile', params: {
         'p_legal_name': _legalNameCtrl.text.trim(),
@@ -82,6 +106,20 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
         'p_document_url': _documentUrlCtrl.text.trim().isEmpty
             ? null
             : _documentUrlCtrl.text.trim(),
+        'p_business_registration_number':
+            _businessRegistrationCtrl.text.trim().isEmpty
+                ? null
+                : _businessRegistrationCtrl.text.trim(),
+        'p_tax_identification_number': _taxIdCtrl.text.trim().isEmpty
+            ? null
+            : _taxIdCtrl.text.trim(),
+        'p_business_type': _businessTypeCtrl.text.trim(),
+        'p_beneficial_owner_name': _beneficialOwnerNameCtrl.text.trim(),
+        'p_beneficial_owner_national_id': _beneficialOwnerIdCtrl.text.trim(),
+        'p_compliance_contact_phone': _compliancePhoneCtrl.text.trim(),
+        'p_compliance_contact_email': _complianceEmailCtrl.text.trim(),
+        'p_payout_terms_accepted': _payoutTermsAccepted,
+        'p_payout_terms_version': 'azampay-payouts-v1',
       });
 
       if (!mounted) return;
@@ -106,6 +144,13 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
     _dobCtrl.dispose();
     _addressCtrl.dispose();
     _documentUrlCtrl.dispose();
+    _businessRegistrationCtrl.dispose();
+    _taxIdCtrl.dispose();
+    _businessTypeCtrl.dispose();
+    _beneficialOwnerNameCtrl.dispose();
+    _beneficialOwnerIdCtrl.dispose();
+    _compliancePhoneCtrl.dispose();
+    _complianceEmailCtrl.dispose();
     super.dispose();
   }
 
@@ -178,11 +223,94 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    const Divider(height: 32),
+                    const Text(
+                      'Business & Payout Compliance',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _businessTypeCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Business Type',
+                        hintText: 'Sole proprietor, company, partnership',
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _businessRegistrationCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Business Registration Number (optional)',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _taxIdCtrl,
+                      decoration:
+                          const InputDecoration(labelText: 'TIN (optional)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _beneficialOwnerNameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Beneficial Owner Full Name',
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _beneficialOwnerIdCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Beneficial Owner National ID / NIDA',
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _compliancePhoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Compliance Contact Phone',
+                      ),
+                      validator: (v) =>
+                          v == null || v.trim().isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _complianceEmailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Compliance Contact Email',
+                      ),
+                      validator: (v) {
+                        final value = v?.trim() ?? '';
+                        if (value.isEmpty) return 'Required';
+                        if (!value.contains('@')) return 'Enter a valid email';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Phone Number Verified (OTP)'),
                       value: _phoneVerified,
                       onChanged: (v) => setState(() => _phoneVerified = v),
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _payoutTermsAccepted,
+                      title: const Text(
+                        'I confirm this information is accurate and may be used for payout compliance review.',
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      onChanged: (v) => setState(
+                        () => _payoutTermsAccepted = v ?? false,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(

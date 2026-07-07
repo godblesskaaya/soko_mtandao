@@ -31,6 +31,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _paymentLaunched = false;
   bool _isHostedProcessing = false;
   bool _isNativeSubmitting = false;
+  bool _isOtpRequesting = false;
   bool _didNavigateToConfirmation = false;
   bool _prefilledFields = false;
 
@@ -334,6 +335,45 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
+  Future<void> _requestBankOtp(Booking booking) async {
+    if (_isOtpRequesting) return;
+
+    if (_isBookingExpired(booking)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This booking hold has expired.')),
+      );
+      return;
+    }
+
+    setState(() => _isOtpRequesting = true);
+    try {
+      final service = ref.read(paymentServiceProvider);
+      final result = await service.generateBankOtp(
+        bookingId: booking.id,
+        ticketNumber: booking.ticketNumber,
+        provider: _bankProvider,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.message ??
+                'OTP requested. Check the bank-registered mobile number.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(userMessageForError(e))));
+    } finally {
+      if (mounted) {
+        setState(() => _isOtpRequesting = false);
+      }
+    }
+  }
+
   Widget _buildMethodSelector() {
     return Wrap(
       spacing: 8,
@@ -436,7 +476,20 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         TextField(
           controller: _bankOtpCtrl,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'OTP'),
+          decoration: InputDecoration(
+            labelText: 'OTP',
+            suffixIcon: TextButton(
+              onPressed:
+                  _isOtpRequesting ? null : () => _requestBankOtp(booking),
+              child: _isOtpRequesting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Generate'),
+            ),
+          ),
         ),
         const SizedBox(height: 16),
         SizedBox(

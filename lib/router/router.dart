@@ -407,7 +407,9 @@ class AppRouter {
             isLoggedIn: isLoggedIn,
             role: role,
             accessProfile: accessProfile,
-            isInPasswordRecovery: isInPasswordRecovery);
+            isInPasswordRecovery: isInPasswordRecovery,
+            isAuthInitialized: authNotifier.isInitialized,
+            isRoleResolved: authNotifier.isRoleResolved);
         return redirect;
       },
       errorBuilder: (context, state) {
