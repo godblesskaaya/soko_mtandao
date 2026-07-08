@@ -5,10 +5,14 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 
 class MapboxLocationPicker extends StatefulWidget {
   final Function(double lat, double lng) onLocationSelected;
+  final double? initialLat;
+  final double? initialLng;
 
   const MapboxLocationPicker({
     super.key,
     required this.onLocationSelected,
+    this.initialLat,
+    this.initialLng,
   });
 
   @override
@@ -26,6 +30,8 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
   @override
   void initState() {
     super.initState();
+    selectedLat = widget.initialLat;
+    selectedLng = widget.initialLng;
   }
 
   /// Initialize PointAnnotationManager and drag events
@@ -36,8 +42,8 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
     _pointManager?.dragEvents(
       onBegin: (annotation) {},
       onChanged: (annotation) {
-        selectedLat = annotation.geometry.coordinates.lat as double?;
-        selectedLng = annotation.geometry.coordinates.lng as double?;
+        selectedLat = annotation.geometry.coordinates.lat.toDouble();
+        selectedLng = annotation.geometry.coordinates.lng.toDouble();
         // update marker position
         setState(() {});
       },
@@ -120,14 +126,13 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
         title: const Text("Select Location"),
         actions: [
           TextButton(
-            onPressed: () {
-              if (selectedLat != null && selectedLng != null) {
-                widget.onLocationSelected(selectedLat!, selectedLng!);
-                Navigator.of(context).pop();
-              }
-            },
-            child: const Text("Save",
-                style: TextStyle(color: Color.fromARGB(255, 134, 174, 242))),
+            onPressed: selectedLat == null || selectedLng == null
+                ? null
+                : () {
+                    widget.onLocationSelected(selectedLat!, selectedLng!);
+                    Navigator.of(context).pop();
+                  },
+            child: const Text("Save"),
           ),
         ],
       ),
@@ -136,13 +141,22 @@ class _MapboxLocationPickerState extends State<MapboxLocationPicker> {
           MapWidget(
             key: const ValueKey("mapbox_location_picker"),
             cameraOptions: CameraOptions(
-              center:
-                  Point(coordinates: Position(39.2083, -6.7924)), // Dar city
-              zoom: 12,
+              center: Point(
+                coordinates: Position(
+                  widget.initialLng ?? 39.2083,
+                  widget.initialLat ?? -6.7924,
+                ),
+              ),
+              zoom: widget.initialLat != null && widget.initialLng != null
+                  ? 15
+                  : 12,
             ),
             onMapCreated: (controller) async {
               _map = controller;
               await _initMarkerManager();
+              if (widget.initialLat != null && widget.initialLng != null) {
+                await _setMarker(widget.initialLat!, widget.initialLng!);
+              }
             },
             onTapListener: (MapContentGestureContext context) {
               final lat = context.point.coordinates.lat;

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/services/auth_service.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
+import 'package:soko_mtandao/features/management/presentation/widgets/location_picker.dart';
 import 'package:soko_mtandao/router/route_names.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,7 +30,7 @@ class _ManagerOnboardingScreenState
   final _websiteCtrl = TextEditingController();
   final _latCtrl = TextEditingController();
   final _lngCtrl = TextEditingController();
-  final _roomsCtrl = TextEditingController(text: '0');
+  final _roomsCtrl = TextEditingController(text: '1');
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -80,7 +81,7 @@ class _ManagerOnboardingScreenState
       _websiteCtrl.text = (payload['website'] ?? '').toString();
       _latCtrl.text = (payload['lat'] ?? '').toString();
       _lngCtrl.text = (payload['lng'] ?? '').toString();
-      _roomsCtrl.text = (payload['totalRooms'] ?? 0).toString();
+      _roomsCtrl.text = (payload['totalRooms'] ?? 1).toString();
     } catch (_) {
       // The screen can still render an empty draft state.
     } finally {
@@ -99,11 +100,50 @@ class _ManagerOnboardingScreenState
       'phoneNumber': _phoneCtrl.text.trim(),
       'email': _emailCtrl.text.trim(),
       'website': _websiteCtrl.text.trim(),
-      'lat': double.tryParse(_latCtrl.text.trim()) ?? 0,
-      'lng': double.tryParse(_lngCtrl.text.trim()) ?? 0,
-      'totalRooms': int.tryParse(_roomsCtrl.text.trim()) ?? 0,
+      'lat': double.tryParse(_latCtrl.text.trim()),
+      'lng': double.tryParse(_lngCtrl.text.trim()),
+      'totalRooms': int.tryParse(_roomsCtrl.text.trim()) ?? 1,
       'images': const <String>[],
     };
+  }
+
+  bool get _hasLocation {
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lng = double.tryParse(_lngCtrl.text.trim());
+    return lat != null &&
+        lng != null &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180;
+  }
+
+  String get _locationSummary {
+    if (!_hasLocation) return 'Choose the property position on the map.';
+    final lat = double.parse(_latCtrl.text.trim());
+    final lng = double.parse(_lngCtrl.text.trim());
+    return '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+  }
+
+  Future<void> _pickLocation() async {
+    final initialLat = double.tryParse(_latCtrl.text.trim());
+    final initialLng = double.tryParse(_lngCtrl.text.trim());
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapboxLocationPicker(
+          initialLat: initialLat,
+          initialLng: initialLng,
+          onLocationSelected: (lat, lng) {
+            _latCtrl.text = lat.toStringAsFixed(6);
+            _lngCtrl.text = lng.toStringAsFixed(6);
+          },
+        ),
+      ),
+    );
+
+    if (mounted) setState(() {});
   }
 
   Future<void> _runSubmission(Future<void> Function() action) async {
@@ -273,34 +313,69 @@ class _ManagerOnboardingScreenState
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _latCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Latitude'),
-                    validator: _required,
+            FormField<bool>(
+              validator: (_) =>
+                  _hasLocation ? null : 'Choose the hotel location on the map',
+              builder: (field) {
+                final colorScheme = Theme.of(context).colorScheme;
+                return Card(
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(
+                      color: field.hasError
+                          ? colorScheme.error
+                          : colorScheme.outlineVariant,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _lngCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Longitude'),
-                    validator: _required,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            _hasLocation
+                                ? Icons.location_on
+                                : Icons.add_location_alt_outlined,
+                            color: _hasLocation
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                          title: const Text('Hotel location'),
+                          subtitle: Text(_locationSummary),
+                          trailing: FilledButton.icon(
+                            onPressed: _isSaving ? null : _pickLocation,
+                            icon: const Icon(Icons.map_outlined),
+                            label: Text(_hasLocation ? 'Change' : 'Choose'),
+                          ),
+                        ),
+                        if (field.hasError) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            field.errorText!,
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _roomsCtrl,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Total rooms'),
+              validator: (value) {
+                final rooms = int.tryParse((value ?? '').trim());
+                if (rooms == null || rooms < 1) {
+                  return 'Enter at least 1 room';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 20),
             Wrap(

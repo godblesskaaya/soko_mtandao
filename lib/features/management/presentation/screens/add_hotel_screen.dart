@@ -341,6 +341,12 @@ class _AddHotelScreenState extends ConsumerState<AddHotelScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => MapboxLocationPicker(
+                                  initialLat: double.tryParse(
+                                    _latController.text.trim(),
+                                  ),
+                                  initialLng: double.tryParse(
+                                    _lngController.text.trim(),
+                                  ),
                                   onLocationSelected: (lat, lng) {
                                     _latController.text =
                                         lat.toStringAsFixed(6);
