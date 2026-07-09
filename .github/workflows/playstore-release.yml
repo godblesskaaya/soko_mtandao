@@ -25,6 +25,16 @@ on:
         description: Leave Play Console changes unsent for review.
         type: boolean
         default: true
+      build_name:
+        description: Optional Android versionName override, for example 1.0.5.
+        type: string
+        required: false
+        default: ""
+      build_number:
+        description: Optional Android versionCode override. Must be higher than any versionCode already uploaded to Play.
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -53,6 +63,13 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Cache Pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
 
       - name: Install dependencies
         run: flutter pub get
@@ -84,6 +101,23 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Cache Pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('android/**/*.gradle*', 'android/gradle/wrapper/gradle-wrapper.properties', 'pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-gradle-
 
       - name: Install dependencies
         run: flutter pub get
@@ -128,7 +162,26 @@ jobs:
           EOF
 
       - name: Build release app bundle
-        run: flutter build appbundle --release --dart-define-from-file=env/app.env.ci.json
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          set -euo pipefail
+          build_args=(--release --dart-define-from-file=env/app.env.ci.json)
+
+          if [ -n "$BUILD_NAME" ]; then
+            build_args+=(--build-name "$BUILD_NAME")
+          fi
+
+          if [ -n "$BUILD_NUMBER" ]; then
+            if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "::error::build_number must be a positive integer versionCode."
+              exit 1
+            fi
+            build_args+=(--build-number "$BUILD_NUMBER")
+          fi
+
+          flutter build appbundle "${build_args[@]}"
 
       - name: Upload app bundle artifact
         uses: actions/upload-artifact@v4

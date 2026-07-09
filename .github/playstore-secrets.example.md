@@ -43,3 +43,13 @@ base64 -w 0 android/app/upload-keystore.jks
 The Play Console app must already exist with package
 `com.soko_mtandao.soko_mtandao`, and the first release may need to be uploaded
 manually before API uploads are accepted.
+
+## Version Codes
+
+Google Play rejects any Android `versionCode` that has already been uploaded.
+The committed Flutter version in `pubspec.yaml` is the default source, for
+example `1.0.5+12` means `versionName=1.0.5` and `versionCode=12`.
+
+For one-off reruns, the workflow also accepts optional `build_name` and
+`build_number` inputs. Use `build_number` only with a value higher than the
+latest Play Console version code.
