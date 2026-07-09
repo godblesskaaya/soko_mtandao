@@ -55,3 +55,9 @@ Required for payment flows:
 - `AZAMPAY_CLIENT_SECRET`
 
 Optional keys are documented in `supabase/functions/.env.example`.
+
+## Play Store release CI/CD
+
+Play Store publishing is handled by the manual GitHub Actions workflow
+`.github/workflows/playstore-release.yml`. Required GitHub secrets and example
+values are documented in `.github/playstore-secrets.example.md`.

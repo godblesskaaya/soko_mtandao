@@ -1,0 +1,161 @@
+name: Android Play Store Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Play Store track to publish to.
+        type: choice
+        default: internal
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      release_status:
+        description: Play release status.
+        type: choice
+        default: draft
+        options:
+          - draft
+          - completed
+          - inProgress
+          - halted
+      changes_not_sent_for_review:
+        description: Leave Play Console changes unsent for review.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playstore-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Flutter App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  publish:
+    name: Build and Publish AAB
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: playstore
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Restore release configuration
+        env:
+          APP_ENV_JSON_BASE64: ${{ secrets.APP_ENV_JSON_BASE64 }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          mkdir -p env android/app
+
+          for secret_name in \
+            APP_ENV_JSON_BASE64 \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_PASSWORD \
+            ANDROID_KEY_ALIAS
+          do
+            if [ -z "${!secret_name}" ]; then
+              echo "::error::$secret_name is required for Play Store publishing."
+              exit 1
+            fi
+          done
+
+          printf '%s' "$APP_ENV_JSON_BASE64" | base64 --decode > env/app.env.ci.json
+          jq -e '
+            (.SUPABASE_URL | type == "string" and length > 0) and
+            (.SUPABASE_ANON_KEY | type == "string" and length > 0) and
+            (.MAPBOX_ACCESS_TOKEN | type == "string" and length > 0)
+          ' env/app.env.ci.json > /dev/null
+
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+
+      - name: Build release app bundle
+        run: flutter build appbundle --release --dart-define-from-file=env/app.env.ci.json
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: soko-mtandao-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Validate Play service account
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::GOOGLE_PLAY_SERVICE_ACCOUNT_JSON is required for Play Store publishing."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" |
+            jq -e '.type == "service_account" and (.client_email | type == "string") and (.private_key | type == "string")' > /dev/null
+
+      - name: Publish to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.soko_mtandao.soko_mtandao
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: ${{ inputs.track }}
+          status: ${{ inputs.release_status }}
+          changesNotSentForReview: ${{ inputs.changes_not_sent_for_review }}
