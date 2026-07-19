@@ -27,6 +27,48 @@ String userMessageForError(Object error) {
     return 'Network issue detected. Please check your connection and try again.';
   }
 
+  if (lower.contains('email not confirmed') ||
+      lower.contains('confirm your email')) {
+    return 'Please confirm your email address, then log in.';
+  }
+
+  if (lower.contains('weak password') ||
+      lower.contains('password should') ||
+      lower.contains('password requirements')) {
+    return 'Use at least 8 characters with uppercase, lowercase, and a number.';
+  }
+
+  if (lower.contains('account is suspended') ||
+      lower.contains('account is frozen')) {
+    return 'This account is suspended. Contact support for help.';
+  }
+
+  if (lower.contains('complete your manager profile')) {
+    return 'Complete your manager profile before submitting.';
+  }
+
+  if (lower.contains('submit kyc')) {
+    return 'Submit KYC before sending a hotel manager application.';
+  }
+
+  if (lower.contains('invalid invite token') ||
+      lower.contains('invite not found')) {
+    return 'Invalid invite token. Check the token and try again.';
+  }
+
+  if (lower.contains('invite has expired')) {
+    return 'This invite has expired. Ask your manager for a new one.';
+  }
+
+  if (lower.contains('different email address')) {
+    return 'This invite belongs to a different email address.';
+  }
+
+  if (lower.contains('rate limit') ||
+      lower.contains('over_email_send_rate_limit')) {
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  }
+
   if (lower.contains('invalid login credentials') ||
       lower.contains('auth') ||
       lower.contains('unauthorized')) {

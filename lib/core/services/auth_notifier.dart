@@ -27,6 +27,9 @@ class AuthNotifier extends ChangeNotifier {
   bool _isRoleResolved = true;
   bool get isRoleResolved => _isRoleResolved;
 
+  bool _hasAccessProfileError = false;
+  bool get hasAccessProfileError => _hasAccessProfileError;
+
   bool _isInPasswordRecovery = false;
   bool get isInPasswordRecovery => _isInPasswordRecovery;
 
@@ -46,11 +49,11 @@ class AuthNotifier extends ChangeNotifier {
     _init();
   }
 
-  Future<void> _init() async {
-    _updateFromSession();
+  void _init() {
+    unawaited(_updateFromSession());
 
     _authSub =
-        Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
 
       if (event == AuthChangeEvent.passwordRecovery) {
@@ -62,7 +65,7 @@ class AuthNotifier extends ChangeNotifier {
         _isInPasswordRecovery = false;
       }
 
-      _updateFromSession();
+      unawaited(_updateFromSession());
       notifyListeners();
     });
 
@@ -70,13 +73,14 @@ class AuthNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _updateFromSession() {
+  Future<void> _updateFromSession() async {
     _profileRequestId++;
     final session = _authService.session;
 
     if (_isInPasswordRecovery) {
       _isLoggedIn = false;
       _isRoleResolved = true;
+      _hasAccessProfileError = false;
       _accessProfile = AccessProfile.guest();
       return;
     }
@@ -84,12 +88,13 @@ class AuthNotifier extends ChangeNotifier {
     _isLoggedIn = session != null;
     if (!_isLoggedIn) {
       _isRoleResolved = true;
+      _hasAccessProfileError = false;
       _accessProfile = AccessProfile.guest();
       return;
     }
 
     _isRoleResolved = false;
-    _fetchAccessProfile(_profileRequestId);
+    await _fetchAccessProfile(_profileRequestId);
   }
 
   Future<void> _fetchAccessProfile(int requestId) async {
@@ -106,6 +111,7 @@ class AuthNotifier extends ChangeNotifier {
       final profile = await _userService.fetchAccessProfile(uid);
       if (requestId != _profileRequestId) return;
       _accessProfile = profile;
+      _hasAccessProfileError = false;
     } catch (e, stackTrace) {
       if (requestId != _profileRequestId) return;
       ErrorReporter.report(
@@ -114,7 +120,7 @@ class AuthNotifier extends ChangeNotifier {
         source: 'auth_notifier.fetchAccessProfile',
         context: {'uid': uid},
       );
-      _accessProfile = AccessProfile.guest();
+      _hasAccessProfileError = true;
     }
 
     _isRoleResolved = true;
@@ -145,6 +151,7 @@ class AuthNotifier extends ChangeNotifier {
   Future<void> refreshAccessProfile() async {
     final requestId = ++_profileRequestId;
     _isRoleResolved = false;
+    _hasAccessProfileError = false;
     notifyListeners();
     await _fetchAccessProfile(requestId);
   }
@@ -161,19 +168,30 @@ class AuthNotifier extends ChangeNotifier {
 
   Future<void> signIn({required String email, required String password}) async {
     await _authService.signIn(email: email, password: password);
+    await _updateFromSession();
   }
 
-  Future<void> signUp({
+  Future<AuthResponse> signUp({
     required String email,
     required String password,
     Map<String, dynamic>? data,
   }) async {
-    await _authService.signUp(email: email, password: password, data: data);
+    final response = await _authService.signUp(
+      email: email,
+      password: password,
+      data: data,
+    );
+    if (response.session != null) {
+      await _updateFromSession();
+    }
+    return response;
   }
 
   Future<void> signOut() async {
     await _authService.signOut();
     _hasRedirectedAfterLogin = false;
+    await _updateFromSession();
+    notifyListeners();
   }
 
   void markRedirectDone() {

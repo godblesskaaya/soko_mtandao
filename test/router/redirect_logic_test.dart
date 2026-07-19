@@ -49,6 +49,40 @@ void main() {
       expect(redirect, RouteNames.onboardingHub);
     });
 
+    test('signed in users with no chosen path cannot bypass onboarding on home',
+        () {
+      final profile = _profile();
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.guestHome),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, RouteNames.onboardingHub);
+    });
+
+    test('pending operator applicants can continue browsing as customers', () {
+      final profile = _profile(
+        selectedPath: 'manage_hotel',
+        hasSeenOnboarding: true,
+        onboardingStatus: 'in_progress',
+        managerApplicationStatus: 'submitted',
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.guestHome),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, isNull);
+    });
+
     test('completed customer onboarding goes to customer home from splash', () {
       final profile = _profile(
         selectedPath: 'customer',

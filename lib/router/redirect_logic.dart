@@ -65,6 +65,16 @@ String? globalRedirect(
     return _homeForAccess(accessProfile);
   }
 
+  final isCustomerShellRoute = path == RouteNames.guestHome ||
+      path == RouteNames.hotels ||
+      path == RouteNames.bookings ||
+      path == RouteNames.profile ||
+      matches(RouteNames.hotelDetail);
+
+  if (accessProfile.needsInitialPathSelection && isCustomerShellRoute) {
+    return RouteNames.onboardingHub;
+  }
+
   final onboardingPaths = {
     RouteNames.onboardingHub,
     RouteNames.managerOnboarding,

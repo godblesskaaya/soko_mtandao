@@ -6,17 +6,21 @@ final splashRedirectProvider = FutureProvider<String>((ref) async {
   await Future.delayed(const Duration(seconds: 2));
 
   final authNotifier = ref.read(authNotifierProvider);
-  final isLoggedIn = authNotifier.isLoggedIn;
+  var attempts = 0;
+  while (!authNotifier.isInitialized && attempts < 25) {
+    await Future.delayed(const Duration(milliseconds: 100));
+    attempts++;
+  }
 
-  if (isLoggedIn) {
-    var attempts = 0;
+  if (authNotifier.isLoggedIn) {
+    attempts = 0;
     while (!authNotifier.isRoleResolved && attempts < 25) {
       await Future.delayed(const Duration(milliseconds: 100));
       attempts++;
     }
   }
 
-  if (!isLoggedIn) {
+  if (!authNotifier.isLoggedIn) {
     return RouteNames.guestHome;
   }
 

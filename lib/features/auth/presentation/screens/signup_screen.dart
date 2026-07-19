@@ -58,7 +58,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(authNotifierProvider).signUp(
+      final response = await ref.read(authNotifierProvider).signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
         data: {
@@ -67,6 +67,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         },
       );
       if (!mounted) return;
+      if (response.session == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Check your email to confirm your account, then log in.'),
+          ),
+        );
+        context.go(RouteNames.login);
+        return;
+      }
+
       // show a success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -135,11 +146,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               Icons.person_outline),
                           const SizedBox(height: 15),
                           _buildField(
-                              emailController, "Email", Icons.email_outlined),
+                            emailController,
+                            "Email",
+                            Icons.email_outlined,
+                            validator: _emailValidator,
+                          ),
                           const SizedBox(height: 15),
-                          _buildField(passwordController, "Password",
-                              Icons.lock_outline,
-                              obscure: true),
+                          _buildField(
+                            passwordController,
+                            "Password",
+                            Icons.lock_outline,
+                            obscure: true,
+                            validator: _passwordValidator,
+                          ),
                           const SizedBox(height: 15),
 
                           // 4. Privacy Policy Checkbox
@@ -240,17 +259,43 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     );
   }
 
-  Widget _buildField(TextEditingController ctrl, String label, IconData icon,
-      {bool obscure = false}) {
+  Widget _buildField(
+    TextEditingController ctrl,
+    String label,
+    IconData icon, {
+    bool obscure = false,
+    String? Function(String?)? validator,
+  }) {
     return TextFormField(
       controller: ctrl,
       obscureText: obscure,
-      validator: (v) => v!.isEmpty ? "Required" : null,
+      validator: validator ?? (v) => v!.isEmpty ? "Required" : null,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+  }
+
+  String? _emailValidator(String? value) {
+    final email = (value ?? '').trim();
+    if (email.isEmpty) return 'Required';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'Enter a valid email';
+    }
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) return 'Required';
+    if (password.length < 8 ||
+        !RegExp('[a-z]').hasMatch(password) ||
+        !RegExp('[A-Z]').hasMatch(password) ||
+        !RegExp(r'\d').hasMatch(password)) {
+      return 'Use 8+ chars with uppercase, lowercase, and a number';
+    }
+    return null;
   }
 }
