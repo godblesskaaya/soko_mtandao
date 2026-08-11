@@ -205,7 +205,7 @@ void main() {
       expect(redirect, RouteNames.guestHome);
     });
 
-    test('completed users are redirected away from onboarding hub', () {
+    test('completed customer users can reopen onboarding hub', () {
       final profile = _profile(
         selectedPath: 'customer',
         hasSeenOnboarding: true,
@@ -220,7 +220,7 @@ void main() {
         isInPasswordRecovery: false,
       );
 
-      expect(redirect, RouteNames.guestHome);
+      expect(redirect, isNull);
     });
   });
 }

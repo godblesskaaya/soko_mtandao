@@ -83,12 +83,6 @@ String? globalRedirect(
     RouteNames.requestHotelAssociation,
   };
 
-  if (path == RouteNames.onboardingHub &&
-      !accessProfile.needsInitialPathSelection &&
-      !accessProfile.hasActiveOperatorOnboarding) {
-    return _homeForAccess(accessProfile);
-  }
-
   if ((path == RouteNames.managerOnboarding ||
           path == RouteNames.staffOnboarding ||
           path == RouteNames.pendingAccess ||

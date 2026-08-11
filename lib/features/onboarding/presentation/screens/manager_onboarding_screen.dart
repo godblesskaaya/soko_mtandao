@@ -146,15 +146,20 @@ class _ManagerOnboardingScreenState
     if (mounted) setState(() {});
   }
 
-  Future<void> _runSubmission(Future<void> Function() action) async {
+  Future<void> _runSubmission(
+    Future<void> Function() action, {
+    required String successMessage,
+    VoidCallback? onSuccess,
+  }) async {
     setState(() => _isSaving = true);
     try {
       await action();
       await ref.read(authNotifierProvider).refreshAccessProfile();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Manager onboarding updated.')),
+        SnackBar(content: Text(successMessage)),
       );
+      onSuccess?.call();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -389,6 +394,8 @@ class _ManagerOnboardingScreenState
                             () => ref
                                 .read(userServiceProvider)
                                 .saveManagerApplicationDraft(_payload()),
+                            successMessage:
+                                'Draft saved. You can continue editing or submit when ready.',
                           ),
                   icon: const Icon(Icons.save_outlined),
                   label: const Text('Save Draft'),
@@ -404,6 +411,10 @@ class _ManagerOnboardingScreenState
                             () => ref
                                 .read(userServiceProvider)
                                 .submitManagerApplication(_payload()),
+                            successMessage:
+                                'Application submitted for review.',
+                            onSuccess: () =>
+                                context.go(RouteNames.pendingAccess),
                           );
                         },
                   icon: _isSaving

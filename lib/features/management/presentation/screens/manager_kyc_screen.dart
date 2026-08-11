@@ -127,7 +127,12 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('KYC submitted for compliance review.')),
       );
-      await _loadKyc();
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        await _loadKyc();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

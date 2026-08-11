@@ -24,6 +24,24 @@ Failure failureFromError(Object error) {
     return ServerFailure('Network issue detected. Please try again.');
   }
 
+  final isDuplicateSignupEmail =
+      lower.contains('email already') ||
+      lower.contains('email address already') ||
+      lower.contains('email is already') ||
+      lower.contains('email already in use') ||
+      lower.contains('email already registered') ||
+      lower.contains('user already registered') ||
+      lower.contains('user already exists') ||
+      (lower.contains('email') && lower.contains('already registered')) ||
+      (lower.contains('email') && lower.contains('already in use')) ||
+      (lower.contains('email') && lower.contains('already exists'));
+
+  if (isDuplicateSignupEmail) {
+    return ServerFailure(
+      'An account already exists for this email. Log in or reset your password.',
+    );
+  }
+
   if (lower.contains('auth') ||
       lower.contains('unauthorized') ||
       lower.contains('invalid login credentials')) {

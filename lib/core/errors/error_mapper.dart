@@ -32,6 +32,22 @@ String userMessageForError(Object error) {
     return 'Please confirm your email address, then log in.';
   }
 
+  final isDuplicateSignupEmail =
+      lower.contains('email already') ||
+      lower.contains('email address already') ||
+      lower.contains('email is already') ||
+      lower.contains('email already in use') ||
+      lower.contains('email already registered') ||
+      lower.contains('user already registered') ||
+      lower.contains('user already exists') ||
+      (lower.contains('email') && lower.contains('already registered')) ||
+      (lower.contains('email') && lower.contains('already in use')) ||
+      (lower.contains('email') && lower.contains('already exists'));
+
+  if (isDuplicateSignupEmail) {
+    return 'An account already exists for this email. Log in or reset your password.';
+  }
+
   if (lower.contains('weak password') ||
       lower.contains('password should') ||
       lower.contains('password requirements')) {

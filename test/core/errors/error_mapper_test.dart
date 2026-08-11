@@ -10,6 +10,13 @@ void main() {
       );
     });
 
+    test('surfaces duplicate signup emails before generic auth failures', () {
+      expect(
+        userMessageForError('AuthApiException: User already registered'),
+        'An account already exists for this email. Log in or reset your password.',
+      );
+    });
+
     test('surfaces manager onboarding blockers', () {
       expect(
         userMessageForError(

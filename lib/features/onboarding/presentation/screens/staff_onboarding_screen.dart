@@ -16,8 +16,16 @@ class StaffOnboardingScreen extends ConsumerStatefulWidget {
 
 class _StaffOnboardingScreenState extends ConsumerState<StaffOnboardingScreen> {
   final _inviteTokenCtrl = TextEditingController();
-  final _titleCtrl = TextEditingController(text: 'front_desk');
   final _noteCtrl = TextEditingController();
+  static const _staffRoles = <String>[
+    'front_desk',
+    'housekeeping',
+    'accounting',
+    'maintenance',
+    'manager',
+  ];
+
+  String _staffRole = 'front_desk';
 
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -72,7 +80,6 @@ class _StaffOnboardingScreenState extends ConsumerState<StaffOnboardingScreen> {
   @override
   void dispose() {
     _inviteTokenCtrl.dispose();
-    _titleCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -163,12 +170,24 @@ class _StaffOnboardingScreenState extends ConsumerState<StaffOnboardingScreen> {
                         const InputDecoration(labelText: 'Select the hotel'),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: _titleCtrl,
+                  DropdownButtonFormField<String>(
+                    initialValue: _staffRole,
                     decoration: const InputDecoration(
                       labelText: 'Preferred team role',
-                      hintText: 'front_desk',
                     ),
+                    items: _staffRoles
+                        .map(
+                          (role) => DropdownMenuItem<String>(
+                            value: role,
+                            child: Text(_formatRole(role)),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: _isSubmitting
+                        ? null
+                        : (value) => setState(
+                              () => _staffRole = value ?? 'front_desk',
+                            ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -188,9 +207,7 @@ class _StaffOnboardingScreenState extends ConsumerState<StaffOnboardingScreen> {
                                   .read(userServiceProvider)
                                   .submitStaffJoinRequest(
                                     hotelId: _selectedHotelId!,
-                                    staffTitle: _titleCtrl.text.trim().isEmpty
-                                        ? 'front_desk'
-                                        : _titleCtrl.text.trim(),
+                                    staffTitle: _staffRole,
                                     note: _noteCtrl.text.trim(),
                                   ),
                             ),
@@ -204,5 +221,14 @@ class _StaffOnboardingScreenState extends ConsumerState<StaffOnboardingScreen> {
         ],
       ),
     );
+  }
+
+  static String _formatRole(String role) {
+    return role
+        .split('_')
+        .map((word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 }
