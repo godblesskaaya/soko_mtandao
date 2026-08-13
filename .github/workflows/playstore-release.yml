@@ -65,7 +65,18 @@ jobs:
           cache: true
 
       - name: Install Android API 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: |
+          set -euo pipefail
+          android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          sdkmanager_bin="$android_sdk/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ -z "$android_sdk" ] || [ ! -x "$sdkmanager_bin" ]; then
+            echo "::error::sdkmanager not found under ANDROID_SDK_ROOT or ANDROID_HOME."
+            exit 1
+          fi
+
+          yes | "$sdkmanager_bin" --licenses > /dev/null || true
+          "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Cache Pub dependencies
         uses: actions/cache@v4
@@ -106,7 +117,18 @@ jobs:
           cache: true
 
       - name: Install Android API 36
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: |
+          set -euo pipefail
+          android_sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          sdkmanager_bin="$android_sdk/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ -z "$android_sdk" ] || [ ! -x "$sdkmanager_bin" ]; then
+            echo "::error::sdkmanager not found under ANDROID_SDK_ROOT or ANDROID_HOME."
+            exit 1
+          fi
+
+          yes | "$sdkmanager_bin" --licenses > /dev/null || true
+          "$sdkmanager_bin" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Cache Pub dependencies
         uses: actions/cache@v4
