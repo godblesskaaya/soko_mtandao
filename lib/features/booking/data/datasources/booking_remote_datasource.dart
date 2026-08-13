@@ -124,14 +124,55 @@ class BookingRemoteDataSource implements BookingDataSource {
   }
 
   @override
+  Future<List<BookingModel>> getMyBookings() async {
+    if (_client.auth.currentUser == null) return const <BookingModel>[];
+
+    final res = await _client.rpc('get_my_bookings');
+    if (res is! Map<String, dynamic> || res['success'] != true) {
+      final message = res is Map<String, dynamic>
+          ? (res['message']?.toString() ?? 'Failed to load bookings')
+          : 'Failed to load bookings';
+      throw Exception(message);
+    }
+
+    final rows = (res['bookings'] as List?) ?? const [];
+    final bookings = rows
+        .whereType<Map>()
+        .map((row) => BookingModel.fromJson(
+              Map<String, dynamic>.from(row as Map<dynamic, dynamic>),
+            ))
+        .toList(growable: false);
+    for (final booking in bookings) {
+      _cacheTicket(booking);
+    }
+    return bookings;
+  }
+
+  @override
   Future<void> cancelBooking(String bookingId) async {
     await _client.rpc('bookings_cancel', params: {'booking_id': bookingId});
   }
 
   @override
-  Future<BookingSearchResult> findBookingById(String bookingId) {
+  Future<BookingSearchResult> findBookingById(String bookingId) async {
+    final query = bookingId.trim();
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+
+    if (uuidPattern.hasMatch(query)) {
+      try {
+        return BookingSearchResult(
+          booking: await getBooking(query),
+          found: true,
+        );
+      } catch (_) {
+        return BookingSearchResult(booking: null, found: false);
+      }
+    }
+
     return _client.rpc('get_booking_details_by_ticket',
-        params: {'p_ticket_number': bookingId}).then((res) {
+        params: {'p_ticket_number': query}).then((res) {
       if (res != null && res['success'] == true) {
         final booking =
             BookingModel.fromJson(res['booking'] as Map<String, dynamic>);

@@ -72,14 +72,29 @@ class AdminLayout extends ConsumerWidget {
       return;
     }
 
-    final selectedHotel = await showEntityPicker<ManagerHotel>(
-      context: context,
-      title: 'Choose a Hotel',
-      fetchItems: () => _fetchHotelsFromRepo(ref),
-      display: (h) => h.name,
-    );
+    ManagerHotel? selectedHotel;
+    try {
+      selectedHotel = await showEntityPicker<ManagerHotel>(
+        context: context,
+        title: 'Choose a Hotel',
+        fetchItems: () => _fetchHotelsFromRepo(ref),
+        display: (h) => h.name,
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load your hotels.')),
+      );
+      return;
+    }
 
-    if (selectedHotel == null) return;
+    if (selectedHotel == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add or select a hotel first.')),
+      );
+      return;
+    }
 
     ref.read(selectedManagerHotelIdProvider.notifier).state = selectedHotel.id;
     _navigateToHotelRoute(context, routeName, selectedHotel.id);

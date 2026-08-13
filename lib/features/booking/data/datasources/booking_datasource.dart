@@ -15,6 +15,8 @@ abstract class BookingDataSource {
 
   Future<BookingModel> getBookingStatus(String bookingId);
 
+  Future<List<BookingModel>> getMyBookings();
+
   Future<void> cancelBooking(String bookingId);
 
   Future<BookingSearchResult> findBookingById(String bookingId);

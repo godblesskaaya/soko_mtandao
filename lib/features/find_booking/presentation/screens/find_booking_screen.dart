@@ -268,9 +268,9 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
     final searchAsync =
         _searchId != null ? ref.watch(findBookingProvider(_searchId!)) : null;
 
-    // Watch local history ONLY if we are NOT searching
+    // Watch booking history ONLY if we are NOT searching
     final historyAsync =
-        _searchId == null ? ref.watch(localBookingHistoryProvider) : null;
+        _searchId == null ? ref.watch(bookingHistoryProvider) : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -281,7 +281,10 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
           if (_searchId == null)
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: () => ref.refresh(localBookingHistoryProvider),
+              onPressed: () {
+                ref.invalidate(localBookingHistoryProvider);
+                ref.invalidate(bookingHistoryProvider);
+              },
             )
         ],
       ),
@@ -397,7 +400,7 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
     );
   }
 
-  // --- Widget for Local History ---
+  // --- Widget for Booking History ---
   Widget _buildLocalHistory(AsyncValue<List<Booking>> historyAsync) {
     return historyAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -413,7 +416,8 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                 const SizedBox(height: 16),
                 const Text("No saved bookings on this device."),
                 const SizedBox(height: 8),
-                const Text("Pending and confirmed bookings will appear here."),
+                const Text(
+                    "Search by ticket number or create a booking to start."),
               ],
             ),
           );
@@ -424,6 +428,9 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           itemBuilder: (context, index) {
             final booking = bookings[index];
+            final stay = booking.bookingCart.bookings.isEmpty
+                ? null
+                : booking.bookingCart.bookings.first;
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               elevation: 2,
@@ -444,10 +451,15 @@ class _FindBookingScreenState extends ConsumerState<FindBookingScreen> {
                       children: [
                         if ((booking.ticketNumber ?? '').isNotEmpty)
                           Text("Ticket: ${booking.ticketNumber}"),
-                        Text(
-                            "Place: ${booking.bookingCart.bookings.first.hotel.name}"),
-                        Text(
-                            "Stay nights: ${formatYmd(booking.bookingCart.bookings.first.startDate)} to ${formatYmd(booking.bookingCart.bookings.first.endDate)}"),
+                        if (stay == null)
+                          const Text(
+                            "Booking details unavailable. Tap to refresh.",
+                          )
+                        else ...[
+                          Text("Place: ${stay.hotel.name}"),
+                          Text(
+                              "Stay nights: ${formatYmd(stay.startDate)} to ${formatYmd(stay.endDate)}"),
+                        ],
                         if (booking.status == BookingStatusEnum.pending &&
                             booking.paymentStatus ==
                                 PaymentStatusEnum.pending &&

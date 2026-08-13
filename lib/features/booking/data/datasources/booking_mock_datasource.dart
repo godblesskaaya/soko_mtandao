@@ -159,6 +159,11 @@ class BookingMockDataSource implements BookingDataSource {
   }
 
   @override
+  Future<List<BookingModel>> getMyBookings() async {
+    return [await getBooking('mock-booking-1')];
+  }
+
+  @override
   Future<void> cancelBooking(String bookingId) async {
     await Future.delayed(const Duration(milliseconds: 200));
   }

@@ -30,6 +30,9 @@ class BookingRepositoryImpl implements BookingRepository {
       ds.getBookingStatus(bookingId);
 
   @override
+  Future<List<Booking>> getMyBookings() => ds.getMyBookings();
+
+  @override
   Stream<Booking> monitorBookingPayment(String bookingId) =>
       ds.monitorBookingPayment(bookingId);
 

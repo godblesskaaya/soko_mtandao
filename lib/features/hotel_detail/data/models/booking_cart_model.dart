@@ -22,7 +22,7 @@ class BookingCartModel extends BookingCart {
       );
     } else if (json is Map<String, dynamic>) {
       return BookingCartModel(
-        bookings: (json['bookings'] as List<dynamic>)
+        bookings: ((json['bookings'] as List?) ?? const <dynamic>[])
             .map((e) => BookingInputModel.fromJson(e))
             .toList(),
       );

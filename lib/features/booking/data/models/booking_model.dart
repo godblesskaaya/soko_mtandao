@@ -71,15 +71,20 @@ class BookingModel extends Booking {
       }
     }
 
+    final userJson = json['user_data'] ?? json['user'] ?? const {};
+    final cartJson = json['cart'] ??
+        json['booking_cart'] ??
+        const <String, dynamic>{'bookings': <dynamic>[]};
+
     return BookingModel(
       id: json['id'].toString(),
-      user: UserModel.fromJson(json['user_data']),
+      user: UserModel.fromJson(Map<String, dynamic>.from(userJson as Map)),
       status: toBookingStatus(json['status']),
       paymentStatus: toPaymentStatus(json['payment_status']),
       ticketNumber: json['ticket_number'],
       totalPrice: (json['total_price'] as num?)?.toDouble(),
       amountPaid: (json['amount_paid'] as num?)?.toDouble(),
-      bookingCart: BookingCartModel.fromJson(json['cart']),
+      bookingCart: BookingCartModel.fromJson(cartJson),
       createdAt: parseServerDate(json['created_at']),
       expiresAt: parseServerDate(json['expires_at']),
       paymentInitiatedAt: parseServerDate(json['payment_initiated_at']),

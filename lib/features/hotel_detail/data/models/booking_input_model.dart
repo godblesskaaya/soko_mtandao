@@ -27,7 +27,7 @@ class BookingInputModel extends BookingInput {
       hotel: HotelModel.fromJson(json['hotel']),
       startDate: DateTime.parse(json['start_date']),
       endDate: DateTime.parse(json['end_date']),
-      items: (json['items'] as List<dynamic>)
+      items: ((json['items'] as List?) ?? const <dynamic>[])
           .map((itemJson) => BookingItemInputModel.fromJson(itemJson))
           .toList(),
     );

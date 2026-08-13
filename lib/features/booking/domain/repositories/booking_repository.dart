@@ -19,6 +19,8 @@ abstract class BookingRepository {
   Future<Booking> getBookingStatus(String bookingId);
   Stream<Booking> monitorBookingPayment(String bookingId);
 
+  Future<List<Booking>> getMyBookings();
+
   /// Optional cancel (release locks)
   Future<void> cancelBooking(String bookingId);
 
