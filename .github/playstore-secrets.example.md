@@ -47,8 +47,9 @@ manually before API uploads are accepted.
 ## Version Codes
 
 Google Play rejects any Android `versionCode` that has already been uploaded.
-The committed Flutter version in `pubspec.yaml` is the default source, for
-example `1.0.5+12` means `versionName=1.0.5` and `versionCode=12`.
+The committed Flutter version in `pubspec.yaml` is the default source. The next
+Play Store deployment is `1.0.6+13`, which means `versionName=1.0.6` and
+`versionCode=13`.
 
 For one-off reruns, the workflow also accepts optional `build_name` and
 `build_number` inputs. Use `build_number` only with a value higher than the

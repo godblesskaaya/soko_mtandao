@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -15,7 +18,6 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
   final _nationalIdCtrl = TextEditingController();
   final _dobCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-  final _documentUrlCtrl = TextEditingController();
   final _businessRegistrationCtrl = TextEditingController();
   final _taxIdCtrl = TextEditingController();
   final _businessTypeCtrl = TextEditingController();
@@ -30,6 +32,11 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
   bool _isSubmitting = false;
   String _status = 'pending';
   String? _lastUpdated;
+  String? _documentStoragePath;
+  String? _documentFilePath;
+  String? _documentFileName;
+
+  final _picker = ImagePicker();
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -51,7 +58,7 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
       final row = await _client
           .from('kyc_profiles')
           .select(
-              'legal_name,national_id,date_of_birth,physical_address,phone_verified,status,updated_at,business_registration_number,tax_identification_number,business_type,beneficial_owner_name,beneficial_owner_national_id,compliance_contact_phone,compliance_contact_email,payout_terms_accepted_at')
+              'id,legal_name,national_id,date_of_birth,physical_address,phone_verified,status,updated_at,business_registration_number,tax_identification_number,business_type,beneficial_owner_name,beneficial_owner_national_id,compliance_contact_phone,compliance_contact_email,payout_terms_accepted_at')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -77,6 +84,21 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
         _payoutTermsAccepted = row['payout_terms_accepted_at'] != null;
         _status = (row['status'] ?? 'pending').toString();
         _lastUpdated = row['updated_at']?.toString();
+
+        final kycProfileId = row['id']?.toString();
+        if (kycProfileId != null && kycProfileId.isNotEmpty) {
+          final document = await _client
+              .from('kyc_documents')
+              .select('document_url')
+              .eq('kyc_profile_id', kycProfileId)
+              .order('created_at', ascending: false)
+              .limit(1)
+              .maybeSingle();
+          _documentStoragePath = document?['document_url']?.toString();
+          _documentFileName = _documentStoragePath == null
+              ? null
+              : _documentStoragePath!.split('/').last;
+        }
       }
     } catch (_) {
       // Surface via snackbars on submit to keep this screen simple.
@@ -85,17 +107,44 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
     }
   }
 
+  Future<void> _pickDocument(ImageSource source) async {
+    final file = await _picker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+
+    if (file == null) return;
+    setState(() {
+      _documentFilePath = file.path;
+      _documentFileName = file.name;
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
 
+    String? uploadedStoragePath;
     try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) {
+        throw Exception('Authentication required to upload KYC documents.');
+      }
+
       final dob = DateTime.tryParse(_dobCtrl.text.trim());
       if (dob == null) {
         throw Exception('Invalid date of birth. Use YYYY-MM-DD.');
       }
       if (!_payoutTermsAccepted) {
         throw Exception('Accept the payout compliance terms before submitting.');
+      }
+      if (_documentFilePath == null && _documentStoragePath == null) {
+        throw Exception('Upload a KYC document before submitting.');
+      }
+
+      if (_documentFilePath != null) {
+        uploadedStoragePath = await _uploadDocument(userId);
       }
 
       await _client.rpc('submit_kyc_profile', params: {
@@ -104,9 +153,7 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
         'p_date_of_birth': dob.toIso8601String().substring(0, 10),
         'p_physical_address': _addressCtrl.text.trim(),
         'p_phone_verified': false,
-        'p_document_url': _documentUrlCtrl.text.trim().isEmpty
-            ? null
-            : _documentUrlCtrl.text.trim(),
+        'p_document_url': uploadedStoragePath,
         'p_business_registration_number':
             _businessRegistrationCtrl.text.trim().isEmpty
                 ? null
@@ -134,6 +181,15 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
         await _loadKyc();
       }
     } catch (e) {
+      if (uploadedStoragePath != null) {
+        try {
+          await _client.storage.from('kyc-documents').remove([
+            uploadedStoragePath,
+          ]);
+        } catch (_) {
+          // Keep the original submit/upload error visible to the user.
+        }
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(userMessageForError(e))),
@@ -143,13 +199,45 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
     }
   }
 
+  Future<String> _uploadDocument(String userId) async {
+    final localPath = _documentFilePath;
+    if (localPath == null) {
+      throw Exception('Select a KYC document before submitting.');
+    }
+
+    final file = File(localPath);
+    final rawName = _documentFileName ?? file.uri.pathSegments.last;
+    final safeName = rawName
+        .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_')
+        .replaceAll(RegExp(r'_+'), '_');
+    final storagePath =
+        '$userId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+
+    await _client.storage.from('kyc-documents').upload(
+          storagePath,
+          file,
+          fileOptions: FileOptions(
+            contentType: _contentTypeFor(safeName),
+            upsert: false,
+          ),
+        );
+
+    return storagePath;
+  }
+
+  static String _contentTypeFor(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
+  }
+
   @override
   void dispose() {
     _legalNameCtrl.dispose();
     _nationalIdCtrl.dispose();
     _dobCtrl.dispose();
     _addressCtrl.dispose();
-    _documentUrlCtrl.dispose();
     _businessRegistrationCtrl.dispose();
     _taxIdCtrl.dispose();
     _businessTypeCtrl.dispose();
@@ -222,11 +310,82 @@ class _ManagerKycScreenState extends State<ManagerKycScreen> {
                           v == null || v.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _documentUrlCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Encrypted Document URL (optional)',
-                      ),
+                    FormField<String>(
+                      validator: (_) =>
+                          _documentFilePath == null &&
+                                  _documentStoragePath == null
+                              ? 'Upload a KYC document'
+                              : null,
+                      builder: (field) {
+                        final colorScheme = Theme.of(context).colorScheme;
+                        return Card(
+                          margin: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: field.hasError
+                                  ? colorScheme.error
+                                  : colorScheme.outlineVariant,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    _documentFileName == null
+                                        ? Icons.upload_file_outlined
+                                        : Icons.description_outlined,
+                                  ),
+                                  title: const Text('Identity document'),
+                                  subtitle: Text(
+                                    _documentFileName ??
+                                        'Upload a clear photo of the document.',
+                                  ),
+                                ),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () => _pickDocument(
+                                                ImageSource.gallery,
+                                              ),
+                                      icon: const Icon(
+                                        Icons.photo_library_outlined,
+                                      ),
+                                      label: const Text('Choose Photo'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () => _pickDocument(
+                                                ImageSource.camera,
+                                              ),
+                                      icon: const Icon(
+                                        Icons.photo_camera_outlined,
+                                      ),
+                                      label: const Text('Take Photo'),
+                                    ),
+                                  ],
+                                ),
+                                if (field.hasError) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    field.errorText!,
+                                    style: TextStyle(color: colorScheme.error),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     const Divider(height: 32),

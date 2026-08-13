@@ -46,7 +46,7 @@ val mapboxAccessToken = (project.findProperty("MAPBOX_ACCESS_TOKEN") as String?)
 
 android {
     namespace = "com.soko_mtandao.soko_mtandao"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -71,7 +71,7 @@ android {
     defaultConfig {
         applicationId = "com.soko_mtandao.soko_mtandao"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["MAPBOX_ACCESS_TOKEN"] = mapboxAccessToken
