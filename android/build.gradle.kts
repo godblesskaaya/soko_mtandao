@@ -5,6 +5,14 @@ allprojects {
     }
 }
 
+subprojects {
+    pluginManager.withPlugin("com.android.library") {
+        extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {
+            compileSdk = 36
+        }
+    }
+}
+
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 
