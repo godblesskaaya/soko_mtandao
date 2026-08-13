@@ -7,8 +7,10 @@ allprojects {
 
 subprojects {
     pluginManager.withPlugin("com.android.library") {
-        extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {
-            compileSdk = 36
+        extensions.configure<com.android.build.api.variant.LibraryAndroidComponentsExtension>("androidComponents") {
+            finalizeDsl { libraryExtension ->
+                libraryExtension.compileSdk = 36
+            }
         }
     }
 }
