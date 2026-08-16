@@ -23,15 +23,18 @@ class DynamicBottomNav extends StatelessWidget {
         ? 0
         : (selectedIndex >= items.length ? items.length - 1 : selectedIndex);
 
-    return BottomNavigationBar(
-      currentIndex: safeIndex,
-      onTap: onTap,
-      items: items
-          .map((i) => BottomNavigationBarItem(
-                icon: Icon(i.icon),
-                label: i.label,
-              ))
-          .toList(),
+    return SafeArea(
+      top: false,
+      child: BottomNavigationBar(
+        currentIndex: safeIndex,
+        onTap: onTap,
+        items: items
+            .map((i) => BottomNavigationBarItem(
+                  icon: Icon(i.icon),
+                  label: i.label,
+                ))
+            .toList(),
+      ),
     );
   }
 }
