@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/config/env_config.dart';
 import 'package:soko_mtandao/core/services/providers.dart';
@@ -18,6 +19,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   bool _loading = false;
 
   Future<void> _sendResetEmail() async {
+    if (_loading) return;
     final email = _emailController.text.trim();
 
     if (email.isEmpty || !email.contains('@')) {
@@ -80,6 +82,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
+              autofillHints: const [
+                AutofillHints.username,
+                AutofillHints.email,
+              ],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _sendResetEmail(),
               decoration: const InputDecoration(
                 labelText: 'Email address',
               ),

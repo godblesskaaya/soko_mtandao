@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/config/app_config.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
@@ -21,11 +22,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
   final firstNameController = TextEditingController();
   final lastNameController = TextEditingController();
 
   bool _acceptedLegalTerms = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   // Helper function to launch your Google Sites URL
   Future<void> _launchPrivacyUrl() async {
@@ -45,6 +49,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   void signup() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
     if (!_acceptedLegalTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -60,13 +65,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     try {
       final response = await ref.read(authNotifierProvider).signUp(
         email: emailController.text.trim(),
-        password: passwordController.text.trim(),
+        password: passwordController.text,
         data: {
           'firstName': firstNameController.text.trim(),
           'lastName': lastNameController.text.trim(),
         },
       );
       if (!mounted) return;
+      TextInput.finishAutofillContext(shouldSave: true);
       if (response.session == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -101,6 +107,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     firstNameController.dispose();
     lastNameController.dispose();
     super.dispose();
@@ -118,7 +125,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Form(
               key: _formKey,
-              child: Column(
+              child: AutofillGroup(
+                child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.hotel_rounded,
@@ -140,15 +148,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       child: Column(
                         children: [
                           _buildField(firstNameController, "First Name",
-                              Icons.person_outline),
+                              Icons.person_outline,
+                              autofillHints: const [
+                                AutofillHints.givenName,
+                              ],
+                              textInputAction: TextInputAction.next),
                           const SizedBox(height: 15),
                           _buildField(lastNameController, "Last Name",
-                              Icons.person_outline),
+                              Icons.person_outline,
+                              autofillHints: const [
+                                AutofillHints.familyName,
+                              ],
+                              textInputAction: TextInputAction.next),
                           const SizedBox(height: 15),
                           _buildField(
                             emailController,
                             "Email",
                             Icons.email_outlined,
+                            keyboardType: TextInputType.emailAddress,
+                            autofillHints: const [
+                              AutofillHints.username,
+                              AutofillHints.email,
+                            ],
+                            textInputAction: TextInputAction.next,
                             validator: _emailValidator,
                           ),
                           const SizedBox(height: 15),
@@ -156,8 +178,44 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             passwordController,
                             "Password",
                             Icons.lock_outline,
-                            obscure: true,
+                            obscure: _obscurePassword,
+                            autofillHints: const [AutofillHints.newPassword],
+                            textInputAction: TextInputAction.next,
+                            suffixIcon: IconButton(
+                              tooltip: _obscurePassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              icon: Icon(_obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                            ),
                             validator: _passwordValidator,
+                          ),
+                          const SizedBox(height: 15),
+                          _buildField(
+                            confirmPasswordController,
+                            "Confirm Password",
+                            Icons.lock_outline,
+                            obscure: _obscureConfirmPassword,
+                            autofillHints: const [AutofillHints.newPassword],
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => signup(),
+                            suffixIcon: IconButton(
+                              tooltip: _obscureConfirmPassword
+                                  ? 'Show password'
+                                  : 'Hide password',
+                              icon: Icon(_obscureConfirmPassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined),
+                              onPressed: () => setState(
+                                () => _obscureConfirmPassword =
+                                    !_obscureConfirmPassword,
+                              ),
+                            ),
+                            validator: _confirmPasswordValidator,
                           ),
                           const SizedBox(height: 15),
 
@@ -251,6 +309,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             decoration: TextDecoration.underline)),
                   ),
                 ],
+                ),
               ),
             ),
           ),
@@ -264,15 +323,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     String label,
     IconData icon, {
     bool obscure = false,
+    TextInputType? keyboardType,
+    Iterable<String>? autofillHints,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+    Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: ctrl,
       obscureText: obscure,
+      keyboardType: keyboardType,
+      autofillHints: autofillHints,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
+      autocorrect: !obscure,
+      enableSuggestions: !obscure,
       validator: validator ?? (v) => v!.isEmpty ? "Required" : null,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
+        suffixIcon: suffixIcon,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -296,6 +367,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         !RegExp(r'\d').hasMatch(password)) {
       return 'Use 8+ chars with uppercase, lowercase, and a number';
     }
+    return null;
+  }
+
+  String? _confirmPasswordValidator(String? value) {
+    if ((value ?? '').isEmpty) return 'Required';
+    if (value != passwordController.text) return 'Passwords do not match';
     return null;
   }
 }

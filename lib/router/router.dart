@@ -426,7 +426,10 @@ class AppRouter {
 _computeIndex(String location, UserRole role) {
   bool matchesPath(String template) {
     final staticPrefix = template.split('/:').first;
-    return location == staticPrefix || location.startsWith('$staticPrefix/');
+    final hasPathParameter = template.contains('/:');
+    return hasPathParameter
+        ? location.startsWith('$staticPrefix/')
+        : location == staticPrefix;
   }
 
   // compute bottom nav index based on route and role

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
 import 'package:soko_mtandao/core/errors/error_reporter.dart';
@@ -17,13 +18,17 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _loading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   Future<void> _resetPassword() async {
-    final password = _passwordController.text.trim();
-    final confirm = _confirmController.text.trim();
+    if (_loading) return;
+    final password = _passwordController.text;
+    final confirm = _confirmController.text;
 
-    if (password.length < 8) {
-      _showError('Password must be at least 8 characters');
+    final passwordError = _passwordError(password);
+    if (passwordError != null) {
+      _showError(passwordError);
       return;
     }
 
@@ -47,6 +52,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         const SnackBar(content: Text('Password updated successfully')),
       );
 
+      TextInput.finishAutofillContext(shouldSave: true);
       context.goNamed('splash');
     } catch (e, stackTrace) {
       ErrorReporter.report(e, stackTrace, source: 'ui.reset_password');
@@ -76,34 +82,82 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       appBar: AppBar(title: const Text('Reset Password')),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Text(
-              'Create a new password for your account',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'New Password'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _confirmController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirm Password'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loading ? null : _resetPassword,
-              child: _loading
-                  ? const CircularProgressIndicator()
-                  : const Text('Reset Password'),
-            ),
-          ],
+        child: AutofillGroup(
+          child: Column(
+            children: [
+              const Text(
+                'Create a new password for your account',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.next,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: 'New Password',
+                  suffixIcon: IconButton(
+                    tooltip:
+                        _obscurePassword ? 'Show password' : 'Hide password',
+                    icon: Icon(_obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined),
+                    onPressed: () => setState(
+                      () => _obscurePassword = !_obscurePassword,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _confirmController,
+                obscureText: _obscureConfirmPassword,
+                autofillHints: const [AutofillHints.newPassword],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _resetPassword(),
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  suffixIcon: IconButton(
+                    tooltip: _obscureConfirmPassword
+                        ? 'Show password'
+                        : 'Hide password',
+                    icon: Icon(_obscureConfirmPassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined),
+                    onPressed: () => setState(
+                      () => _obscureConfirmPassword =
+                          !_obscureConfirmPassword,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loading ? null : _resetPassword,
+                child: _loading
+                    ? const CircularProgressIndicator()
+                    : const Text('Reset Password'),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String? _passwordError(String password) {
+    if (password.isEmpty) return 'Password is required';
+    if (password.length < 8 ||
+        !RegExp('[a-z]').hasMatch(password) ||
+        !RegExp('[A-Z]').hasMatch(password) ||
+        !RegExp(r'\d').hasMatch(password)) {
+      return 'Use 8+ chars with uppercase, lowercase, and a number';
+    }
+    return null;
   }
 }

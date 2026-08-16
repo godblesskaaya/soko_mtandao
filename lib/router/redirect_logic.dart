@@ -15,7 +15,10 @@ String? globalRedirect(
 
   bool matches(String template) {
     final staticPrefix = template.split('/:').first;
-    return path == staticPrefix || path.startsWith('$staticPrefix/');
+    final hasPathParameter = template.contains('/:');
+    return hasPathParameter
+        ? path.startsWith('$staticPrefix/')
+        : path == staticPrefix;
   }
 
   if (isInPasswordRecovery && path == RouteNames.resetPassword) {
@@ -83,6 +86,10 @@ String? globalRedirect(
     RouteNames.requestHotelAssociation,
   };
 
+  if (accessProfile.isSystemAdmin && onboardingPaths.contains(path)) {
+    return RouteNames.systemAdminHome;
+  }
+
   if ((path == RouteNames.managerOnboarding ||
           path == RouteNames.staffOnboarding ||
           path == RouteNames.pendingAccess ||
@@ -94,7 +101,7 @@ String? globalRedirect(
 
   final isHotelAdminRoute = path.startsWith('/hotel-admin') ||
       matches(RouteNames.managerHotel) ||
-      matches(RouteNames.hotelList) ||
+      matches('${RouteNames.hotelList}/:managerUserId') ||
       path == RouteNames.addHotel ||
       matches(RouteNames.offerings) ||
       matches(RouteNames.addOfferings) ||
@@ -119,7 +126,7 @@ String? globalRedirect(
         : RouteNames.guestHome;
   }
 
-  if (path.startsWith('/system-admin') && role != UserRole.systemAdmin) {
+  if (path.startsWith('/system-admin') && !accessProfile.isSystemAdmin) {
     return RouteNames.guestHome;
   }
 
@@ -140,6 +147,10 @@ String? globalRedirect(
 }
 
 String _homeForAccess(AccessProfile accessProfile) {
+  if (accessProfile.isSystemAdmin) {
+    return RouteNames.systemAdminHome;
+  }
+
   switch (accessProfile.activePersona) {
     case UserRole.staff:
       return accessProfile.canUseStaffPersona

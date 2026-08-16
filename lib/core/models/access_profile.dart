@@ -53,8 +53,12 @@ class AccessProfile {
       }
     }
 
-    final activePersona =
+    final rawActivePersona =
         roleFromString((json['active_persona'] ?? 'guest').toString());
+    final activePersona = rawActivePersona != UserRole.systemAdmin &&
+            dedupedRoles.contains(UserRole.systemAdmin)
+        ? UserRole.systemAdmin
+        : rawActivePersona;
 
     return AccessProfile(
       activePersona: activePersona,
@@ -77,7 +81,11 @@ class AccessProfile {
 
   bool get hasMultiplePersonas => availablePersonas.length > 1;
 
-  bool get needsInitialPathSelection => !hasSeenOnboarding || selectedPath == null;
+  bool get isSystemAdmin =>
+      activePersona == UserRole.systemAdmin || hasPersona(UserRole.systemAdmin);
+
+  bool get needsInitialPathSelection =>
+      !isSystemAdmin && (!hasSeenOnboarding || selectedPath == null);
 
   bool get isOnboardingComplete => onboardingStatus == 'completed';
 

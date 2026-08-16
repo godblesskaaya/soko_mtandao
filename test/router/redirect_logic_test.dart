@@ -146,6 +146,24 @@ void main() {
       expect(redirect, RouteNames.pendingAccess);
     });
 
+    test('non managers cannot open parameterized hotel list route', () {
+      final profile = _profile(
+        selectedPath: 'customer',
+        hasSeenOnboarding: true,
+        onboardingStatus: 'completed',
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse('${RouteNames.hotelList}/user-1'),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, RouteNames.guestHome);
+    });
+
     test('approved hotel admins can stay in manager workspace', () {
       final profile = _profile(
         activePersona: UserRole.hotelAdmin,
@@ -203,6 +221,106 @@ void main() {
       );
 
       expect(redirect, RouteNames.guestHome);
+    });
+
+    test('customer bookings route is not mistaken for hotel bookings route', () {
+      final profile = _profile(
+        selectedPath: 'customer',
+        hasSeenOnboarding: true,
+        onboardingStatus: 'completed',
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.bookings),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, isNull);
+    });
+
+    test('plain bookings route is public for guest booking lookup', () {
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.bookings),
+        isLoggedIn: false,
+        role: null,
+        accessProfile: AccessProfile.guest(),
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, isNull);
+    });
+
+    test('system admins bypass onboarding even without onboarding flags', () {
+      final profile = _profile(
+        activePersona: UserRole.systemAdmin,
+        availablePersonas: const [UserRole.customer, UserRole.systemAdmin],
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.splash),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, RouteNames.systemAdminHome);
+    });
+
+    test('system admin role bypasses onboarding even if active persona is stale',
+        () {
+      final profile = _profile(
+        activePersona: UserRole.customer,
+        availablePersonas: const [UserRole.customer, UserRole.systemAdmin],
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.splash),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, RouteNames.systemAdminHome);
+    });
+
+    test('system admin role can open admin route even if role argument is stale',
+        () {
+      final profile = _profile(
+        activePersona: UserRole.customer,
+        availablePersonas: const [UserRole.customer, UserRole.systemAdmin],
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.systemAdminHome),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, isNull);
+    });
+
+    test('system admins are redirected away from onboarding surfaces', () {
+      final profile = _profile(
+        activePersona: UserRole.systemAdmin,
+        availablePersonas: const [UserRole.customer, UserRole.systemAdmin],
+      );
+
+      final redirect = globalRedirect(
+        Uri.parse(RouteNames.onboardingHub),
+        isLoggedIn: true,
+        role: profile.activePersona,
+        accessProfile: profile,
+        isInPasswordRecovery: false,
+      );
+
+      expect(redirect, RouteNames.systemAdminHome);
     });
 
     test('completed customer users can reopen onboarding hub', () {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:soko_mtandao/core/constants/app_colors.dart';
 import 'package:soko_mtandao/core/errors/error_mapper.dart';
@@ -19,16 +20,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void login() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
     try {
       await ref.read(authNotifierProvider).signIn(
             email: emailController.text.trim(),
-            password: passwordController.text.trim(),
+            password: passwordController.text,
           );
+      TextInput.finishAutofillContext(shouldSave: true);
       if (mounted) context.goNamed('splash');
     } catch (e) {
       ErrorReporter.report(e, StackTrace.current, source: 'ui.login');
@@ -70,7 +74,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Form(
                 key: _formKey,
-                child: Column(
+                child: AutofillGroup(
+                  child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Brand Logo/Icon
@@ -104,13 +109,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               controller: emailController,
                               label: 'Email',
                               icon: Icons.email_outlined,
+                              keyboardType: TextInputType.emailAddress,
+                              autofillHints: const [
+                                AutofillHints.username,
+                                AutofillHints.email,
+                              ],
+                              textInputAction: TextInputAction.next,
                             ),
                             const SizedBox(height: 15),
                             _buildTextField(
                               controller: passwordController,
                               label: 'Password',
                               icon: Icons.lock_outline,
-                              obscure: true,
+                              obscure: _obscurePassword,
+                              autofillHints: const [AutofillHints.password],
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => login(),
+                              suffixIcon: IconButton(
+                                tooltip: _obscurePassword
+                                    ? 'Show password'
+                                    : 'Hide password',
+                                icon: Icon(_obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
                             ),
                             Align(
                               alignment: Alignment.centerRight,
@@ -187,6 +212,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ],
+                  ),
                 ),
               ),
             ),
@@ -201,14 +227,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     required String label,
     required IconData icon,
     bool obscure = false,
+    TextInputType? keyboardType,
+    Iterable<String>? autofillHints,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+    Widget? suffixIcon,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
+      keyboardType: keyboardType,
+      autofillHints: autofillHints,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
+      autocorrect: !obscure,
+      enableSuggestions: !obscure,
       validator: (value) => value!.isEmpty ? 'This field is required' : null,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
+        suffixIcon: suffixIcon,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey[50],
