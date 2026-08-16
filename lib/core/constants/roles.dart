@@ -8,16 +8,19 @@ enum UserRole {
 }
 
 UserRole roleFromString(String role) {
-  switch (role) {
+  final normalized = role.trim().toLowerCase().replaceAll(
+        RegExp(r'[\s_-]+'),
+        '',
+      );
+
+  switch (normalized) {
     case 'customer':
       return UserRole.customer;
     case 'staff':
       return UserRole.staff;
-    case 'hotel_admin':
-    case 'hotelAdmin':
+    case 'hoteladmin':
       return UserRole.hotelAdmin;
-    case 'system_admin':
-    case 'systemAdmin':
+    case 'systemadmin':
       return UserRole.systemAdmin;
     default:
       return UserRole.guest;

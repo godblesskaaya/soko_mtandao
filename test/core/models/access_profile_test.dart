@@ -80,6 +80,25 @@ void main() {
       expect(profile.hasActiveOperatorOnboarding, isFalse);
     });
 
+    test('legacy systemadmin role spelling bypasses onboarding flags', () {
+      final profile = AccessProfile.fromJson({
+        'active_persona': 'customer',
+        'roles': ['customer', 'systemadmin'],
+        'selected_onboarding_path': null,
+        'onboarding_status': 'not_started',
+        'onboarding_step': 'welcome',
+        'has_seen_onboarding': false,
+        'staff_association_status': 'none',
+        'manager_application_status': 'none',
+        'kyc_status': 'pending',
+        'managed_hotel_count': 0,
+      });
+
+      expect(profile.activePersona, UserRole.systemAdmin);
+      expect(profile.isSystemAdmin, isTrue);
+      expect(profile.needsInitialPathSelection, isFalse);
+    });
+
     test('rejected manager application is surfaced clearly', () {
       final profile = AccessProfile.fromJson({
         'active_persona': 'customer',
