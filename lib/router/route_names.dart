@@ -30,6 +30,12 @@ class RouteNames {
 
   // System Admin
   static const systemAdminHome = '/system-admin/home';
+  static const systemAdminKycQueue = '/system-admin/kyc';
+  static const systemAdminManagerApplications =
+      '/system-admin/manager-applications';
+  static const systemAdminDisputes = '/system-admin/disputes';
+  static const systemAdminAccounts = '/system-admin/accounts';
+  static const systemAdminCompliance = '/system-admin/compliance';
 
   // Auth layout
   static const authLayout = '/auth';

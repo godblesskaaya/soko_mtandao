@@ -43,7 +43,15 @@ import 'package:soko_mtandao/features/settings/presentation/screens/profile_scre
 import 'package:soko_mtandao/features/staff/presentation/screens/request_association_screen.dart';
 import 'package:soko_mtandao/features/staff/presentation/screens/staff_home_screen.dart';
 import 'package:soko_mtandao/features/splash/splash_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_account_controls_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_compliance_screen.dart';
 import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_dashboard_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_dispute_review_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_disputes_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_kyc_queue_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_kyc_review_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_manager_application_review_screen.dart';
+import 'package:soko_mtandao/features/system_admin/presentation/screens/system_admin_manager_applications_screen.dart';
 import 'package:soko_mtandao/layouts/admin_layout.dart';
 import 'package:soko_mtandao/layouts/app_layout.dart';
 import 'package:soko_mtandao/layouts/auth_layout.dart';
@@ -240,6 +248,54 @@ class AppRouter {
                 path: RouteNames.systemAdminHome,
                 name: 'systemAdmin',
                 builder: (c, s) => const SystemAdminDashboardScreen()),
+            GoRoute(
+              path: RouteNames.systemAdminKycQueue,
+              name: 'systemAdminKycQueue',
+              builder: (c, s) => const SystemAdminKycQueueScreen(),
+            ),
+            GoRoute(
+              path: '${RouteNames.systemAdminKycQueue}/:userId',
+              name: 'systemAdminKycReview',
+              builder: (c, s) => SystemAdminKycReviewScreen(
+                userId: s.pathParameters['userId']!,
+              ),
+            ),
+            GoRoute(
+              path: RouteNames.systemAdminManagerApplications,
+              name: 'systemAdminManagerApplications',
+              builder: (c, s) =>
+                  const SystemAdminManagerApplicationsScreen(),
+            ),
+            GoRoute(
+              path:
+                  '${RouteNames.systemAdminManagerApplications}/:applicationId',
+              name: 'systemAdminManagerApplicationReview',
+              builder: (c, s) => SystemAdminManagerApplicationReviewScreen(
+                applicationId: s.pathParameters['applicationId']!,
+              ),
+            ),
+            GoRoute(
+              path: RouteNames.systemAdminDisputes,
+              name: 'systemAdminDisputes',
+              builder: (c, s) => const SystemAdminDisputesScreen(),
+            ),
+            GoRoute(
+              path: '${RouteNames.systemAdminDisputes}/:disputeId',
+              name: 'systemAdminDisputeReview',
+              builder: (c, s) => SystemAdminDisputeReviewScreen(
+                disputeId: s.pathParameters['disputeId']!,
+              ),
+            ),
+            GoRoute(
+              path: RouteNames.systemAdminAccounts,
+              name: 'systemAdminAccounts',
+              builder: (c, s) => const SystemAdminAccountControlsScreen(),
+            ),
+            GoRoute(
+              path: RouteNames.systemAdminCompliance,
+              name: 'systemAdminCompliance',
+              builder: (c, s) => const SystemAdminComplianceScreen(),
+            ),
             GoRoute(
               path: RouteNames.managerHotel,
               name: 'hotelPage',

@@ -306,6 +306,65 @@ void main() {
       expect(redirect, isNull);
     });
 
+    test('system admin role can open all system admin child routes', () {
+      final profile = _profile(
+        activePersona: UserRole.systemAdmin,
+        availablePersonas: const [UserRole.customer, UserRole.systemAdmin],
+      );
+
+      for (final route in [
+        RouteNames.systemAdminHome,
+        RouteNames.systemAdminKycQueue,
+        '${RouteNames.systemAdminKycQueue}/user-1',
+        RouteNames.systemAdminManagerApplications,
+        '${RouteNames.systemAdminManagerApplications}/app-1',
+        RouteNames.systemAdminDisputes,
+        '${RouteNames.systemAdminDisputes}/dispute-1',
+        RouteNames.systemAdminAccounts,
+        RouteNames.systemAdminCompliance,
+      ]) {
+        final redirect = globalRedirect(
+          Uri.parse(route),
+          isLoggedIn: true,
+          role: profile.activePersona,
+          accessProfile: profile,
+          isInPasswordRecovery: false,
+        );
+
+        expect(redirect, isNull, reason: '$route should be admin-accessible');
+      }
+    });
+
+    test('non system admins cannot open system admin child routes', () {
+      final profile = _profile(
+        selectedPath: 'customer',
+        hasSeenOnboarding: true,
+        onboardingStatus: 'completed',
+      );
+
+      for (final route in [
+        RouteNames.systemAdminKycQueue,
+        '${RouteNames.systemAdminKycQueue}/user-1',
+        RouteNames.systemAdminManagerApplications,
+        '${RouteNames.systemAdminManagerApplications}/app-1',
+        RouteNames.systemAdminDisputes,
+        '${RouteNames.systemAdminDisputes}/dispute-1',
+        RouteNames.systemAdminAccounts,
+        RouteNames.systemAdminCompliance,
+      ]) {
+        final redirect = globalRedirect(
+          Uri.parse(route),
+          isLoggedIn: true,
+          role: profile.activePersona,
+          accessProfile: profile,
+          isInPasswordRecovery: false,
+        );
+
+        expect(redirect, RouteNames.guestHome,
+            reason: '$route should be system-admin guarded');
+      }
+    });
+
     test('system admins are redirected away from onboarding surfaces', () {
       final profile = _profile(
         activePersona: UserRole.systemAdmin,

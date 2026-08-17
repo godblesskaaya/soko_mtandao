@@ -195,18 +195,20 @@ class ProfileScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: () => context.push(RouteNames.contactUs),
           ),
-          ListTile(
-            leading: const Icon(Icons.flag_outlined),
-            title: const Text('Onboarding Hub'),
-            trailing: const Icon(Icons.chevron_right, size: 20),
-            onTap: () => context.push(RouteNames.onboardingHub),
-          ),
-          ListTile(
-            leading: const Icon(Icons.pending_actions_outlined),
-            title: const Text('Pending Access Status'),
-            trailing: const Icon(Icons.chevron_right, size: 20),
-            onTap: () => context.push(RouteNames.pendingAccess),
-          ),
+          if (!profile.isSystemAdmin) ...[
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: const Text('Onboarding Hub'),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => context.push(RouteNames.onboardingHub),
+            ),
+            ListTile(
+              leading: const Icon(Icons.pending_actions_outlined),
+              title: const Text('Pending Access Status'),
+              trailing: const Icon(Icons.chevron_right, size: 20),
+              onTap: () => context.push(RouteNames.pendingAccess),
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.delete_outline, color: Colors.red),
             title: const Text('Data Controls',
